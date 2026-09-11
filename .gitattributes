@@ -1,0 +1,8 @@
+# Normalise to LF in the repository; shell scripts and shaders break on CRLF.
+* text=auto eol=lf
+
+# Binary assets
+*.stl binary
+*.gray binary
+*.png binary
+*.pdf binary
