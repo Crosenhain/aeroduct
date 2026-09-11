@@ -122,7 +122,11 @@ pub struct TriMesh {
 
 impl TriMesh {
     pub fn new(positions: Vec<Vec3>, indices: Vec<[u32; 3]>) -> Self {
-        Self { positions, indices, file_normals: None }
+        Self {
+            positions,
+            indices,
+            file_normals: None,
+        }
     }
 
     pub fn triangle_count(&self) -> usize {
@@ -166,7 +170,9 @@ impl TriMesh {
     }
 
     pub fn face_normals(&self) -> Vec<Vec3> {
-        (0..self.triangle_count()).map(|t| self.face_normal(t)).collect()
+        (0..self.triangle_count())
+            .map(|t| self.face_normal(t))
+            .collect()
     }
 
     pub fn bbox(&self) -> Bbox {
@@ -449,7 +455,10 @@ impl MeshHealth {
             ));
         }
         if self.degenerate_triangles > 0 {
-            s.push_str(&format!("{} degenerate triangles\n", self.degenerate_triangles));
+            s.push_str(&format!(
+                "{} degenerate triangles\n",
+                self.degenerate_triangles
+            ));
         }
         if self.normal_disagreements > 0 {
             s.push_str(&format!(
@@ -632,7 +641,10 @@ mod tests {
             let (q, _) = closest_point_on_triangle(p, a, b, c);
             let d = (q - p).length();
             for corner in [a, b, c] {
-                assert!(d <= (corner - p).length() + 1e-4, "a corner was closer than {q:?}");
+                assert!(
+                    d <= (corner - p).length() + 1e-4,
+                    "a corner was closer than {q:?}"
+                );
             }
         }
     }
@@ -648,7 +660,11 @@ mod tests {
         assert_eq!(h.topology.genus(), Some(0));
         // Every edge shared by exactly two triangles.
         assert_eq!(h.topology.valence_histogram[2], h.topology.edge_count);
-        assert!((h.signed_volume_mm3 - 1000.0).abs() < 1e-3, "{}", h.signed_volume_mm3);
+        assert!(
+            (h.signed_volume_mm3 - 1000.0).abs() < 1e-3,
+            "{}",
+            h.signed_volume_mm3
+        );
         assert!((h.surface_area_mm2 - 600.0).abs() < 1e-3);
     }
 
@@ -682,8 +698,16 @@ mod tests {
         let exact_v = 4.0 / 3.0 * std::f64::consts::PI * 1000.0;
         let exact_a = 4.0 * std::f64::consts::PI * 100.0;
         // A polyhedron inscribed in the sphere under-reports both.
-        assert!((h.signed_volume_mm3 / exact_v - 1.0).abs() < 2e-3, "{}", h.signed_volume_mm3);
-        assert!((h.surface_area_mm2 / exact_a - 1.0).abs() < 2e-3, "{}", h.surface_area_mm2);
+        assert!(
+            (h.signed_volume_mm3 / exact_v - 1.0).abs() < 2e-3,
+            "{}",
+            h.signed_volume_mm3
+        );
+        assert!(
+            (h.surface_area_mm2 / exact_a - 1.0).abs() < 2e-3,
+            "{}",
+            h.surface_area_mm2
+        );
     }
 
     #[test]
@@ -716,7 +740,10 @@ mod tests {
                 checked += 1;
             }
         }
-        assert!(checked >= 24, "expected to check every cube edge twice, got {checked}");
+        assert!(
+            checked >= 24,
+            "expected to check every cube edge twice, got {checked}"
+        );
     }
 
     #[test]

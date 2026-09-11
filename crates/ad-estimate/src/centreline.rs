@@ -157,7 +157,9 @@ impl MouthSpec {
         if n < 3 {
             return 0.0;
         }
-        (0..n).map(|i| (self.boundary[(i + 1) % n] - self.boundary[i]).length() as f64).sum()
+        (0..n)
+            .map(|i| (self.boundary[(i + 1) % n] - self.boundary[i]).length() as f64)
+            .sum()
     }
 
     /// `4A/P` of the opening, mm. Falls back to the diameter of an equal-area
@@ -481,7 +483,9 @@ impl Passage {
             return None;
         }
         let t = self.transitions.iter().min_by(|a, b| {
-            a.area_ratio().partial_cmp(&b.area_ratio()).unwrap_or(std::cmp::Ordering::Equal)
+            a.area_ratio()
+                .partial_cmp(&b.area_ratio())
+                .unwrap_or(std::cmp::Ordering::Equal)
         })?;
         Some(0.5 * (t.s_start_mm + t.s_end_mm) / self.length_mm)
     }
@@ -571,7 +575,10 @@ pub fn extract_passage(
 ) -> Result<Passage, PassageError> {
     let n_cells = grid.cell_count() as usize;
     if solid.len() != n_cells {
-        return Err(PassageError::MaskSize { expected: n_cells, got: solid.len() });
+        return Err(PassageError::MaskSize {
+            expected: n_cells,
+            got: solid.len(),
+        });
     }
     if mouths.len() < 2 || cfg.inlet >= mouths.len() || cfg.outlet >= mouths.len() {
         return Err(PassageError::NeedTwoMouths { have: mouths.len() });
@@ -594,7 +601,9 @@ pub fn extract_passage(
     // 1. Flood the air behind the inlet, 6-connected.
     let fill = flood(&grid, &passable, &caps, &inlet_seeds);
     if !outlet_seeds.iter().any(|&i| fill.inside[i]) {
-        return Err(PassageError::Disconnected { filled_cells: fill.cells });
+        return Err(PassageError::Disconnected {
+            filled_cells: fill.cells,
+        });
     }
     if fill.leak_contacts > 0 {
         warnings.push(format!(
@@ -636,7 +645,10 @@ pub fn extract_passage(
 
     let populated = acc.iter().filter(|a| a.w > 0.5).count();
     if populated < 4 {
-        return Err(PassageError::TooSmall { cells: fill.cells, length_mm: l_min });
+        return Err(PassageError::TooSmall {
+            cells: fill.cells,
+            length_mm: l_min,
+        });
     }
     if populated < n_bands {
         warnings.push(format!(
@@ -698,7 +710,10 @@ pub fn extract_passage(
     }
     let length_mm = s_at.last().copied().unwrap_or(0.0);
     if length_mm <= 2.0 * dx {
-        return Err(PassageError::TooSmall { cells: fill.cells, length_mm });
+        return Err(PassageError::TooSmall {
+            cells: fill.cells,
+            length_mm,
+        });
     }
 
     let cell_vol = dx * dx * dx;
@@ -710,9 +725,16 @@ pub fn extract_passage(
         // The span each band owns on the centreline: half of each neighbouring
         // gap, with the first and last extended to the mouths so the spans
         // partition [0, L] exactly. That is what makes integral A ds = V.
-        let lo = if slot == 0 { 0.0 } else { 0.5 * (s_at[c - 1] + s_at[c]) };
-        let hi =
-            if slot + 1 == kept.len() { s_at[last] } else { 0.5 * (s_at[c] + s_at[c + 1]) };
+        let lo = if slot == 0 {
+            0.0
+        } else {
+            0.5 * (s_at[c - 1] + s_at[c])
+        };
+        let hi = if slot + 1 == kept.len() {
+            s_at[last]
+        } else {
+            0.5 * (s_at[c] + s_at[c + 1])
+        };
         let span = (hi - lo).max(0.25 * ds);
         let area = a.w * cell_vol / span;
 
@@ -731,9 +753,17 @@ pub fn extract_passage(
         // (robust) and the scale from the cell count (unbiased).
         let height = (area / aspect).max(0.0).sqrt();
         let width = aspect * height;
-        let dh = if width + height > 0.0 { 2.0 * width * height / (width + height) } else { 0.0 };
+        let dh = if width + height > 0.0 {
+            2.0 * width * height / (width + height)
+        } else {
+            0.0
+        };
         let perim_faces = a.faces * dx * dx / span;
-        let dh_faces = if perim_faces > 0.0 { 4.0 * area / perim_faces } else { 0.0 };
+        let dh_faces = if perim_faces > 0.0 {
+            4.0 * area / perim_faces
+        } else {
+            0.0
+        };
 
         stations.push(Station {
             s_mm: s_at[c],
@@ -757,7 +787,10 @@ pub fn extract_passage(
     let transitions = find_transitions(&stations, cfg);
 
     // 7. Say how much of this to believe.
-    let min_cells = stations.iter().map(|s| s.height_mm / dx).fold(f64::INFINITY, f64::min);
+    let min_cells = stations
+        .iter()
+        .map(|s| s.height_mm / dx)
+        .fold(f64::INFINITY, f64::min);
     let mut confidence = Confidence::Good;
     if min_cells < 4.0 {
         confidence = Confidence::Marginal;
@@ -886,7 +919,13 @@ impl Caps {
                          sealed; the estimate covers one channel only"
                     ));
                 }
-                Cap { axis, slab, fluid_above: m.faces_positive(), open, index }
+                Cap {
+                    axis,
+                    slab,
+                    fluid_above: m.faces_positive(),
+                    open,
+                    index,
+                }
             })
             .collect();
         Self { caps }
@@ -899,7 +938,11 @@ impl Caps {
     /// point-in-polygon test is the expensive part and only the two mouth slabs
     /// need it.
     fn passable_mask(&self, grid: &Grid, solid: &[bool], mouths: &[MouthSpec]) -> Vec<bool> {
-        let (nx, ny, nz) = (grid.dims.x as usize, grid.dims.y as usize, grid.dims.z as usize);
+        let (nx, ny, nz) = (
+            grid.dims.x as usize,
+            grid.dims.y as usize,
+            grid.dims.z as usize,
+        );
         let mut out = vec![false; solid.len()];
         for z in 0..nz {
             for y in 0..ny {
@@ -923,8 +966,7 @@ impl Caps {
                         }
                     }
                     if on_a_slab {
-                        let centre =
-                            grid.cell_center_mm(UVec3::new(x as u32, y as u32, z as u32));
+                        let centre = grid.cell_center_mm(UVec3::new(x as u32, y as u32, z as u32));
                         for cap in &self.caps {
                             if c[cap.axis] != cap.slab {
                                 continue;
@@ -950,7 +992,9 @@ impl Caps {
     /// The passable cells of one mouth's slab: where a fill starts and where a
     /// wavefront's arrival is read off.
     fn slab_cells(&self, index: usize, grid: &Grid, passable: &[bool]) -> Vec<usize> {
-        let Some(cap) = self.caps.iter().find(|c| c.index == index) else { return Vec::new() };
+        let Some(cap) = self.caps.iter().find(|c| c.index == index) else {
+            return Vec::new();
+        };
         let dims = [grid.dims.x as i64, grid.dims.y as i64, grid.dims.z as i64];
         let (i, j) = ((cap.axis + 1) % 3, (cap.axis + 2) % 3);
         let mut out = Vec::new();
@@ -980,8 +1024,14 @@ impl Caps {
 // Flood fill and geodesic distance
 // ---------------------------------------------------------------------------
 
-const NEIGHBOURS6: [(i64, i64, i64); 6] =
-    [(1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0), (0, 0, 1), (0, 0, -1)];
+const NEIGHBOURS6: [(i64, i64, i64); 6] = [
+    (1, 0, 0),
+    (-1, 0, 0),
+    (0, 1, 0),
+    (0, -1, 0),
+    (0, 0, 1),
+    (0, 0, -1),
+];
 
 struct Fill {
     inside: Vec<bool>,
@@ -1036,7 +1086,11 @@ fn flood(grid: &Grid, passable: &[bool], caps: &Caps, seeds: &[usize]) -> Fill {
             }
         }
     }
-    Fill { inside, cells, leak_contacts }
+    Fill {
+        inside,
+        cells,
+        leak_contacts,
+    }
 }
 
 const UNREACHED: u32 = u32::MAX;
@@ -1144,7 +1198,11 @@ fn accumulate(
     n_bands: usize,
 ) -> (Vec<BandAcc>, f64) {
     let dx = grid.dx_mm as f64;
-    let (nx, ny, nz) = (grid.dims.x as usize, grid.dims.y as usize, grid.dims.z as usize);
+    let (nx, ny, nz) = (
+        grid.dims.x as usize,
+        grid.dims.y as usize,
+        grid.dims.z as usize,
+    );
     let mut acc = vec![BandAcc::default(); n_bands];
     let mut dead = 0.0f64;
     let last = n_bands as i64 - 1;
@@ -1445,9 +1503,8 @@ fn find_bends(stations: &[Station], kappa: &[DVec3], cfg: &PassageConfig) -> Vec
     if stations.len() < 3 || kappa.len() != stations.len() {
         return bends;
     }
-    let threshold = |st: &Station| {
-        1.0 / (cfg.bend_radius_limit.max(0.1) * st.hydraulic_diameter_mm.max(1e-6))
-    };
+    let threshold =
+        |st: &Station| 1.0 / (cfg.bend_radius_limit.max(0.1) * st.hydraulic_diameter_mm.max(1e-6));
 
     let mut i = 0;
     while i < stations.len() {
@@ -1490,7 +1547,11 @@ fn find_bends(stations: &[Station], kappa: &[DVec3], cfg: &PassageConfig) -> Vec
             continue;
         }
         let dh = dh_sum / arc;
-        let radius = if turn_rad > 1e-9 { arc / turn_rad } else { f64::INFINITY };
+        let radius = if turn_rad > 1e-9 {
+            arc / turn_rad
+        } else {
+            f64::INFINITY
+        };
 
         // Which section dimension lies in the plane of the turn? That is the
         // `W` a bend correlation is indexed on, and getting it the wrong way
@@ -1649,7 +1710,14 @@ mod tests {
     #[test]
     fn a_mouth_reports_its_own_plane_orientation_and_hydraulic_diameter() {
         // A 30 x 10 opening on the z = 4 plane, air entering along +Z.
-        let m = rect_mouth(Vec3::new(1.0, 2.0, 4.0), Vec3::Z, Vec3::X, Vec3::Y, 15.0, 5.0);
+        let m = rect_mouth(
+            Vec3::new(1.0, 2.0, 4.0),
+            Vec3::Z,
+            Vec3::X,
+            Vec3::Y,
+            15.0,
+            5.0,
+        );
         assert_eq!(m.axis(), 2);
         assert!(m.faces_positive(), "+Z means the fluid is above the plane");
         assert!((m.plane_mm() - 4.0).abs() < 1e-6);
@@ -1726,7 +1794,11 @@ mod tests {
         for r in [5.0, 12.0, 40.0, 200.0] {
             let k = curvature_vectors(&arc(r, 1.0, 31), 2);
             let mid = k[15].length();
-            assert!((mid * r - 1.0).abs() < 0.02, "r = {r} read as {}", 1.0 / mid);
+            assert!(
+                (mid * r - 1.0).abs() < 0.02,
+                "r = {r} read as {}",
+                1.0 / mid
+            );
         }
     }
 
@@ -1772,11 +1844,18 @@ mod tests {
             included_angle_deg: 30.0,
             is_contraction: true,
         };
-        let expand = Transition { area_in_mm2: 100.0, area_out_mm2: 200.0, ..contract };
+        let expand = Transition {
+            area_in_mm2: 100.0,
+            area_out_mm2: 200.0,
+            ..contract
+        };
         assert!((contract.area_ratio() - 0.5).abs() < 1e-12);
         assert!((expand.area_ratio() - 0.5).abs() < 1e-12);
         // A degenerate zero area must not divide by zero.
-        let bad = Transition { area_out_mm2: 0.0, ..contract };
+        let bad = Transition {
+            area_out_mm2: 0.0,
+            ..contract
+        };
         assert!((bad.area_ratio() - 1.0).abs() < 1e-12);
     }
 

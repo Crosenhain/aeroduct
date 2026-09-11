@@ -193,8 +193,11 @@ mod bench {
 
     pub fn run() -> Result<()> {
         let args: Vec<String> = std::env::args().skip(1).map(|a| a.to_lowercase()).collect();
-        let which_grid =
-            args.iter().find(|a| *a == "small" || *a == "large").cloned().unwrap_or_default();
+        let which_grid = args
+            .iter()
+            .find(|a| *a == "small" || *a == "large")
+            .cloned()
+            .unwrap_or_default();
         // Naming no backend means both, so `ab_bench small` is not silently a
         // no-op. Naming one runs only that one, which is what `ncu` wants.
         let named = |n: &str| args.iter().any(|a| a == n);
@@ -219,8 +222,13 @@ mod bench {
         // the derivation is right rather than merely plausible.
         let mut peak: Option<f64> = None;
         for (name, dims) in grids(&which_grid) {
-            let grid = Grid { dims, dx_mm: 1.0, origin_mm: Vec3::ZERO };
-            let mask = vec![flags::FLUID; (dims.x as usize) * (dims.y as usize) * (dims.z as usize)];
+            let grid = Grid {
+                dims,
+                dx_mm: 1.0,
+                origin_mm: Vec3::ZERO,
+            };
+            let mask =
+                vec![flags::FLUID; (dims.x as usize) * (dims.y as usize) * (dims.z as usize)];
             let cfg = config();
 
             // Strictly one at a time. Each solver is dropped - freeing its VRAM
@@ -231,10 +239,12 @@ mod bench {
                 let ctx = ad_gpu::GpuContext::new_blocking(None)
                     .map_err(|e| anyhow::anyhow!("no wgpu adapter: {e}"))?;
                 if !ctx.caps.timestamps {
-                    eprintln!("note: adapter has no timestamp queries; wgpu GPU timings will be blank");
+                    eprintln!(
+                        "note: adapter has no timestamp queries; wgpu GPU timings will be blank"
+                    );
                 }
-                let mut s = Solver::new(&ctx, grid, &mask, &[], cfg)
-                    .context("building the wgpu solver")?;
+                let mut s =
+                    Solver::new(&ctx, grid, &mask, &[], cfg).context("building the wgpu solver")?;
                 let cells = s.domain.padded_cell_count();
                 peak = peak.or(ctx.caps.peak_bandwidth);
                 rows.push(measure(&mut s, "wgpu/Vulkan", name, cells, batch, batches));
@@ -245,8 +255,8 @@ mod bench {
                 if !Backend::Cuda.available() {
                     eprintln!("note: no CUDA device; skipping the CUDA rows");
                 } else {
-                    let mut s =
-                        CudaSolver::new(grid, &mask, &[], cfg).context("building the CUDA solver")?;
+                    let mut s = CudaSolver::new(grid, &mask, &[], cfg)
+                        .context("building the CUDA solver")?;
                     let cells = s.domain.padded_cell_count();
                     peak = peak.or(s.device().peak_bandwidth);
                     println!(
@@ -280,7 +290,8 @@ mod bench {
         );
         for r in &rows {
             let opt = |v: Option<f64>, scale: f64, dp: usize| {
-                v.map(|x| format!("{:.*}", dp, x * scale)).unwrap_or_else(|| "-".to_string())
+                v.map(|x| format!("{:.*}", dp, x * scale))
+                    .unwrap_or_else(|| "-".to_string())
             };
             println!(
                 "{:<12} {:<6} {:>8.2} {:>7} {:>9} {:>9.3} {:>10} {:>10.0} {:>9} {:>8}",
@@ -309,7 +320,9 @@ mod bench {
         // path rather than about CUDA.
         for (name, _) in grids(&which_grid) {
             let pick = |b: &str| rows.iter().find(|r| r.grid == name && r.backend == b);
-            let (Some(w), Some(c)) = (pick("wgpu/Vulkan"), pick("CUDA")) else { continue };
+            let (Some(w), Some(c)) = (pick("wgpu/Vulkan"), pick("CUDA")) else {
+                continue;
+            };
             if let (Some(wg), Some(cg)) = (w.gpu_ms, c.gpu_ms) {
                 println!(
                     "\n{name}: CUDA is {:.3}x the wgpu step time on the device timer \

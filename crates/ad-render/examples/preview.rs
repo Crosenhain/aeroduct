@@ -58,17 +58,39 @@ impl Overlays {
 
     fn parse(name: Option<&str>) -> Self {
         match name {
-            Some("particles") => Self { particles: true, ..Self::NONE },
-            Some("trails") => Self { particles: true, trails: true, ..Self::NONE },
-            Some("few") => Self { particles: true, sparse: true, ..Self::NONE },
-            Some("few-trails") => {
-                Self { particles: true, trails: true, sparse: true, ..Self::NONE }
-            }
-            Some("iso") | Some("isosurface") => Self { isosurface: true, ..Self::NONE },
-            Some("slice") => Self { slice: true, ..Self::NONE },
-            Some("slice-follow") => {
-                Self { slice: true, follow_centreline: true, ..Self::NONE }
-            }
+            Some("particles") => Self {
+                particles: true,
+                ..Self::NONE
+            },
+            Some("trails") => Self {
+                particles: true,
+                trails: true,
+                ..Self::NONE
+            },
+            Some("few") => Self {
+                particles: true,
+                sparse: true,
+                ..Self::NONE
+            },
+            Some("few-trails") => Self {
+                particles: true,
+                trails: true,
+                sparse: true,
+                ..Self::NONE
+            },
+            Some("iso") | Some("isosurface") => Self {
+                isosurface: true,
+                ..Self::NONE
+            },
+            Some("slice") => Self {
+                slice: true,
+                ..Self::NONE
+            },
+            Some("slice-follow") => Self {
+                slice: true,
+                follow_centreline: true,
+                ..Self::NONE
+            },
             Some("all") => Self {
                 particles: true,
                 trails: true,
@@ -231,11 +253,7 @@ fn solid_distance(p: Vec3) -> f32 {
 /// Sample [`solid_distance`] into an `R32Float` 3D texture for the particle
 /// pass. 128^3 at 4 bytes is 8 MiB, which resolves the 2 mm wall about four
 /// times over.
-fn build_sdf(
-    device: &wgpu::Device,
-    queue: &wgpu::Queue,
-    bbox: Bbox,
-) -> (wgpu::Texture, SdfSource) {
+fn build_sdf(device: &wgpu::Device, queue: &wgpu::Queue, bbox: Bbox) -> (wgpu::Texture, SdfSource) {
     const N: u32 = 128;
     let size = bbox.size();
     let mut data = Vec::with_capacity((N * N * N) as usize);
@@ -249,7 +267,11 @@ fn build_sdf(
     }
     let tex = device.create_texture(&wgpu::TextureDescriptor {
         label: Some("preview sdf"),
-        size: wgpu::Extent3d { width: N, height: N, depth_or_array_layers: N },
+        size: wgpu::Extent3d {
+            width: N,
+            height: N,
+            depth_or_array_layers: N,
+        },
         mip_level_count: 1,
         sample_count: 1,
         dimension: wgpu::TextureDimension::D3,
@@ -270,7 +292,11 @@ fn build_sdf(
             bytes_per_row: Some(N * 4),
             rows_per_image: Some(N),
         },
-        wgpu::Extent3d { width: N, height: N, depth_or_array_layers: N },
+        wgpu::Extent3d {
+            width: N,
+            height: N,
+            depth_or_array_layers: N,
+        },
     );
     let source = SdfSource {
         view: tex.create_view(&wgpu::TextureViewDescriptor {
@@ -351,12 +377,19 @@ fn main() -> anyhow::Result<()> {
 
     // --- geometry ---
     let (verts, idx) = build_duct_mesh();
-    println!("duct mesh: {} vertices, {} triangles", verts.len(), idx.len() / 3);
+    println!(
+        "duct mesh: {} vertices, {} triangles",
+        verts.len(),
+        idx.len() / 3
+    );
     let mut scene = Scene::new();
     scene.meshes.push(GpuMesh::upload(
         &gpu.device,
         &gpu.queue,
-        MeshData { vertices: &verts, indices: &idx },
+        MeshData {
+            vertices: &verts,
+            indices: &idx,
+        },
         MeshStyle::default(),
     ));
     renderer.set_mesh_display(display);
@@ -423,17 +456,32 @@ fn main() -> anyhow::Result<()> {
             DerivedField::Speed => {
                 tf.mode = OpacityMode::SoftIso;
                 tf.range = [0.0, 7.0];
-                tf.iso = SoftIso { center: 4.4, width: 1.4, amplitude: 0.45, cutoff_widths: 2.0 };
+                tf.iso = SoftIso {
+                    center: 4.4,
+                    width: 1.4,
+                    amplitude: 0.45,
+                    cutoff_widths: 2.0,
+                };
             }
             DerivedField::QCriterion => {
                 tf.mode = OpacityMode::SoftIso;
                 tf.range = [0.0, 2.0];
-                tf.iso = SoftIso { center: 0.55, width: 0.26, amplitude: 0.85, cutoff_widths: 2.0 };
+                tf.iso = SoftIso {
+                    center: 0.55,
+                    width: 0.26,
+                    amplitude: 0.85,
+                    cutoff_widths: 2.0,
+                };
             }
             DerivedField::Vorticity => {
                 tf.mode = OpacityMode::SoftIso;
                 tf.range = [0.0, 6.0];
-                tf.iso = SoftIso { center: 2.4, width: 0.9, amplitude: 0.5, cutoff_widths: 2.0 };
+                tf.iso = SoftIso {
+                    center: 2.4,
+                    width: 0.9,
+                    amplitude: 0.5,
+                    cutoff_widths: 2.0,
+                };
             }
             DerivedField::Pressure => {
                 *tf = TransferFunction::preset(DerivedField::Pressure);
@@ -656,7 +704,14 @@ fn main() -> anyhow::Result<()> {
         derived = true;
         renderer.render(
             &mut enc,
-            FrameInput { camera: &cam, scene: &scene, sources, sdf: None, target: &view, dt },
+            FrameInput {
+                camera: &cam,
+                scene: &scene,
+                sources,
+                sdf: None,
+                target: &view,
+                dt,
+            },
         )?;
         if frame + 1 == warmup + FRAMES {
             last = util::readback_rgba8(&gpu.device, &gpu.queue, &target, w, h, enc);

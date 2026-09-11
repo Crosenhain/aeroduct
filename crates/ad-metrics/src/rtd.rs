@@ -92,7 +92,11 @@ impl Rtd {
     /// a plug-flow spike near bin 16 of 128 and leaves eight ideal residence
     /// times of tail before the histogram has to grow.
     pub fn new(tau_ideal_s: f64) -> Self {
-        let tau = if tau_ideal_s.is_finite() && tau_ideal_s > 0.0 { tau_ideal_s } else { 1.0 };
+        let tau = if tau_ideal_s.is_finite() && tau_ideal_s > 0.0 {
+            tau_ideal_s
+        } else {
+            1.0
+        };
         Self {
             bins: vec![0.0; RTD_BINS],
             bin_width_s: tau / 16.0,
@@ -233,7 +237,14 @@ impl Rtd {
             .map(|i| {
                 acc += self.bins[i];
                 let t = (i as f64 + 1.0) * self.bin_width_s;
-                (t, if self.total_weight > 0.0 { acc / self.total_weight } else { 0.0 })
+                (
+                    t,
+                    if self.total_weight > 0.0 {
+                        acc / self.total_weight
+                    } else {
+                        0.0
+                    },
+                )
             })
             .collect()
     }
@@ -325,8 +336,16 @@ mod tests {
             let p = (i as f64 + 0.5) / n as f64;
             r.record(AgeSample::new(-tau * (1.0 - p).ln(), 1.0));
         }
-        assert!((r.mean_age_s() / tau - 1.0).abs() < 1e-3, "t_bar/tau = {}", r.mean_age_s() / tau);
-        assert!((r.dispersion() - 1.0).abs() < 1e-2, "sigma/t_bar = {}", r.dispersion());
+        assert!(
+            (r.mean_age_s() / tau - 1.0).abs() < 1e-3,
+            "t_bar/tau = {}",
+            r.mean_age_s() / tau
+        );
+        assert!(
+            (r.dispersion() - 1.0).abs() < 1e-2,
+            "sigma/t_bar = {}",
+            r.dispersion()
+        );
         // Median of an exponential is tau*ln 2.
         let median = r.quantile(0.5).unwrap();
         assert!(
@@ -340,7 +359,10 @@ mod tests {
     fn the_distribution_integrates_to_one() {
         let mut r = Rtd::new(1.0);
         for i in 0..5000 {
-            r.record(AgeSample::new(0.5 + (i % 97) as f64 * 0.01, 1.0 + (i % 7) as f64));
+            r.record(AgeSample::new(
+                0.5 + (i % 97) as f64 * 0.01,
+                1.0 + (i % 7) as f64,
+            ));
         }
         let dt = r.bin_width_s();
         let total: f64 = r.distribution().iter().map(|(_, e)| e * dt).sum();
@@ -393,7 +415,11 @@ mod tests {
         r.record(AgeSample::new(400.0, 1.0));
         assert!(r.bin_width_s() > w0, "the histogram should have grown");
         assert_eq!(r.total_weight(), 101.0, "weight was lost in the rebin");
-        let hist_weight: f64 = r.distribution().iter().map(|(_, e)| e * r.bin_width_s()).sum();
+        let hist_weight: f64 = r
+            .distribution()
+            .iter()
+            .map(|(_, e)| e * r.bin_width_s())
+            .sum();
         assert!((hist_weight - 1.0).abs() < 1e-9);
         // The exact moments are untouched by binning.
         assert!(r.mean_age_s() > mean_before);

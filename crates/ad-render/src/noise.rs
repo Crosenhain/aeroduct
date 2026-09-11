@@ -130,10 +130,9 @@ mod tests {
             for x in 0..N {
                 // Mean-subtracted, so the DC bin does not swamp everything.
                 let s = BLUE_NOISE_TILE[y * N + x] as f64 - 127.5;
-                let phase = -2.0
-                    * std::f64::consts::PI
-                    * ((u as f64 * x as f64) + (v as f64 * y as f64))
-                    / n;
+                let phase =
+                    -2.0 * std::f64::consts::PI * ((u as f64 * x as f64) + (v as f64 * y as f64))
+                        / n;
                 re += s * phase.cos();
                 im += s * phase.sin();
             }
@@ -193,7 +192,10 @@ mod tests {
         adjacent /= (N * N) as f64;
         // The expected absolute difference between two independent uniform
         // draws on 0..255 is 255/3 = 85. Blue noise beats that.
-        assert!(adjacent > 85.0, "mean adjacent difference is only {adjacent}");
+        assert!(
+            adjacent > 85.0,
+            "mean adjacent difference is only {adjacent}"
+        );
     }
 
     #[test]
@@ -208,7 +210,10 @@ mod tests {
         let mut seen: Vec<f32> = Vec::with_capacity(N);
         for _ in 0..N {
             v = golden_ratio_advance(v);
-            assert!((0.0..1.0).contains(&v), "sequence left the unit interval: {v}");
+            assert!(
+                (0.0..1.0).contains(&v),
+                "sequence left the unit interval: {v}"
+            );
             seen.push(v);
         }
         let mut closest = f32::INFINITY;

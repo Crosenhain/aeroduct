@@ -246,7 +246,8 @@ impl LayerStack {
     /// Drop every vent layer and put back one per name, in order: for when the
     /// app has to roll the vent list back to what the lattice was built with.
     pub fn reset_vents<'a>(&mut self, names: impl IntoIterator<Item = &'a str>) {
-        self.layers.retain(|l| !matches!(l.kind, LayerKind::Vent(_)));
+        self.layers
+            .retain(|l| !matches!(l.kind, LayerKind::Vent(_)));
         for (i, name) in names.into_iter().enumerate() {
             self.push(LayerKind::Vent(i), name);
         }
@@ -318,7 +319,10 @@ mod tests {
         assert!(s.is_drawn(LayerKind::Duct));
         assert!(s.is_drawn(LayerKind::Volume));
         assert!(s.is_drawn(LayerKind::Particles));
-        assert!(!s.is_drawn(LayerKind::Isosurface), "an empty isosurface looks like a bug");
+        assert!(
+            !s.is_drawn(LayerKind::Isosurface),
+            "an empty isosurface looks like a bug"
+        );
         assert!(!s.is_drawn(LayerKind::GridOutline));
     }
 
@@ -379,7 +383,11 @@ mod tests {
         let sl = s.push(LayerKind::Slice(1), "Slice 2");
         s.remove(o0);
         assert_eq!(s.get(o1).unwrap().kind, LayerKind::Obstruction(0));
-        assert_eq!(s.get(sl).unwrap().kind, LayerKind::Slice(1), "slices must be untouched");
+        assert_eq!(
+            s.get(sl).unwrap().kind,
+            LayerKind::Slice(1),
+            "slices must be untouched"
+        );
     }
 
     #[test]
@@ -390,11 +398,22 @@ mod tests {
         let o = s.push(LayerKind::Obstruction(0), "Vane");
         s.remove(a);
         assert_eq!(s.get(b).unwrap().kind, LayerKind::Vent(0));
-        assert_eq!(s.get(o).unwrap().kind, LayerKind::Obstruction(0), "obstructions untouched");
+        assert_eq!(
+            s.get(o).unwrap().kind,
+            LayerKind::Obstruction(0),
+            "obstructions untouched"
+        );
         s.reset_vents(["x", "y", "z"]);
-        let vents: Vec<LayerKind> =
-            s.layers().iter().filter(|l| matches!(l.kind, LayerKind::Vent(_))).map(|l| l.kind).collect();
-        assert_eq!(vents, vec![LayerKind::Vent(0), LayerKind::Vent(1), LayerKind::Vent(2)]);
+        let vents: Vec<LayerKind> = s
+            .layers()
+            .iter()
+            .filter(|l| matches!(l.kind, LayerKind::Vent(_)))
+            .map(|l| l.kind)
+            .collect();
+        assert_eq!(
+            vents,
+            vec![LayerKind::Vent(0), LayerKind::Vent(1), LayerKind::Vent(2)]
+        );
         assert!(LayerKind::Vent(0).is_transformable());
     }
 
@@ -428,7 +447,10 @@ mod tests {
         assert!(LayerKind::Obstruction(0).is_transformable());
         assert!(LayerKind::Slice(2).is_transformable());
         assert!(!LayerKind::Volume.is_transformable());
-        assert!(LayerKind::Duct.is_transformable(), "the duct's gizmo sets its install pose");
+        assert!(
+            LayerKind::Duct.is_transformable(),
+            "the duct's gizmo sets its install pose"
+        );
     }
 
     #[test]
@@ -437,9 +459,17 @@ mod tests {
         let a = s.push(LayerKind::Duct, "a");
         let b = s.push(LayerKind::Volume, "b");
         s.move_up(a);
-        assert_eq!(s.layers()[0].id, a, "moving the first item up must be a no-op");
+        assert_eq!(
+            s.layers()[0].id,
+            a,
+            "moving the first item up must be a no-op"
+        );
         s.move_down(b);
-        assert_eq!(s.layers()[1].id, b, "moving the last item down must be a no-op");
+        assert_eq!(
+            s.layers()[1].id,
+            b,
+            "moving the last item down must be a no-op"
+        );
         s.move_down(a);
         assert_eq!(s.layers()[0].id, b);
     }

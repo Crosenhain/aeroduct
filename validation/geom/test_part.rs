@@ -15,7 +15,10 @@ fn part() -> Option<ad_geom::StlLoad> {
     let path = ad_geom::test_stl_path()?;
     match ad_geom::load_stl(&path) {
         Ok(l) => Some(l),
-        Err(e) => panic!("the test part exists at {} but would not load: {e:#}", path.display()),
+        Err(e) => panic!(
+            "the test part exists at {} but would not load: {e:#}",
+            path.display()
+        ),
     }
 }
 
@@ -54,7 +57,10 @@ fn the_part_is_a_watertight_genus_one_solid() {
 
     let size = h.bbox.size();
     for (got, want) in [(size.x, 145.0f32), (size.y, 72.185), (size.z, 68.94)] {
-        assert!((got - want).abs() < 0.05, "bbox {size:?} does not match the contract");
+        assert!(
+            (got - want).abs() < 0.05,
+            "bbox {size:?} does not match the contract"
+        );
     }
 }
 
@@ -74,7 +80,12 @@ fn the_part_has_exactly_the_two_documented_mouths() {
             m.patch.normal,
         );
     }
-    assert_eq!(found.len(), 2, "expected exactly two mouths, found {}", found.len());
+    assert_eq!(
+        found.len(),
+        2,
+        "expected exactly two mouths, found {}",
+        found.len()
+    );
 
     found.sort_by(|a, b| b.open_area_mm2.partial_cmp(&a.open_area_mm2).unwrap());
     let bbox = mesh.bbox();
@@ -109,7 +120,10 @@ fn the_part_has_exactly_the_two_documented_mouths() {
 
     // The contract's ~1.85:1 area contraction.
     let ratio = a.open_area_mm2 / b.open_area_mm2;
-    assert!((ratio - 1.85).abs() < 0.15, "area ratio {ratio}, expected about 1.85");
+    assert!(
+        (ratio - 1.85).abs() < 0.15,
+        "area ratio {ratio}, expected about 1.85"
+    );
 }
 
 #[test]
@@ -124,7 +138,11 @@ fn ray_parity_finds_no_leaks_in_the_part() {
     // The part is a bend, so most rows of its bounding box miss it entirely.
     // What matters is that a substantial number do and every one of them is
     // even.
-    assert!(r.rows_with_hits > 1_000, "only {} rows met the part", r.rows_with_hits);
+    assert!(
+        r.rows_with_hits > 1_000,
+        "only {} rows met the part",
+        r.rows_with_hits
+    );
     // A 1 mm voxelisation of a thin-walled part loses a little volume to
     // partially-filled cells; 1.2% is what the CPU reference was measured at.
     assert!(
@@ -137,14 +155,18 @@ fn ray_parity_finds_no_leaks_in_the_part() {
 #[test]
 fn the_gpu_mask_matches_the_cpu_reference_on_the_part() {
     let Some(load) = part() else { return };
-    let Some(gpu) = ad_geom::test_gpu() else { return };
+    let Some(gpu) = ad_geom::test_gpu() else {
+        return;
+    };
 
     let grid = Grid::covering(load.mesh.bbox().expanded(Vec3::splat(3.0)), 1.0);
     let reference = ad_geom::ray_parity_voxelize(&soup(&load.mesh), grid);
     assert!(reference.is_watertight(), "{}", reference.report());
 
     let mut vox = Voxelizer::new(&gpu).expect("pipelines");
-    let stats = vox.voxelize(FlatGeometry::from_mesh(&load.mesh), grid).expect("voxelize");
+    let stats = vox
+        .voxelize(FlatGeometry::from_mesh(&load.mesh), grid)
+        .expect("voxelize");
     eprintln!("{}", stats.report());
     assert!(stats.fill_converged, "{}", stats.report());
 
@@ -203,7 +225,9 @@ fn the_gpu_mask_matches_the_cpu_reference_on_the_part() {
 #[test]
 fn voxelising_the_part_at_the_interactive_tier_is_fast_enough() {
     let Some(load) = part() else { return };
-    let Some(gpu) = ad_geom::test_gpu() else { return };
+    let Some(gpu) = ad_geom::test_gpu() else {
+        return;
+    };
 
     // The contract's domain: 260 x 180 x 180 mm around the scene, dx = 0.75.
     let b = load.mesh.bbox();
@@ -236,10 +260,17 @@ fn voxelising_the_part_at_the_interactive_tier_is_fast_enough() {
         // Sweeps are checked for convergence in batches of four, so this counts
         // in fours; needing more than three batches would mean the fill is
         // crawling rather than sweeping.
-        assert!(s.fill_iterations <= 12, "flood fill needed {} iterations", s.fill_iterations);
+        assert!(
+            s.fill_iterations <= 12,
+            "flood fill needed {} iterations",
+            s.fill_iterations
+        );
     }
     eprintln!("best full re-voxelisation: {best:.1} ms at dx = 0.75 mm");
-    assert!(best < 5_000.0, "a full re-voxelisation took {best:.0} ms, which is not interactive");
+    assert!(
+        best < 5_000.0,
+        "a full re-voxelisation took {best:.0} ms, which is not interactive"
+    );
 }
 
 /// The drag path, at the interactive tier, with the real part in the scene.
@@ -250,7 +281,9 @@ fn voxelising_the_part_at_the_interactive_tier_is_fast_enough() {
 #[test]
 fn dragging_an_obstruction_next_to_the_part_stays_interactive() {
     let Some(load) = part() else { return };
-    let Some(gpu) = ad_geom::test_gpu() else { return };
+    let Some(gpu) = ad_geom::test_gpu() else {
+        return;
+    };
 
     let b = load.mesh.bbox();
     let c = b.center();
@@ -285,9 +318,7 @@ fn dragging_an_obstruction_next_to_the_part_stays_interactive() {
     for step in 1..=8 {
         scene.set_transform(
             blob,
-            ad_geom::Transform::from_translation(
-                c + Vec3::new(0.0, 60.0 - 2.0 * step as f32, 0.0),
-            ),
+            ad_geom::Transform::from_translation(c + Vec3::new(0.0, 60.0 - 2.0 * step as f32, 0.0)),
         );
         let s = vox.sync(&mut scene, grid).expect("drag");
         assert!(s.incremental, "the drag forced a full rebuild");
@@ -317,11 +348,16 @@ fn subdividing_the_part_preserves_its_surface() {
     );
     let after = s.mesh.health();
 
-    assert!(after.is_watertight_manifold(), "subdivision cracked the mesh");
-    assert_eq!(after.topology.euler_characteristic, before.topology.euler_characteristic);
     assert!(
-        (after.signed_volume_mm3 - before.signed_volume_mm3).abs()
-            / before.signed_volume_mm3
+        after.is_watertight_manifold(),
+        "subdivision cracked the mesh"
+    );
+    assert_eq!(
+        after.topology.euler_characteristic,
+        before.topology.euler_characteristic
+    );
+    assert!(
+        (after.signed_volume_mm3 - before.signed_volume_mm3).abs() / before.signed_volume_mm3
             < 1e-4,
         "volume moved: {} -> {}",
         before.signed_volume_mm3,
@@ -331,5 +367,8 @@ fn subdividing_the_part_preserves_its_surface() {
         (after.surface_area_mm2 - before.surface_area_mm2).abs() / before.surface_area_mm2 < 1e-4
     );
     assert_eq!(s.source.len(), s.mesh.triangle_count());
-    assert!(s.source.iter().all(|i| (*i as usize) < before.triangle_count));
+    assert!(s
+        .source
+        .iter()
+        .all(|i| (*i as usize) < before.triangle_count));
 }

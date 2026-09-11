@@ -60,7 +60,10 @@ const CFL: f32 = 0.5;
 
 /// Is the tracer path enabled? See the module docs for what it costs.
 pub fn rtd_enabled() -> bool {
-    matches!(std::env::var("AERODUCT_RTD").as_deref(), Ok("1") | Ok("true"))
+    matches!(
+        std::env::var("AERODUCT_RTD").as_deref(),
+        Ok("1") | Ok("true")
+    )
 }
 
 /// Log the through-plane flow on a stack of grid planes around a mouth, read
@@ -75,7 +78,9 @@ pub fn rtd_enabled() -> bool {
 ///
 /// Runs only with `AERODUCT_RTD`, because it needs the same macroscopic buffer.
 pub fn probe_mouth(sim: &mut Sim, which: usize, label: &str) {
-    let Ok(full) = sim.solver.read_macroscopic() else { return };
+    let Ok(full) = sim.solver.read_macroscopic() else {
+        return;
+    };
     let grid = sim.grid;
     let m = &sim.mouths[which];
     let axis = (m.axis as usize) % 3;
@@ -147,10 +152,15 @@ impl Region {
         // One cell of margin, so the mouth planes (which sit exactly on the
         // bounding box) have a neighbour on both sides to interpolate from.
         let pad = Vec3::splat(sim.grid.dx_mm);
-        let (lo, hi) = sim
-            .grid
-            .cell_range(Bbox { min: bbox.min - pad, max: bbox.max + pad })?;
-        Some(Self { grid: sim.grid, lo, dims: hi - lo + UVec3::ONE })
+        let (lo, hi) = sim.grid.cell_range(Bbox {
+            min: bbox.min - pad,
+            max: bbox.max + pad,
+        })?;
+        Some(Self {
+            grid: sim.grid,
+            lo,
+            dims: hi - lo + UVec3::ONE,
+        })
     }
 
     fn len(&self) -> usize {
@@ -426,7 +436,10 @@ impl TracerRtd {
                 if !flags::is_fluid(sim.mask[sim.grid.linear(c.as_uvec3()) as usize]) {
                     continue;
                 }
-                seeds.push(Seed { position_mm: p, normal });
+                seeds.push(Seed {
+                    position_mm: p,
+                    normal,
+                });
             }
         }
         if seeds.is_empty() {
@@ -534,18 +547,15 @@ impl TracerRtd {
     }
 
     /// Advect every seed and tally what happened to it.
-    fn integrate(
-        &self,
-        field: &[Vec3],
-        c_u_mm_s: f32,
-        stall_mm_s: f32,
-    ) -> (Vec<AgeSample>, f64) {
+    fn integrate(&self, field: &[Vec3], c_u_mm_s: f32, stall_mm_s: f32) -> (Vec<AgeSample>, f64) {
         let dx = self.region.grid.dx_mm;
         let mut exits = Vec::with_capacity(self.seeds.len());
         let mut tally = Tally::default();
 
         for seed in &self.seeds {
-            let Some(u0) = self.sample(field, seed.position_mm) else { continue };
+            let Some(u0) = self.sample(field, seed.position_mm) else {
+                continue;
+            };
             // The streamtube's own flow rate, per unit seed area. Only the
             // component through the plane counts: a seed on a recirculating
             // corner carries fluid the *wrong* way and stands for no inflow.
@@ -602,7 +612,11 @@ impl TracerRtd {
         }
 
         let total = tally.exited + tally.trapped + tally.lost;
-        let trapped_fraction = if total > 0.0 { tally.trapped / total } else { f64::NAN };
+        let trapped_fraction = if total > 0.0 {
+            tally.trapped / total
+        } else {
+            f64::NAN
+        };
         log::debug!(
             "tracers: {} exits, weights exited {:.3} trapped {:.3} lost {:.3}",
             exits.len(),
@@ -619,7 +633,6 @@ mod tests {
     use super::*;
     use ad_gpu::FlowPatch;
 
-
     /// A 6 x 2 cell bore through a block set **two cells in** from the min-x
     /// face of a 20 x 12 x 12 grid, so there is a slab of free air in front of
     /// the mouth. That gap is the whole point: without it the fill has no route
@@ -627,7 +640,11 @@ mod tests {
     ///
     /// The bore is not square, so a transposed footprint is visible too.
     fn fixture() -> (Grid, Vec<u8>, Vec<Mouth>) {
-        let grid = Grid { dims: UVec3::new(20, 12, 12), dx_mm: 1.0, origin_mm: Vec3::splat(0.5) };
+        let grid = Grid {
+            dims: UVec3::new(20, 12, 12),
+            dx_mm: 1.0,
+            origin_mm: Vec3::splat(0.5),
+        };
         let mut mask = vec![flags::FLUID; grid.cell_count() as usize];
         for z in 0..grid.dims.z {
             for y in 0..grid.dims.y {
@@ -671,7 +688,11 @@ mod tests {
     #[test]
     fn the_passage_fill_finds_the_bore_and_not_the_air_around_it() {
         let (grid, mask, mouths) = fixture();
-        let region = Region { grid, lo: UVec3::ZERO, dims: grid.dims };
+        let region = Region {
+            grid,
+            lo: UVec3::ZERO,
+            dims: grid.dims,
+        };
         let (passage, fluid) = enclosed_cells(region, &mask, &mouths);
 
         // The bore runs x = 2..19 inclusive; the two mouth planes (x = 2 and
@@ -694,7 +715,11 @@ mod tests {
     #[test]
     fn an_open_box_has_no_enclosed_passage() {
         let (grid, mask, _) = fixture();
-        let region = Region { grid, lo: UVec3::ZERO, dims: grid.dims };
+        let region = Region {
+            grid,
+            lo: UVec3::ZERO,
+            dims: grid.dims,
+        };
         // No mouths: the bore is open at both ends and reachable from the shell,
         // so nothing is enclosed.
         let (passage, fluid) = enclosed_cells(region, &mask, &[]);
@@ -706,13 +731,28 @@ mod tests {
     fn the_mouth_test_covers_the_opening_and_stops_at_its_rim() {
         let (grid, _, mouths) = fixture();
         let at = |p: Vec3| in_a_mouth(&mouths, grid.dx_mm, p);
-        assert!(at(Vec3::new(2.5, 6.0, 6.0)), "the mouth's own cell plane is in the mouth");
-        assert!(at(Vec3::new(19.5, 8.5, 5.5)), "so is the far mouth's corner");
-        assert!(!at(Vec3::new(10.0, 6.0, 6.0)), "the middle of the bore is not a mouth");
-        assert!(!at(Vec3::new(2.5, 11.5, 6.0)), "outside the rim is not a mouth");
+        assert!(
+            at(Vec3::new(2.5, 6.0, 6.0)),
+            "the mouth's own cell plane is in the mouth"
+        );
+        assert!(
+            at(Vec3::new(19.5, 8.5, 5.5)),
+            "so is the far mouth's corner"
+        );
+        assert!(
+            !at(Vec3::new(10.0, 6.0, 6.0)),
+            "the middle of the bore is not a mouth"
+        );
+        assert!(
+            !at(Vec3::new(2.5, 11.5, 6.0)),
+            "outside the rim is not a mouth"
+        );
         // Half a cell of tolerance: the room air a full cell in front of the
         // mouth must not be counted as duct.
-        assert!(!at(Vec3::new(0.5, 6.0, 6.0)), "the layer in front of the mouth is not duct");
+        assert!(
+            !at(Vec3::new(0.5, 6.0, 6.0)),
+            "the layer in front of the mouth is not duct"
+        );
         // ...and the footprint is read component-wise, so a transposed
         // description of the same rectangle answers identically.
         assert!(at(Vec3::new(2.5, 8.5, 6.5)) && !at(Vec3::new(2.5, 6.0, 8.5)));
@@ -720,8 +760,16 @@ mod tests {
 
     #[test]
     fn the_region_index_round_trips() {
-        let grid = Grid { dims: UVec3::new(9, 7, 5), dx_mm: 0.5, origin_mm: Vec3::ZERO };
-        let r = Region { grid, lo: UVec3::new(2, 1, 1), dims: UVec3::new(4, 3, 2) };
+        let grid = Grid {
+            dims: UVec3::new(9, 7, 5),
+            dx_mm: 0.5,
+            origin_mm: Vec3::ZERO,
+        };
+        let r = Region {
+            grid,
+            lo: UVec3::new(2, 1, 1),
+            dims: UVec3::new(4, 3, 2),
+        };
         assert_eq!(r.len(), 24);
         for z in 0..r.dims.z {
             for y in 0..r.dims.y {
@@ -740,7 +788,10 @@ mod tests {
         std::env::remove_var("AERODUCT_RTD");
         assert!(!rtd_enabled());
         std::env::set_var("AERODUCT_RTD", "0");
-        assert!(!rtd_enabled(), "a stray value must not turn a 691 MB buffer on");
+        assert!(
+            !rtd_enabled(),
+            "a stray value must not turn a 691 MB buffer on"
+        );
         std::env::set_var("AERODUCT_RTD", "1");
         assert!(rtd_enabled());
         std::env::remove_var("AERODUCT_RTD");

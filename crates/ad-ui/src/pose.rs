@@ -47,7 +47,10 @@ impl Default for InstallPose {
 }
 
 impl InstallPose {
-    pub const IDENTITY: Self = Self { rotation: Quat::IDENTITY, offset_mm: Vec3::ZERO };
+    pub const IDENTITY: Self = Self {
+        rotation: Quat::IDENTITY,
+        offset_mm: Vec3::ZERO,
+    };
 
     /// Exactly the file orientation. Tested exactly, not approximately: the
     /// default pose has to render bit-identically to a build without poses.
@@ -98,7 +101,11 @@ impl InstallPose {
     /// The same map as the geometry crate's transform, whose eight-corner
     /// [`ad_geom::Transform::bbox`] gives the posed part's world box.
     pub fn to_geom(&self, pivot: Vec3) -> ad_geom::Transform {
-        ad_geom::Transform { translation: self.translation(pivot), rotation: self.rotation, scale: 1.0 }
+        ad_geom::Transform {
+            translation: self.translation(pivot),
+            rotation: self.rotation,
+            scale: 1.0,
+        }
     }
 
     /// World-space box around a lattice-space box.
@@ -172,7 +179,10 @@ impl InstallPose {
     /// discarded: the pose is rigid by construction.
     pub fn from_gizmo_matrix(m: Mat4, pivot: Vec3) -> Self {
         let (_, rotation, translation) = m.to_scale_rotation_translation();
-        Self { rotation: canonical(rotation), offset_mm: translation - pivot }
+        Self {
+            rotation: canonical(rotation),
+            offset_mm: translation - pivot,
+        }
     }
 
     /// `AERODUCT_POSE="yaw,pitch,roll[,x,y,z]"`: degrees, then an optional
@@ -246,7 +256,10 @@ impl Default for DuctGeometry {
 }
 
 impl DuctGeometry {
-    pub const IDENTITY: Self = Self { scale: 1.0, turn: Quat::IDENTITY };
+    pub const IDENTITY: Self = Self {
+        scale: 1.0,
+        turn: Quat::IDENTITY,
+    };
 
     pub fn is_identity(&self) -> bool {
         self.scale == 1.0 && self.turn == Quat::IDENTITY
@@ -269,7 +282,14 @@ impl DuctGeometry {
 pub fn nearest_quarter_turn(q: Quat) -> Quat {
     let axes = [Vec3::X, Vec3::Y, Vec3::Z];
     let mut best = (Quat::IDENTITY, -1.0f32);
-    for p in [[0, 1, 2], [0, 2, 1], [1, 0, 2], [1, 2, 0], [2, 0, 1], [2, 1, 0]] {
+    for p in [
+        [0, 1, 2],
+        [0, 2, 1],
+        [1, 0, 2],
+        [1, 2, 0],
+        [2, 0, 1],
+        [2, 1, 0],
+    ] {
         for signs in 0..8u32 {
             let col = |k: usize| axes[p[k]] * if signs & (1 << k) != 0 { -1.0 } else { 1.0 };
             let m = glam::Mat3::from_cols(col(0), col(1), col(2));
@@ -310,18 +330,27 @@ pub fn louver_to_tilt(louver_deg: [f32; 2], n: Vec3, axis: usize, rotation: Quat
     // axis will do there, and e1 is one that does not move.
     let up_lattice = rotation.conjugate() * Vec3::Y;
     let flat = up_lattice - n * up_lattice.dot(n);
-    let up = if flat.length() > 1.0e-3 { flat.normalize() } else { e1 };
+    let up = if flat.length() > 1.0e-3 {
+        flat.normalize()
+    } else {
+        e1
+    };
     let right = n.cross(up);
     let t = up * louver_deg[0].to_radians().tan() + right * louver_deg[1].to_radians().tan();
     // `t` lies in the inlet plane by construction, so this is an exact change of
     // 2D basis. `+ 0.0` folds a -0.0, which would hash differently from 0.0 and
     // reset the statistics for nothing.
-    [t.dot(e1).atan().to_degrees() + 0.0, t.dot(e2).atan().to_degrees() + 0.0]
+    [
+        t.dot(e1).atan().to_degrees() + 0.0,
+        t.dot(e2).atan().to_degrees() + 0.0,
+    ]
 }
 
 /// The lattice axis an axis-aligned mouth normal lies along.
 pub fn lattice_axis(n: Vec3) -> usize {
-    (0..3).max_by(|a, b| n[*a].abs().total_cmp(&n[*b].abs())).unwrap_or(0)
+    (0..3)
+        .max_by(|a, b| n[*a].abs().total_cmp(&n[*b].abs()))
+        .unwrap_or(0)
 }
 
 /// `AERODUCT_INLET_TILT="up_down,sideways"`: a louver aim in degrees, car terms,
@@ -350,7 +379,11 @@ pub fn describe_direction(d: Vec3) -> String {
         return "-".into();
     }
     if Vec2::new(d.x, d.z).length() < 1.0e-3 {
-        return if d.y > 0.0 { "straight up".into() } else { "straight down".into() };
+        return if d.y > 0.0 {
+            "straight up".into()
+        } else {
+            "straight down".into()
+        };
     }
     let elevation = d.y.clamp(-1.0, 1.0).asin().to_degrees();
     let vertical = if elevation.abs() < 0.5 {
@@ -360,8 +393,15 @@ pub fn describe_direction(d: Vec3) -> String {
     } else {
         format!("{:.0}° down", -elevation)
     };
-    let (axis, sign) = if d.x.abs() >= d.z.abs() { ("X", d.x) } else { ("Z", d.z) };
-    format!("{vertical}, toward {}{axis}", if sign >= 0.0 { "+" } else { "-" })
+    let (axis, sign) = if d.x.abs() >= d.z.abs() {
+        ("X", d.x)
+    } else {
+        ("Z", d.z)
+    };
+    format!(
+        "{vertical}, toward {}{axis}",
+        if sign >= 0.0 { "+" } else { "-" }
+    )
 }
 
 #[cfg(test)]
@@ -383,7 +423,10 @@ mod tests {
         assert!(p.is_identity());
         assert_eq!(p.matrix(PIVOT), Mat4::IDENTITY);
         assert_eq!(p.inverse(PIVOT), Mat4::IDENTITY);
-        assert_eq!(p.to_world(PIVOT, Vec3::new(1.0, 2.0, 3.0)), Vec3::new(1.0, 2.0, 3.0));
+        assert_eq!(
+            p.to_world(PIVOT, Vec3::new(1.0, 2.0, 3.0)),
+            Vec3::new(1.0, 2.0, 3.0)
+        );
     }
 
     #[test]
@@ -391,7 +434,12 @@ mod tests {
         let p = pose();
         let m = p.matrix(PIVOT);
         assert!((p.inverse(PIVOT) * m).abs_diff_eq(Mat4::IDENTITY, 1e-5));
-        for q in [Vec3::ZERO, PIVOT, Vec3::new(70.8, 72.2, 68.9), Vec3::new(-74.2, 0.0, 0.0)] {
+        for q in [
+            Vec3::ZERO,
+            PIVOT,
+            Vec3::new(70.8, 72.2, 68.9),
+            Vec3::new(-74.2, 0.0, 0.0),
+        ] {
             let w = p.to_world(PIVOT, q);
             assert!(m.transform_point3(q).abs_diff_eq(w, 1e-3), "{q} -> {w}");
             assert!(p.to_lattice(PIVOT, w).abs_diff_eq(q, 1e-3));
@@ -405,7 +453,9 @@ mod tests {
         p.nudge(1, 90.0);
         assert!(p.to_world(PIVOT, PIVOT).abs_diff_eq(PIVOT, 1e-5));
         p.offset_mm = Vec3::new(10.0, 0.0, 0.0);
-        assert!(p.to_world(PIVOT, PIVOT).abs_diff_eq(PIVOT + Vec3::X * 10.0, 1e-5));
+        assert!(p
+            .to_world(PIVOT, PIVOT)
+            .abs_diff_eq(PIVOT + Vec3::X * 10.0, 1e-5));
     }
 
     #[test]
@@ -418,11 +468,18 @@ mod tests {
             assert!(p.is_identity(), "axis {axis}: {:?}", p.rotation);
             p.nudge(axis, 90.0);
             p.nudge(axis, -90.0);
-            assert!(p.is_identity(), "axis {axis} there and back: {:?}", p.rotation);
+            assert!(
+                p.is_identity(),
+                "axis {axis} there and back: {:?}",
+                p.rotation
+            );
         }
         let mut p = InstallPose::IDENTITY;
         p.nudge(1, 90.0);
-        assert!(p.dir_to_world(Vec3::Z).abs_diff_eq(Vec3::X, 1e-6), "a quarter turn maps axes onto axes");
+        assert!(
+            p.dir_to_world(Vec3::Z).abs_diff_eq(Vec3::X, 1e-6),
+            "a quarter turn maps axes onto axes"
+        );
     }
 
     #[test]
@@ -436,7 +493,10 @@ mod tests {
         let t = p.placement_to_lattice(PIVOT, placed);
         for v in [Vec3::ZERO, Vec3::new(10.0, 2.0, -7.0), Vec3::splat(40.0)] {
             let world = placed.rotation * (v * placed.scale) + placed.translation_mm;
-            assert!(p.to_world(PIVOT, t.point(v)).abs_diff_eq(world, 1e-3), "{v}");
+            assert!(
+                p.to_world(PIVOT, t.point(v)).abs_diff_eq(world, 1e-3),
+                "{v}"
+            );
         }
         let back = p.lattice_to_placement(PIVOT, t);
         assert!(back.translation_mm.abs_diff_eq(placed.translation_mm, 1e-3));
@@ -458,7 +518,10 @@ mod tests {
     fn the_gizmo_matrix_round_trips_and_sits_on_the_part() {
         let p = pose();
         let g = p.gizmo_matrix(PIVOT);
-        assert!(g.w_axis.truncate().abs_diff_eq(p.to_world(PIVOT, PIVOT), 1e-4));
+        assert!(g
+            .w_axis
+            .truncate()
+            .abs_diff_eq(p.to_world(PIVOT, PIVOT), 1e-4));
         let back = InstallPose::from_gizmo_matrix(g, PIVOT);
         assert!(back.rotation.abs_diff_eq(p.rotation, 1e-5));
         assert!(back.offset_mm.abs_diff_eq(p.offset_mm, 1e-4));
@@ -472,9 +535,15 @@ mod tests {
     fn the_env_var_parses_or_is_refused_whole() {
         let get = |v: &'static str| move |k: &str| (k == "AERODUCT_POSE").then(|| v.to_string());
         assert_eq!(InstallPose::from_lookup(|_| None), None);
-        assert_eq!(InstallPose::from_lookup(get("0,0,0")), Some(InstallPose::IDENTITY));
+        assert_eq!(
+            InstallPose::from_lookup(get("0,0,0")),
+            Some(InstallPose::IDENTITY)
+        );
         let p = InstallPose::from_lookup(get(" 0, 90 ,0")).unwrap();
-        assert!(p.dir_to_world(Vec3::Z).abs_diff_eq(Vec3::NEG_Y, 1e-6), "pitch +90 tips +Z down");
+        assert!(
+            p.dir_to_world(Vec3::Z).abs_diff_eq(Vec3::NEG_Y, 1e-6),
+            "pitch +90 tips +Z down"
+        );
         let p = InstallPose::from_lookup(get("0,0,0,4,5,6")).unwrap();
         assert_eq!(p.offset_mm, Vec3::new(4.0, 5.0, 6.0));
         for bad in ["a,b,c", "1,2", "1,2,3,4", "nan,0,0", "inf,0,0", ""] {
@@ -492,8 +561,14 @@ mod tests {
     fn a_level_louver_is_no_tilt_at_all() {
         let q = pose().rotation;
         let zero = [0.0f32.to_bits(); 2];
-        assert_eq!(louver_to_tilt([0.0, 0.0], Vec3::Z, 2, q).map(f32::to_bits), zero);
-        assert_eq!(louver_to_tilt([-0.0, 0.0], Vec3::Z, 2, q).map(f32::to_bits), zero);
+        assert_eq!(
+            louver_to_tilt([0.0, 0.0], Vec3::Z, 2, q).map(f32::to_bits),
+            zero
+        );
+        assert_eq!(
+            louver_to_tilt([-0.0, 0.0], Vec3::Z, 2, q).map(f32::to_bits),
+            zero
+        );
     }
 
     /// "20° up" means 20° above level in the car, however the part is turned,
@@ -513,23 +588,32 @@ mod tests {
         // Yaw about Y and roll about Z both keep a +Z inlet horizontal.
         let n = Vec3::Z;
         for pose in poses {
-            let up = pose.dir_to_world(blow(louver_to_tilt([20.0, 0.0], n, 2, pose.rotation), n, 2));
+            let up =
+                pose.dir_to_world(blow(louver_to_tilt([20.0, 0.0], n, 2, pose.rotation), n, 2));
             let elevation = up.normalize().y.asin().to_degrees();
             assert!((elevation - 20.0).abs() < 1e-3, "{pose:?}: {elevation}");
 
-            let side = pose.dir_to_world(blow(louver_to_tilt([0.0, 15.0], n, 2, pose.rotation), n, 2));
+            let side =
+                pose.dir_to_world(blow(louver_to_tilt([0.0, 15.0], n, 2, pose.rotation), n, 2));
             let side = side.normalize();
             assert!(side.y.abs() < 1e-5, "sideways stays level: {pose:?}");
             let off = side.dot(pose.dir_to_world(n)).acos().to_degrees();
             assert!((off - 15.0).abs() < 1e-3, "{pose:?}: {off}");
             let right = pose.dir_to_world(n).cross(Vec3::Y);
-            assert!(side.dot(right) > 0.0, "positive is to the right, looking downstream");
+            assert!(
+                side.dot(right) > 0.0,
+                "positive is to the right, looking downstream"
+            );
         }
     }
 
     #[test]
     fn an_inlet_facing_straight_up_still_tilts() {
-        let d = blow(louver_to_tilt([20.0, 0.0], Vec3::Y, 1, Quat::IDENTITY), Vec3::Y, 1);
+        let d = blow(
+            louver_to_tilt([20.0, 0.0], Vec3::Y, 1, Quat::IDENTITY),
+            Vec3::Y,
+            1,
+        );
         assert!(d.is_finite());
         let off = d.normalize().dot(Vec3::Y).acos().to_degrees();
         assert!((off - 20.0).abs() < 1e-3, "{off}");
@@ -537,10 +621,15 @@ mod tests {
 
     #[test]
     fn the_louver_env_var_parses_or_is_refused() {
-        let get = |v: &'static str| move |k: &str| (k == "AERODUCT_INLET_TILT").then(|| v.to_string());
+        let get =
+            |v: &'static str| move |k: &str| (k == "AERODUCT_INLET_TILT").then(|| v.to_string());
         assert_eq!(louver_from_lookup(|_| None), None);
         assert_eq!(louver_from_lookup(get("20, -5")), Some([20.0, -5.0]));
-        assert_eq!(louver_from_lookup(get("90,0")), Some([60.0, 0.0]), "clamped");
+        assert_eq!(
+            louver_from_lookup(get("90,0")),
+            Some([60.0, 0.0]),
+            "clamped"
+        );
         for bad in ["20", "a,b", "1,2,3", "nan,0"] {
             assert_eq!(louver_from_lookup(get(bad)), None, "{bad:?}");
         }
@@ -551,7 +640,10 @@ mod tests {
         assert_eq!(nearest_quarter_turn(Quat::IDENTITY), Quat::IDENTITY);
         let near = Quat::from_rotation_y(80f32.to_radians());
         let q = nearest_quarter_turn(near);
-        assert!(q.abs_diff_eq(Quat::from_rotation_y(90f32.to_radians()), 1e-6), "{q:?}");
+        assert!(
+            q.abs_diff_eq(Quat::from_rotation_y(90f32.to_radians()), 1e-6),
+            "{q:?}"
+        );
         let small = Quat::from_rotation_x(30f32.to_radians());
         assert_eq!(nearest_quarter_turn(small), Quat::IDENTITY);
         // Every candidate is a proper rotation that maps axes onto axes.
@@ -565,12 +657,23 @@ mod tests {
     #[test]
     fn duct_geometry_keeps_the_part_centred() {
         let c = Vec3::new(-1.7, 36.1, 34.5);
-        let g = DuctGeometry { scale: 1.5, turn: Quat::from_rotation_z(std::f32::consts::FRAC_PI_2) };
+        let g = DuctGeometry {
+            scale: 1.5,
+            turn: Quat::from_rotation_z(std::f32::consts::FRAC_PI_2),
+        };
         let t = g.to_geom(c);
         assert!(t.point(c).abs_diff_eq(c, 1e-4));
         let corner = c + Vec3::new(10.0, 0.0, 0.0);
-        assert!(t.point(corner).abs_diff_eq(c + Vec3::new(0.0, 15.0, 0.0), 1e-4), "{}", t.point(corner));
-        assert_eq!(DuctGeometry::IDENTITY.to_geom(c), ad_geom::Transform::IDENTITY);
+        assert!(
+            t.point(corner)
+                .abs_diff_eq(c + Vec3::new(0.0, 15.0, 0.0), 1e-4),
+            "{}",
+            t.point(corner)
+        );
+        assert_eq!(
+            DuctGeometry::IDENTITY.to_geom(c),
+            ad_geom::Transform::IDENTITY
+        );
     }
 
     #[test]
@@ -578,7 +681,10 @@ mod tests {
         assert_eq!(describe_direction(Vec3::Y), "straight up");
         assert_eq!(describe_direction(Vec3::NEG_Y * 3.0), "straight down");
         assert_eq!(describe_direction(Vec3::X), "level, toward +X");
-        assert_eq!(describe_direction(Vec3::new(0.0, -1.0, -1.0)), "45° down, toward -Z");
+        assert_eq!(
+            describe_direction(Vec3::new(0.0, -1.0, -1.0)),
+            "45° down, toward -Z"
+        );
         assert_eq!(describe_direction(Vec3::ZERO), "-");
     }
 }

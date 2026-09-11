@@ -477,7 +477,10 @@ mod tests {
         );
         // ...and not so much that it clips to pure black and white, which throws
         // away the fibre structure the texture exists to show.
-        assert!(out_std < 0.40, "the gain over-drives the texture to binary: {out_std}");
+        assert!(
+            out_std < 0.40,
+            "the gain over-drives the texture to binary: {out_std}"
+        );
         assert!(boosted.iter().all(|v| (0.0..=1.0).contains(v)));
     }
 
@@ -486,7 +489,11 @@ mod tests {
         // Sub-unit gain would make a short convolution *less* visible than a
         // long one, which is backwards.
         for m in [0.0f32, 0.5, 1.0, 4.0, 57.0, 1000.0] {
-            assert!(contrast_gain(m) >= 1.0, "gain at m={m} is {}", contrast_gain(m));
+            assert!(
+                contrast_gain(m) >= 1.0,
+                "gain at m={m} is {}",
+                contrast_gain(m)
+            );
         }
         assert!(contrast_gain(100.0) > contrast_gain(10.0));
 
@@ -503,7 +510,10 @@ mod tests {
         // black-and-white lattice.
         assert_eq!(effective_taps(1.0, 0.75, 1.5), 1.0);
         assert_eq!(contrast_gain(effective_taps(1.0, 0.75, 1.5)), 1.0);
-        assert_eq!(apply_gain(0.9, contrast_gain(effective_taps(1.0, 0.75, 1.5))), 0.9);
+        assert_eq!(
+            apply_gain(0.9, contrast_gain(effective_taps(1.0, 0.75, 1.5))),
+            0.9
+        );
         // Gain of a single sample is 1: nothing to average, nothing to restore.
         assert_eq!(contrast_gain(effective_taps(57.0, 0.1, 1000.0)), 1.0);
         // apply_gain is a no-op at unit gain and stays in range.
@@ -514,13 +524,19 @@ mod tests {
 
     #[test]
     fn phase_wraps_into_the_unit_interval() {
-        let s = LicSettings { cycles_per_second: 0.35, ..Default::default() };
+        let s = LicSettings {
+            cycles_per_second: 0.35,
+            ..Default::default()
+        };
         for t in [0.0f32, 1.0, 61.0, 3600.0, 1.0e5] {
             let p = s.phase_at(t);
             assert!((0.0..1.0).contains(&p), "phase {p} at t={t}");
         }
         // A frozen animation must actually be frozen.
-        let f = LicSettings { cycles_per_second: 0.0, ..Default::default() };
+        let f = LicSettings {
+            cycles_per_second: 0.0,
+            ..Default::default()
+        };
         assert_eq!(f.phase_at(1234.5), 0.0);
     }
 
@@ -605,7 +621,11 @@ mod tests {
         for i in 0..=200 {
             let s = i as f32 / 200.0 * bend.length();
             let (_, t) = bend.sample(s);
-            assert!((t.length() - 1.0).abs() < 1e-3, "tangent length {}", t.length());
+            assert!(
+                (t.length() - 1.0).abs() < 1e-3,
+                "tangent length {}",
+                t.length()
+            );
             assert!(s >= last);
             last = s;
         }
@@ -613,7 +633,11 @@ mod tests {
         // are on the circle, so the spline should be within a percent of it.
         let exact = 55.0 * FRAC_PI_2;
         let err = (bend.length() - exact).abs() / exact;
-        assert!(err < 0.02, "bend arc {} vs exact {exact} (rel {err})", bend.length());
+        assert!(
+            err < 0.02,
+            "bend arc {} vs exact {exact} (rel {err})",
+            bend.length()
+        );
     }
 
     #[test]

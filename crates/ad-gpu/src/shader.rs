@@ -73,7 +73,10 @@ pub struct ShaderLoader {
 
 impl ShaderLoader {
     pub fn new(root: impl Into<PathBuf>) -> Self {
-        Self { root: root.into(), virtual_files: HashMap::new() }
+        Self {
+            root: root.into(),
+            virtual_files: HashMap::new(),
+        }
     }
 
     /// Register generated source under a name that `#include` can resolve.
@@ -107,8 +110,7 @@ impl ShaderLoader {
             return Ok(v.clone());
         }
         let path: PathBuf = self.root.join(name);
-        std::fs::read_to_string(&path)
-            .with_context(|| format!("reading shader {}", path.display()))
+        std::fs::read_to_string(&path).with_context(|| format!("reading shader {}", path.display()))
     }
 
     fn expand(
@@ -242,11 +244,18 @@ mod tests {
     #[test]
     fn includes_are_expanded_once() {
         let l = loader_with(&[
-            ("main.wgsl", "#include \"a.wgsl\"\n#include \"a.wgsl\"\nmain();"),
+            (
+                "main.wgsl",
+                "#include \"a.wgsl\"\n#include \"a.wgsl\"\nmain();",
+            ),
             ("a.wgsl", "fn a() {}"),
         ]);
         let out = l.load("main.wgsl", &ShaderDefines::new()).unwrap();
-        assert_eq!(out.matches("fn a() {}").count(), 1, "include-once was not honoured");
+        assert_eq!(
+            out.matches("fn a() {}").count(),
+            1,
+            "include-once was not honoured"
+        );
         assert!(out.contains("main();"));
     }
 
@@ -255,7 +264,9 @@ mod tests {
         let src = "#if FP16\nfp16\n#else\nfp32\n#endif";
         let l = loader_with(&[("m.wgsl", src)]);
 
-        let a = l.load("m.wgsl", &ShaderDefines::new().flag("FP16")).unwrap();
+        let a = l
+            .load("m.wgsl", &ShaderDefines::new().flag("FP16"))
+            .unwrap();
         assert!(a.contains("fp16") && !a.contains("fp32"));
 
         let b = l.load("m.wgsl", &ShaderDefines::new()).unwrap();
@@ -266,7 +277,9 @@ mod tests {
     fn elif_chain_takes_only_one_branch() {
         let src = "#if A\na\n#elif B\nb\n#elif C\nc\n#else\nd\n#endif";
         let l = loader_with(&[("m.wgsl", src)]);
-        let out = l.load("m.wgsl", &ShaderDefines::new().flag("B").flag("C")).unwrap();
+        let out = l
+            .load("m.wgsl", &ShaderDefines::new().flag("B").flag("C"))
+            .unwrap();
         assert!(out.contains('b'));
         assert!(!out.contains('c') && !out.contains('a') && !out.contains('d'));
     }
@@ -275,7 +288,9 @@ mod tests {
     fn nested_conditionals_respect_the_outer_branch() {
         let src = "#if OUTER\n#if INNER\nboth\n#endif\nouter\n#endif\nalways";
         let l = loader_with(&[("m.wgsl", src)]);
-        let out = l.load("m.wgsl", &ShaderDefines::new().flag("INNER")).unwrap();
+        let out = l
+            .load("m.wgsl", &ShaderDefines::new().flag("INNER"))
+            .unwrap();
         // OUTER is not defined, so nothing inside it may appear.
         assert!(!out.contains("both") && !out.contains("outer"));
         assert!(out.contains("always"));
@@ -284,7 +299,9 @@ mod tests {
     #[test]
     fn value_substitution_prefers_the_longer_name() {
         let l = loader_with(&[("m.wgsl", "let a = #NX; let b = #NX_TOTAL;")]);
-        let d = ShaderDefines::new().value("NX", 4u32).value("NX_TOTAL", 64u32);
+        let d = ShaderDefines::new()
+            .value("NX", 4u32)
+            .value("NX_TOTAL", 64u32);
         let out = l.load("m.wgsl", &d).unwrap();
         assert!(out.contains("let a = 4;"), "got {out}");
         assert!(out.contains("let b = 64;"), "got {out}");

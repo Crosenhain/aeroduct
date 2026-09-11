@@ -55,11 +55,20 @@ fn exclusive_gpu() -> RwLockWriteGuard<'static, ()> {
 }
 
 fn grid_of(dims: UVec3) -> Grid {
-    Grid { dims, dx_mm: 1.0, origin_mm: Vec3::ZERO }
+    Grid {
+        dims,
+        dx_mm: 1.0,
+        origin_mm: Vec3::ZERO,
+    }
 }
 
 /// Build the same problem on both solvers.
-fn pair(dims: UVec3, mask: Vec<u8>, cfg: SolverConfig, gpu: &ad_gpu::GpuContext) -> (ReferenceLbm, Solver) {
+fn pair(
+    dims: UVec3,
+    mask: Vec<u8>,
+    cfg: SolverConfig,
+    gpu: &ad_gpu::GpuContext,
+) -> (ReferenceLbm, Solver) {
     let domain = PaddedDomain::new(dims, cfg.periodic, &mask, cfg.set);
     let cpu = ReferenceLbm::new(domain, cfg);
     let gpu = Solver::new(gpu, grid_of(dims), &mask, &[], cfg).expect("solver");
@@ -94,7 +103,11 @@ fn gpu_matches_the_cpu_reference_in_a_periodic_box() {
     let _gpu = shared_gpu();
     let Some(ctx) = harness::gpu() else { return };
     for set in [VelocitySet::D3Q19, VelocitySet::D3Q27] {
-        for collision in [CollisionModel::Trt, CollisionModel::Bgk, CollisionModel::RegularizedBgk] {
+        for collision in [
+            CollisionModel::Trt,
+            CollisionModel::Bgk,
+            CollisionModel::RegularizedBgk,
+        ] {
             let dims = UVec3::new(12, 10, 8);
             let mut cfg = clean_config(0.7);
             cfg.set = set;
@@ -112,8 +125,14 @@ fn gpu_matches_the_cpu_reference_in_a_periodic_box() {
             let field = gpu.read_macroscopic().expect("readback");
             let (drho, du, at) = compare(&cpu, &field, dims);
             println!("{set:?}/{collision:?}: worst drho {drho:e}, worst du {du:e} at {at:?}");
-            assert!(drho < 5e-6, "{set:?}/{collision:?}: density differs by {drho:e}");
-            assert!(du < 5e-6, "{set:?}/{collision:?}: velocity differs by {du:e} at {at:?}");
+            assert!(
+                drho < 5e-6,
+                "{set:?}/{collision:?}: density differs by {drho:e}"
+            );
+            assert!(
+                du < 5e-6,
+                "{set:?}/{collision:?}: velocity differs by {du:e} at {at:?}"
+            );
         }
     }
 }
@@ -260,7 +279,11 @@ fn gpu_matches_the_cpu_reference_with_a_vent_in_its_own_slot() {
     cfg.macroscopic_buffer = true;
     cfg.inlet_velocity = Vec3::new(0.03, 0.0, 0.0);
     cfg.inlet_normal = Vec3::X;
-    cfg.extra_inlets[0] = ad_solver::InletSpec { velocity: n * 0.05, normal: n, local_density: true };
+    cfg.extra_inlets[0] = ad_solver::InletSpec {
+        velocity: n * 0.05,
+        normal: n,
+        local_density: true,
+    };
     cfg.outflow_velocity = 0.05;
     cfg.outlet_normal = Vec3::X;
     cfg.sponge_cells = 4;
@@ -356,7 +379,10 @@ fn gpu_fp16c_packed_fallback_matches_the_rust_codec() {
     let (drho, du, at) = compare(&cpu, &field, dims);
     println!("FP16C packed fallback: worst drho {drho:e}, worst du {du:e} at {at:?}");
     assert!(drho < 2e-5, "packed FP16C density differs by {drho:e}");
-    assert!(du < 2e-5, "packed FP16C velocity differs by {du:e} at {at:?}");
+    assert!(
+        du < 2e-5,
+        "packed FP16C velocity differs by {du:e} at {at:?}"
+    );
 
     // Both layouts hold two bytes a cell; only the addressable element differs.
     // If that ever stops being true the roofline model is billing the wrong
@@ -392,7 +418,10 @@ fn gpu_conserves_mass_in_a_closed_periodic_box() {
     }
     println!("GPU mass drift per cell over 5000 steps: {:e}", series[9]);
     let worst = series.iter().cloned().fold(0.0f64, |a, b| a.max(b.abs()));
-    assert!(worst < 1e-6, "GPU mass drifted {worst:e} per cell; drift series {series:?}");
+    assert!(
+        worst < 1e-6,
+        "GPU mass drifted {worst:e} per cell; drift series {series:?}"
+    );
 }
 
 /// Poiseuille on the device, including the tau-independence property. This is
@@ -432,10 +461,17 @@ fn gpu_poiseuille_wall_is_halfway_independent_of_tau() {
         let spread = (widths.iter().cloned().fold(f32::MIN, f32::max)
             - widths.iter().cloned().fold(f32::MAX, f32::min))
             / N as f32;
-        println!("GPU {model:?}: width spread across tau {:.4}%", spread * 100.0);
+        println!(
+            "GPU {model:?}: width spread across tau {:.4}%",
+            spread * 100.0
+        );
         match model {
             CollisionModel::Trt => {
-                assert!(spread < 1e-3, "GPU TRT width varied by {:.4}%", spread * 100.0);
+                assert!(
+                    spread < 1e-3,
+                    "GPU TRT width varied by {:.4}%",
+                    spread * 100.0
+                );
                 for w in &widths {
                     assert!(
                         (w - N as f32).abs() / (N as f32) < 2e-3,
@@ -443,7 +479,11 @@ fn gpu_poiseuille_wall_is_halfway_independent_of_tau() {
                     );
                 }
             }
-            _ => assert!(spread > 1e-3, "GPU BGK should visibly drift; got {:.4}%", spread * 100.0),
+            _ => assert!(
+                spread > 1e-3,
+                "GPU BGK should visibly drift; got {:.4}%",
+                spread * 100.0
+            ),
         }
     }
 }
@@ -664,14 +704,23 @@ fn inlet_velocity_updates_without_a_rebuild() {
     let after = gpu.read_macroscopic().unwrap()[0][0];
 
     println!("inlet cell u.x: {before:.5} -> {after:.5}");
-    assert!((before - 0.02).abs() < 1e-4, "inlet did not hold its prescribed velocity");
-    assert!((after - 0.06).abs() < 1e-4, "hot update did not take effect: got {after}");
+    assert!(
+        (before - 0.02).abs() < 1e-4,
+        "inlet did not hold its prescribed velocity"
+    );
+    assert!(
+        (after - 0.06).abs() < 1e-4,
+        "hot update did not take effect: got {after}"
+    );
 
     // A change that *does* need a rebuild must say so rather than silently doing
     // nothing.
     let mut other = *gpu.config();
     other.precision = DdfPrecision::Fp16c;
-    assert!(gpu.update(other).is_err(), "changing storage precision should demand a rebuild");
+    assert!(
+        gpu.update(other).is_err(),
+        "changing storage precision should demand a rebuild"
+    );
 }
 
 /// `reset()` must return the solver to its initial state exactly.
@@ -793,9 +842,18 @@ fn the_production_boundary_configuration_is_stable_and_conserves_flux() {
         }
         worst = worst.max((v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).sqrt());
     }
-    println!("open duct at tau={}: peak speed {worst:.4} (inlet 0.05)", cfg.tau0);
-    assert!(worst > 0.07, "peak speed {worst} is too low; the duct never got going");
-    assert!(worst < 0.25, "peak speed {worst} is far above the inlet velocity; this diverged");
+    println!(
+        "open duct at tau={}: peak speed {worst:.4} (inlet 0.05)",
+        cfg.tau0
+    );
+    assert!(
+        worst > 0.07,
+        "peak speed {worst} is too low; the duct never got going"
+    );
+    assert!(
+        worst < 0.25,
+        "peak speed {worst} is far above the inlet velocity; this diverged"
+    );
 
     // 2. Continuity. Integrate the streamwise flux over three planes: just after
     //    the inlet, mid-duct, and just past the duct exit. A leak in the
@@ -822,7 +880,10 @@ fn the_production_boundary_configuration_is_stable_and_conserves_flux() {
         (f_mid - f_in).abs() / f_in < 0.03,
         "streamwise flux mid-duct is {f_mid:.5} against {f_in:.5} at the inlet;          continuity inside a solid-walled duct must hold"
     );
-    assert!(f_out > 0.5 * f_in, "the jet lost most of its flux one cell past the exit");
+    assert!(
+        f_out > 0.5 * f_in,
+        "the jet lost most of its flux one cell past the exit"
+    );
 
     // 3. The outlet holds the reference pressure. With anti-bounce-back off (see
     //    SolverConfig::outlet_anti_bounce_back) the convective term is what does
@@ -836,7 +897,10 @@ fn the_production_boundary_configuration_is_stable_and_conserves_flux() {
         }
     }
     rho_out /= (ny * nz) as f64;
-    println!("open duct: mean outlet density {rho_out:.6} (reference {})", cfg.rho_ref);
+    println!(
+        "open duct: mean outlet density {rho_out:.6} (reference {})",
+        cfg.rho_ref
+    );
     assert!(
         (rho_out - cfg.rho_ref as f64).abs() < 5e-3,
         "outlet density {rho_out} drifted from the reference {}",
@@ -854,10 +918,12 @@ fn the_production_boundary_configuration_is_stable_and_conserves_flux() {
         }
     }
     rho_in /= n_in as f64;
-    println!("open duct: inlet-plane density {rho_in:.6}, drop {:.6}", rho_in - rho_out);
+    println!(
+        "open duct: inlet-plane density {rho_in:.6}, drop {:.6}",
+        rho_in - rho_out
+    );
     assert!(
         rho_in > rho_out,
         "the duct inlet ({rho_in}) is not above the outlet ({rho_out}); there is no pressure drop"
     );
 }
-

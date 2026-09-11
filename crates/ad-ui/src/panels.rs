@@ -38,9 +38,7 @@
 //!   [`crate::format::uncertain`], which is the only renderer that knows how
 //!   many digits an error bar justifies.
 
-use ad_render::{
-    Camera, ColorMap, DerivedField, MeshDisplay, OpacityMode, RangeScale, ViewPreset,
-};
+use ad_render::{Camera, ColorMap, DerivedField, MeshDisplay, OpacityMode, RangeScale, ViewPreset};
 use dear_imgui_rs::{
     Condition, DockLayout, DockLayoutApply, DockNodeFlags, DockSplit, MouseButton, StyleColor,
     TreeNodeFlags, WindowFlags, WindowKey,
@@ -164,7 +162,10 @@ impl Panels {
         Ok(Self {
             keys,
             layout,
-            scratch: Scratch { manual_steps: 16, ..Default::default() },
+            scratch: Scratch {
+                manual_steps: 16,
+                ..Default::default()
+            },
         })
     }
 
@@ -358,7 +359,11 @@ fn toolbar(frame: &UiFrame<'_>, cx: &mut PanelContext<'_>, scratch: &mut Scratch
     ui.same_line();
     let mut imperial = s.units == UnitSystem::Imperial;
     if ui.checkbox("imperial", &mut imperial) {
-        s.units = if imperial { UnitSystem::Imperial } else { UnitSystem::Metric };
+        s.units = if imperial {
+            UnitSystem::Imperial
+        } else {
+            UnitSystem::Metric
+        };
     }
     ui.set_item_tooltip("CFM and inches of water instead of L/s and pascals. Display only.");
 
@@ -404,7 +409,10 @@ fn resolution_control(frame: &UiFrame<'_>, s: &mut UiState) {
     ui.same_line();
     ui.set_next_item_width(95.0);
     let pending = s.resolution.pending_dx_mm;
-    let preview = if ResolutionPanel::PRESETS_MM.iter().any(|p| same(*p, pending)) {
+    let preview = if ResolutionPanel::PRESETS_MM
+        .iter()
+        .any(|p| same(*p, pending))
+    {
         format!("{pending} mm")
     } else {
         "custom".to_string()
@@ -416,7 +424,11 @@ fn resolution_control(frame: &UiFrame<'_>, s: &mut UiState) {
             } else {
                 format!("{preset} mm")
             };
-            if ui.selectable_config(&label).selected(same(preset, pending)).build() {
+            if ui
+                .selectable_config(&label)
+                .selected(same(preset, pending))
+                .build()
+            {
                 s.resolution.pending_dx_mm = preset;
             }
         }
@@ -590,12 +602,42 @@ fn hud(frame: &UiFrame<'_>, cx: &mut PanelContext<'_>) {
     let d = cx.state.deltas;
 
     let chips: [(&str, Reading, Quantity, Option<Delta>); 6] = [
-        ("Q", m.flow_rate, Quantity::flow(units), d.map(|x| x.flow_rate)),
-        ("dp", m.pressure_drop, Quantity::pressure(units), d.map(|x| x.pressure_drop)),
-        ("K", m.loss_coefficient, Quantity::plain(), d.map(|x| x.loss_coefficient)),
-        ("gamma", m.uniformity, Quantity::plain(), d.map(|x| x.uniformity)),
-        ("theta", m.deflection_deg, Quantity::degrees(), d.map(|x| x.deflection_deg)),
-        ("U_max", m.max_speed, Quantity::velocity(units), d.map(|x| x.max_speed)),
+        (
+            "Q",
+            m.flow_rate,
+            Quantity::flow(units),
+            d.map(|x| x.flow_rate),
+        ),
+        (
+            "dp",
+            m.pressure_drop,
+            Quantity::pressure(units),
+            d.map(|x| x.pressure_drop),
+        ),
+        (
+            "K",
+            m.loss_coefficient,
+            Quantity::plain(),
+            d.map(|x| x.loss_coefficient),
+        ),
+        (
+            "gamma",
+            m.uniformity,
+            Quantity::plain(),
+            d.map(|x| x.uniformity),
+        ),
+        (
+            "theta",
+            m.deflection_deg,
+            Quantity::degrees(),
+            d.map(|x| x.deflection_deg),
+        ),
+        (
+            "U_max",
+            m.max_speed,
+            Quantity::velocity(units),
+            d.map(|x| x.max_speed),
+        ),
     ];
 
     for (i, (name, reading, quantity, delta)) in chips.into_iter().enumerate() {
@@ -615,10 +657,7 @@ fn hud(frame: &UiFrame<'_>, cx: &mut PanelContext<'_>) {
                     format!("{:+}", format::short(delta.absolute))
                 };
                 ui.same_line();
-                ui.text_colored(
-                    delta.color(),
-                    format!("{} {rel}", delta.direction.glyph()),
-                );
+                ui.text_colored(delta.color(), format!("{} {rel}", delta.direction.glyph()));
             }
         });
         if ui.is_item_hovered() {
@@ -636,7 +675,11 @@ fn hud(frame: &UiFrame<'_>, cx: &mut PanelContext<'_>) {
                     "\nvs baseline: {} ({:.1} sigma, {})",
                     format::short(delta.absolute),
                     delta.sigma(),
-                    if delta.is_real() { "significant" } else { "inside the noise" },
+                    if delta.is_real() {
+                        "significant"
+                    } else {
+                        "inside the noise"
+                    },
                 ));
             }
             ui.set_tooltip(tip);
@@ -773,7 +816,9 @@ fn layers_panel(frame: &UiFrame<'_>, cx: &mut PanelContext<'_>) {
     let mut move_down: Option<LayerId> = None;
 
     for id in ids {
-        let Some(layer) = cx.state.layers.get(id) else { continue };
+        let Some(layer) = cx.state.layers.get(id) else {
+            continue;
+        };
         let (kind, enabled, reason, name, selected) = (
             layer.kind,
             layer.enabled,
@@ -786,15 +831,21 @@ fn layers_panel(frame: &UiFrame<'_>, cx: &mut PanelContext<'_>) {
         let mut visible = layer.visible;
         // A layer with nothing to draw is greyed rather than hidden: a checkbox
         // that silently does nothing is worse than one you cannot click.
-        let disabled_alpha = if enabled { None } else { Some(ui.push_style_var(
-            dear_imgui_rs::StyleVar::Alpha(0.45),
-        )) };
+        let disabled_alpha = if enabled {
+            None
+        } else {
+            Some(ui.push_style_var(dear_imgui_rs::StyleVar::Alpha(0.45)))
+        };
         if ui.checkbox("##vis", &mut visible) && enabled {
             cx.state.layers.set_visible(id, visible);
         }
         drop(disabled_alpha);
         if !enabled && ui.is_item_hovered() {
-            ui.set_tooltip(if reason.is_empty() { "nothing to draw yet" } else { &reason });
+            ui.set_tooltip(if reason.is_empty() {
+                "nothing to draw yet"
+            } else {
+                &reason
+            });
         }
 
         ui.same_line();
@@ -815,7 +866,10 @@ fn layers_panel(frame: &UiFrame<'_>, cx: &mut PanelContext<'_>) {
         if ui.arrow_button("down", dear_imgui_rs::Direction::Down) {
             move_down = Some(id);
         }
-        if matches!(kind, LayerKind::Slice(_) | LayerKind::Obstruction(_) | LayerKind::Vent(_)) {
+        if matches!(
+            kind,
+            LayerKind::Slice(_) | LayerKind::Obstruction(_) | LayerKind::Vent(_)
+        ) {
             ui.same_line();
             if ui.small_button("x") {
                 remove = Some(id);
@@ -855,9 +909,7 @@ fn layers_panel(frame: &UiFrame<'_>, cx: &mut PanelContext<'_>) {
                     }
                     cx.state.push_action(UiAction::RemoveSlice(i));
                 }
-                LayerKind::Obstruction(i) => {
-                    cx.state.push_action(UiAction::RemoveObstruction(i))
-                }
+                LayerKind::Obstruction(i) => cx.state.push_action(UiAction::RemoveObstruction(i)),
                 // An edit of the vent list; the app rebuilds once it settles.
                 LayerKind::Vent(i) => {
                     if i < cx.state.vents.len() {
@@ -876,7 +928,10 @@ fn layers_panel(frame: &UiFrame<'_>, cx: &mut PanelContext<'_>) {
 /// The OS file picker, for an STL: the one modal the UI allows, and it is the
 /// OS's. See the crate docs.
 fn pick_stl(title: &str) -> Option<std::path::PathBuf> {
-    rfd::FileDialog::new().set_title(title).add_filter("STL", &["stl", "STL"]).pick_file()
+    rfd::FileDialog::new()
+        .set_title(title)
+        .add_filter("STL", &["stl", "STL"])
+        .pick_file()
 }
 
 fn probes_list(frame: &UiFrame<'_>, cx: &mut PanelContext<'_>) {
@@ -892,7 +947,9 @@ fn probes_list(frame: &UiFrame<'_>, cx: &mut PanelContext<'_>) {
     let mut select = None;
     let mut remove = None;
     for id in ids {
-        let Some(p) = cx.state.probes.get(id) else { continue };
+        let Some(p) = cx.state.probes.get(id) else {
+            continue;
+        };
         let _id = ui.push_id(id as i32);
         // Stored on the part; shown where it is in the car.
         let w = cx.state.to_world(p.position_mm);
@@ -954,10 +1011,7 @@ fn properties_panel(frame: &UiFrame<'_>, cx: &mut PanelContext<'_>, scratch: &mu
         cx.transfer.map = ColorMap::ALL[map_ix];
     }
     if !cx.transfer.map.cvd_safe() {
-        ui.text_colored(
-            Health::Watch.color(),
-            "not colourblind-safe",
-        );
+        ui.text_colored(Health::Watch.color(), "not colourblind-safe");
         ui.set_item_tooltip(
             "This map is not distinguishable under deuteranopia. The renderer's accessibility \
              toggle substitutes an equivalent of the same kind.",
@@ -966,7 +1020,11 @@ fn properties_panel(frame: &UiFrame<'_>, cx: &mut PanelContext<'_>, scratch: &mu
 
     let mut log = cx.transfer.scale == RangeScale::Log;
     if ui.checkbox("log scale", &mut log) {
-        cx.transfer.scale = if log { RangeScale::Log } else { RangeScale::Linear };
+        cx.transfer.scale = if log {
+            RangeScale::Log
+        } else {
+            RangeScale::Linear
+        };
         cx.transfer.sanitise();
         cx.state.legend.scale = cx.transfer.scale;
         cx.state.legend.sanitise();
@@ -982,7 +1040,10 @@ fn properties_panel(frame: &UiFrame<'_>, cx: &mut PanelContext<'_>, scratch: &mu
 
     ui.separator_with_text("Opacity");
     let modes = [OpacityMode::Curve, OpacityMode::SoftIso];
-    let mut mode_ix = modes.iter().position(|m| *m == cx.transfer.mode).unwrap_or(0);
+    let mut mode_ix = modes
+        .iter()
+        .position(|m| *m == cx.transfer.mode)
+        .unwrap_or(0);
     ui.set_next_item_width(-1.0);
     if ui.combo("##opacitymode", &mut mode_ix, &modes, |m| {
         std::borrow::Cow::Borrowed(match m {
@@ -1005,7 +1066,12 @@ fn properties_panel(frame: &UiFrame<'_>, cx: &mut PanelContext<'_>, scratch: &mu
             let (lo, hi) = (cx.transfer.range[0], cx.transfer.range[1]);
             let mut iso = cx.transfer.iso;
             let mut changed = ui.slider_f32("level", &mut iso.center, lo, hi);
-            changed |= ui.slider_f32("width", &mut iso.width, (hi - lo).abs() * 1e-3, (hi - lo).abs() * 0.5);
+            changed |= ui.slider_f32(
+                "width",
+                &mut iso.width,
+                (hi - lo).abs() * 1e-3,
+                (hi - lo).abs() * 0.5,
+            );
             changed |= ui.slider_f32("amplitude", &mut iso.amplitude, 0.0, 1.0);
             if changed {
                 cx.transfer.iso = iso;
@@ -1048,7 +1114,11 @@ fn properties_panel(frame: &UiFrame<'_>, cx: &mut PanelContext<'_>, scratch: &mu
     }
     let mut world = cx.state.gizmo_space == GizmoSpace::World;
     if ui.checkbox("world axes", &mut world) {
-        cx.state.gizmo_space = if world { GizmoSpace::World } else { GizmoSpace::Local };
+        cx.state.gizmo_space = if world {
+            GizmoSpace::World
+        } else {
+            GizmoSpace::Local
+        };
     }
     let mut snap_on = cx.state.gizmo_snap_mm.is_some();
     if ui.checkbox("snap", &mut snap_on) {
@@ -1077,14 +1147,20 @@ fn properties_panel(frame: &UiFrame<'_>, cx: &mut PanelContext<'_>, scratch: &mu
 /// settles; its air applies at once.
 fn vent_properties(frame: &UiFrame<'_>, cx: &mut PanelContext<'_>) {
     let ui = frame.ui;
-    let Some(layer) = cx.state.layers.selected() else { return };
-    let LayerKind::Vent(i) = layer.kind else { return };
+    let Some(layer) = cx.state.layers.selected() else {
+        return;
+    };
+    let LayerKind::Vent(i) = layer.kind else {
+        return;
+    };
     let mouth = cx
         .state
         .mouths
         .get(cx.state.params.inlet_mouth)
         .map(|m| cx.state.to_world(m.center_mm));
-    let Some(v) = cx.state.vents.get_mut(i) else { return };
+    let Some(v) = cx.state.vents.get_mut(i) else {
+        return;
+    };
     ui.separator_with_text("Vent");
     ui.text_disabled("car frame; cells rebuild when you stop editing, air applies at once");
 
@@ -1142,12 +1218,18 @@ fn vent_outlines(frame: &UiFrame<'_>, cx: &PanelContext<'_>) {
     let selected = s.layers.selected().map(|l| l.kind);
     let draw = frame.ui.get_background_draw_list();
     for (i, v) in s.vents.iter().enumerate() {
-        let alpha = if selected == Some(LayerKind::Vent(i)) { 1.0 } else { 0.55 };
+        let alpha = if selected == Some(LayerKind::Vent(i)) {
+            1.0
+        } else {
+            0.55
+        };
         let color = [0.35, 0.85, 1.0, alpha];
         let corners = v.corners().map(&project);
         for k in 0..4 {
             if let (Some(a), Some(b)) = (corners[k], corners[(k + 1) % 4]) {
-                draw.add_line(a.to_array(), b.to_array(), color).thickness(2.0).build();
+                draw.add_line(a.to_array(), b.to_array(), color)
+                    .thickness(2.0)
+                    .build();
             }
         }
         let c = v.placement.translation_mm;
@@ -1193,7 +1275,10 @@ fn domain_controls(frame: &UiFrame<'_>, cx: &mut PanelContext<'_>) {
     let s = &mut *cx.state;
     let bits = |v: [f32; 6]| v.map(f32::to_bits);
     let unchanged = bits(s.pending_domain_mm) == bits(s.domain_margins_mm);
-    let estimate = s.resolution.estimate_for(Some(s.pending_domain_mm)).cloned();
+    let estimate = s
+        .resolution
+        .estimate_for(Some(s.pending_domain_mm))
+        .cloned();
     let blocked = estimate.as_ref().is_none_or(|e| e.blocker.is_some());
     {
         let _off = ui.begin_disabled_with_cond(unchanged || blocked);
@@ -1241,12 +1326,18 @@ fn face_roles(s: &UiState) -> [Option<String>; 6] {
         roles[k] = Some(format!("{what} {}", m.name));
     };
     name(s.mouths.get(s.params.inlet_mouth), "behind inlet");
-    name(s.outlet_mouth().and_then(|o| s.mouths.get(o)), "past outlet");
+    name(
+        s.outlet_mouth().and_then(|o| s.mouths.get(o)),
+        "past outlet",
+    );
     roles
 }
 
 /// World point to viewport pixels, or `None` behind the camera.
-fn viewport_projector(camera: &Camera, rect: [f32; 4]) -> impl Fn(glam::Vec3) -> Option<glam::Vec2> {
+fn viewport_projector(
+    camera: &Camera,
+    rect: [f32; 4],
+) -> impl Fn(glam::Vec3) -> Option<glam::Vec2> {
     let vp = camera.projection_unjittered() * camera.view();
     let [x, y, w, h] = rect;
     move |p: glam::Vec3| {
@@ -1259,16 +1350,27 @@ fn viewport_projector(camera: &Camera, rect: [f32; 4]) -> impl Fn(glam::Vec3) ->
 }
 
 /// A line from `a` to `b` with a head at `b`, in viewport pixels.
-fn draw_arrow(draw: &dear_imgui_rs::DrawListMut<'_>, a: glam::Vec2, b: glam::Vec2, color: [f32; 4]) {
+fn draw_arrow(
+    draw: &dear_imgui_rs::DrawListMut<'_>,
+    a: glam::Vec2,
+    b: glam::Vec2,
+    color: [f32; 4],
+) {
     let along = (b - a).normalize_or_zero();
     if along == glam::Vec2::ZERO {
         return; // pointing straight at the camera
     }
     let side = along.perp() * 6.0;
     let head = b - along * 14.0;
-    draw.add_line(a.to_array(), b.to_array(), color).thickness(3.0).build();
-    draw.add_line(b.to_array(), (head + side).to_array(), color).thickness(3.0).build();
-    draw.add_line(b.to_array(), (head - side).to_array(), color).thickness(3.0).build();
+    draw.add_line(a.to_array(), b.to_array(), color)
+        .thickness(3.0)
+        .build();
+    draw.add_line(b.to_array(), (head + side).to_array(), color)
+        .thickness(3.0)
+        .build();
+    draw.add_line(b.to_array(), (head - side).to_array(), color)
+        .thickness(3.0)
+        .build();
 }
 
 /// Numeric placement for the selected obstruction, in the car frame. Same data
@@ -1276,9 +1378,15 @@ fn draw_arrow(draw: &dear_imgui_rs::DrawListMut<'_>, a: glam::Vec2, b: glam::Vec
 /// numbers stop moving.
 fn obstruction_properties(frame: &UiFrame<'_>, cx: &mut PanelContext<'_>) {
     let ui = frame.ui;
-    let Some(layer) = cx.state.layers.selected() else { return };
-    let LayerKind::Obstruction(i) = layer.kind else { return };
-    let Some(p) = cx.state.obstructions.get_mut(i) else { return };
+    let Some(layer) = cx.state.layers.selected() else {
+        return;
+    };
+    let LayerKind::Obstruction(i) = layer.kind else {
+        return;
+    };
+    let Some(p) = cx.state.obstructions.get_mut(i) else {
+        return;
+    };
     ui.separator_with_text("Obstruction");
     ui.text_disabled("car frame; applied when you stop editing");
     let mut origin = p.translation_mm.to_array();
@@ -1382,14 +1490,25 @@ fn install_pose_controls(frame: &UiFrame<'_>, cx: &mut PanelContext<'_>) {
     // against the outlet's.
     let s = &*cx.state;
     if let Some(m) = s.mouths.get(s.params.inlet_mouth) {
-        let d = s.params.inlet_direction(m.normal, crate::pose::lattice_axis(m.normal));
-        ui.text(&format!("air in:  {}", describe_direction(s.install.dir_to_world(d))));
+        let d = s
+            .params
+            .inlet_direction(m.normal, crate::pose::lattice_axis(m.normal));
+        ui.text(&format!(
+            "air in:  {}",
+            describe_direction(s.install.dir_to_world(d))
+        ));
     }
     if let Some(m) = s.outlet_mouth().and_then(|o| s.mouths.get(o)) {
-        ui.text(&format!("air out: {}", describe_direction(s.install.dir_to_world(-m.normal))));
+        ui.text(&format!(
+            "air out: {}",
+            describe_direction(s.install.dir_to_world(-m.normal))
+        ));
     }
     if let Some(d) = s.metrics.jet_direction {
-        ui.text(&format!("jet:     {}", describe_direction(s.install.dir_to_world(d))));
+        ui.text(&format!(
+            "jet:     {}",
+            describe_direction(s.install.dir_to_world(d))
+        ));
         ui.set_item_tooltip("Measured momentum direction of the air leaving the outlet.");
     }
 }
@@ -1431,9 +1550,18 @@ fn inlet_air_controls(frame: &UiFrame<'_>, cx: &mut PanelContext<'_>) {
     if s.params.inlet_tilt_deg == [0.0, 0.0] {
         return;
     }
-    let Some(m) = s.mouths.get(s.params.inlet_mouth) else { return };
-    let d = s.params.inlet_direction(m.normal, crate::pose::lattice_axis(m.normal));
-    let off_normal = d.normalize().dot(m.normal).clamp(-1.0, 1.0).acos().to_degrees();
+    let Some(m) = s.mouths.get(s.params.inlet_mouth) else {
+        return;
+    };
+    let d = s
+        .params
+        .inlet_direction(m.normal, crate::pose::lattice_axis(m.normal));
+    let off_normal = d
+        .normalize()
+        .dot(m.normal)
+        .clamp(-1.0, 1.0)
+        .acos()
+        .to_degrees();
     let speed = s.params.inlet_velocity_ms * d.length();
     ui.text(&format!("{off_normal:.0}° off-normal, |u| {speed:.2} m/s"));
     ui.set_item_tooltip(
@@ -1459,21 +1587,38 @@ fn inlet_arrow(frame: &UiFrame<'_>, cx: &PanelContext<'_>) {
     if s.params.inlet_tilt_deg == [0.0, 0.0] || !s.vents.is_empty() {
         return;
     }
-    let Some(m) = s.mouths.get(s.params.inlet_mouth) else { return };
-    let d = s.params.inlet_direction(m.normal, crate::pose::lattice_axis(m.normal));
+    let Some(m) = s.mouths.get(s.params.inlet_mouth) else {
+        return;
+    };
+    let d = s
+        .params
+        .inlet_direction(m.normal, crate::pose::lattice_axis(m.normal));
     let d = s.install.dir_to_world(d.normalize_or_zero());
     let tip = s.to_world(m.center_mm);
     let tail = tip - d * (2.0 * m.hydraulic_diameter_mm).max(10.0);
     let project = viewport_projector(cx.camera, s.viewport_rect_logical());
-    let (Some(a), Some(b)) = (project(tail), project(tip)) else { return };
-    draw_arrow(&frame.ui.get_background_draw_list(), a, b, [0.35, 0.85, 1.0, 0.95]);
+    let (Some(a), Some(b)) = (project(tail), project(tip)) else {
+        return;
+    };
+    draw_arrow(
+        &frame.ui.get_background_draw_list(),
+        a,
+        b,
+        [0.35, 0.85, 1.0, 0.95],
+    );
 }
 
 fn slice_properties(frame: &UiFrame<'_>, cx: &mut PanelContext<'_>) {
     let ui = frame.ui;
-    let Some(layer) = cx.state.layers.selected() else { return };
-    let LayerKind::Slice(i) = layer.kind else { return };
-    let Some(slice) = cx.state.slices.get_mut(i) else { return };
+    let Some(layer) = cx.state.layers.selected() else {
+        return;
+    };
+    let LayerKind::Slice(i) = layer.kind else {
+        return;
+    };
+    let Some(slice) = cx.state.slices.get_mut(i) else {
+        return;
+    };
     ui.separator_with_text("Slice");
     ui.checkbox("scalar", &mut slice.show_scalar);
     ui.same_line();
@@ -1481,7 +1626,12 @@ fn slice_properties(frame: &UiFrame<'_>, cx: &mut PanelContext<'_>) {
     ui.same_line();
     ui.checkbox("LIC", &mut slice.lic);
     ui.checkbox("clip geometry", &mut slice.clip_geometry);
-    ui.slider_f32("arrow spacing (mm)", &mut slice.vector_spacing_mm, 0.5, 10.0);
+    ui.slider_f32(
+        "arrow spacing (mm)",
+        &mut slice.vector_spacing_mm,
+        0.5,
+        10.0,
+    );
     ui.slider_f32("opacity##slice", &mut slice.opacity, 0.0, 1.0);
     let mut origin = slice.origin_mm.to_array();
     if ui.drag_float3("origin (mm)", &mut origin) {
@@ -1510,7 +1660,10 @@ fn particle_properties(frame: &UiFrame<'_>, cx: &mut PanelContext<'_>) {
     if ui.slider_i32("trail", &mut trail, 0, 64) {
         p.trail = trail as u32;
     }
-    let mut seed_ix = ParticleSeed::ALL.iter().position(|s| *s == p.seed).unwrap_or(0);
+    let mut seed_ix = ParticleSeed::ALL
+        .iter()
+        .position(|s| *s == p.seed)
+        .unwrap_or(0);
     ui.set_next_item_width(-1.0);
     if ui.combo("##seed", &mut seed_ix, &ParticleSeed::ALL, |s| {
         std::borrow::Cow::Borrowed(s.label())
@@ -1691,7 +1844,11 @@ fn legend_panel(frame: &UiFrame<'_>, cx: &mut PanelContext<'_>) {
     let handle_h = 16.0;
     let mut dragged: Option<(Handle, f32)> = None;
     for (handle, at_top) in [(Handle::High, true), (Handle::Low, false)] {
-        let y = if at_top { origin[1] } else { origin[1] + bar_h - handle_h };
+        let y = if at_top {
+            origin[1]
+        } else {
+            origin[1] + bar_h - handle_h
+        };
         ui.set_cursor_screen_pos([origin[0] - 6.0, y]);
         let id = if at_top { "##hi" } else { "##lo" };
         ui.invisible_button(id, [bar_w + 12.0, handle_h]);
@@ -1758,7 +1915,9 @@ fn legend_panel(frame: &UiFrame<'_>, cx: &mut PanelContext<'_>) {
 
 fn plots_panel(frame: &UiFrame<'_>, cx: &mut PanelContext<'_>) {
     let ui = frame.ui;
-    let Some(bar) = ui.tab_bar("##plottabs") else { return };
+    let Some(bar) = ui.tab_bar("##plottabs") else {
+        return;
+    };
     for tab in PlotTab::ALL {
         if let Some(item) = ui.tab_item(tab.label()) {
             cx.state.plot_tab = tab;
@@ -1777,7 +1936,11 @@ fn plots_panel(frame: &UiFrame<'_>, cx: &mut PanelContext<'_>) {
 }
 
 fn x_label(cx: &PanelContext<'_>) -> &'static str {
-    if cx.state.metrics.convergence.x_is_steps { "step" } else { "time (s)" }
+    if cx.state.metrics.convergence.x_is_steps {
+        "step"
+    } else {
+        "time (s)"
+    }
 }
 
 fn plot_trace(plot: &dear_implot::PlotUi<'_>, trace: &Trace) {
@@ -1809,7 +1972,10 @@ fn flow_plot(frame: &UiFrame<'_>, cx: &mut PanelContext<'_>) {
         format::uncertain(conv.mass_imbalance, Quantity::plain())
     ));
     ui.same_line();
-    ui.text_colored(conv.mass_imbalance.state.color(), conv.mass_imbalance.state.label());
+    ui.text_colored(
+        conv.mass_imbalance.state.color(),
+        conv.mass_imbalance.state.label(),
+    );
     ui.set_item_tooltip(
         "|mdot_in - mdot_out| / mdot_in, on mass flux rather than volume flow: the air \
          expands across the duct, so the volumetric rates legitimately differ. The \
@@ -1834,7 +2000,12 @@ fn pressure_plot(frame: &UiFrame<'_>, cx: &mut PanelContext<'_>) {
     let plot = &frame.plot;
     let conv = &cx.state.metrics.convergence;
     if let Some(token) = plot.begin_plot_with_size("##dp", [-1.0, -1.0]) {
-        plot.setup_axes(Some(x_label(cx)), Some("dp (Pa)"), AxisFlags::AUTO_FIT, AxisFlags::AUTO_FIT);
+        plot.setup_axes(
+            Some(x_label(cx)),
+            Some("dp (Pa)"),
+            AxisFlags::AUTO_FIT,
+            AxisFlags::AUTO_FIT,
+        );
         plot.setup_finish();
         plot_trace(plot, &conv.pressure_drop);
         for t in &conv.residuals {
@@ -1852,7 +2023,12 @@ fn probe_plot(frame: &UiFrame<'_>, cx: &mut PanelContext<'_>) {
         return;
     }
     if let Some(token) = plot.begin_plot_with_size("##probes", [-1.0, -1.0]) {
-        plot.setup_axes(Some("time (s)"), Some("p (Pa)"), AxisFlags::AUTO_FIT, AxisFlags::AUTO_FIT);
+        plot.setup_axes(
+            Some("time (s)"),
+            Some("p (Pa)"),
+            AxisFlags::AUTO_FIT,
+            AxisFlags::AUTO_FIT,
+        );
         plot.setup_finish();
         for p in cx.state.probes.items() {
             if p.visible {
@@ -1880,7 +2056,10 @@ fn residence_plot(frame: &UiFrame<'_>, cx: &mut PanelContext<'_>) {
     );
     if rtd.ideal_residence_s.is_finite() && rtd.ideal_residence_s > 0.0 {
         ui.same_line();
-        ui.text_disabled(format!("(ideal {} s)", format::short(rtd.ideal_residence_s)));
+        ui.text_disabled(format!(
+            "(ideal {} s)",
+            format::short(rtd.ideal_residence_s)
+        ));
     }
 
     if !rtd.histogram.is_valid() {
@@ -1888,7 +2067,12 @@ fn residence_plot(frame: &UiFrame<'_>, cx: &mut PanelContext<'_>) {
         return;
     }
     if let Some(token) = plot.begin_plot_with_size("##rtd", [-1.0, -1.0]) {
-        plot.setup_axes(Some("t (s)"), Some("E(t)"), AxisFlags::AUTO_FIT, AxisFlags::AUTO_FIT);
+        plot.setup_axes(
+            Some("t (s)"),
+            Some("E(t)"),
+            AxisFlags::AUTO_FIT,
+            AxisFlags::AUTO_FIT,
+        );
         plot.setup_finish();
         let centers = rtd.histogram.centers();
         PositionalBarPlot::new("E(t)", &centers, &rtd.histogram.counts)
@@ -1912,7 +2096,11 @@ fn histogram_plot(frame: &UiFrame<'_>, cx: &mut PanelContext<'_>) {
     ));
     if let Some(token) = plot.begin_plot_with_size("##hist", [-1.0, -1.0]) {
         plot.setup_axes(
-            Some(if h.unit.is_empty() { "value" } else { h.unit.as_str() }),
+            Some(if h.unit.is_empty() {
+                "value"
+            } else {
+                h.unit.as_str()
+            }),
             Some("area fraction"),
             AxisFlags::AUTO_FIT,
             AxisFlags::AUTO_FIT,
@@ -1950,7 +2138,11 @@ fn spectrum_plot(frame: &UiFrame<'_>, cx: &mut PanelContext<'_>) {
         if s.nyquist_hz.is_finite() && s.nyquist_hz > 0.0 {
             let x = [s.nyquist_hz, s.nyquist_hz];
             let lo = s.magnitude.iter().cloned().fold(f64::INFINITY, f64::min);
-            let hi = s.magnitude.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+            let hi = s
+                .magnitude
+                .iter()
+                .cloned()
+                .fold(f64::NEG_INFINITY, f64::max);
             let y = [lo, hi];
             ScatterPlot::new("Nyquist", &x, &y).plot(plot);
         }
@@ -2041,7 +2233,9 @@ fn gizmo(frame: &UiFrame<'_>, cx: &mut PanelContext<'_>) {
         cx.state.gizmo_active = false;
         return;
     };
-    let Some(layer) = cx.state.layers.get(id) else { return };
+    let Some(layer) = cx.state.layers.get(id) else {
+        return;
+    };
     let kind = layer.kind;
 
     let pivot = cx.state.install_pivot_mm;
@@ -2058,7 +2252,8 @@ fn gizmo(frame: &UiFrame<'_>, cx: &mut PanelContext<'_>) {
         // Move and turn set the install pose (the picture); the scale handles
         // scale the part itself, which is re-voxelised once the drag settles.
         LayerKind::Duct => {
-            pose.gizmo_matrix(pivot) * glam::Mat4::from_scale(glam::Vec3::splat(cx.state.duct.scale))
+            pose.gizmo_matrix(pivot)
+                * glam::Mat4::from_scale(glam::Vec3::splat(cx.state.duct.scale))
         }
         LayerKind::Vent(i) => match cx.state.vents.get(i) {
             Some(v) => v.placement.matrix(),
@@ -2096,8 +2291,12 @@ fn gizmo(frame: &UiFrame<'_>, cx: &mut PanelContext<'_>) {
         GizmoSpace::World => dear_imguizmo::Mode::World,
         GizmoSpace::Local => dear_imguizmo::Mode::Local,
     };
-    let snap = snap_for(cx.state.gizmo_mode, cx.state.gizmo_snap_mm, cx.state.gizmo_snap_deg)
-        .map(|s| [s, s, s]);
+    let snap = snap_for(
+        cx.state.gizmo_mode,
+        cx.state.gizmo_snap_mm,
+        cx.state.gizmo_snap_deg,
+    )
+    .map(|s| [s, s, s]);
 
     let used = g.manipulate(
         &view,
@@ -2123,7 +2322,10 @@ fn gizmo(frame: &UiFrame<'_>, cx: &mut PanelContext<'_>) {
             }
             LayerKind::Vent(i) => {
                 if let Some(v) = cx.state.vents.get_mut(i) {
-                    v.placement = Placement { scale: 1.0, ..Placement::from_matrix(m) };
+                    v.placement = Placement {
+                        scale: 1.0,
+                        ..Placement::from_matrix(m)
+                    };
                 }
             }
             LayerKind::Slice(i) => {
@@ -2212,11 +2414,25 @@ mod tests {
 
         let mut seen = Vec::new();
         collect(&panels.layout, &mut seen);
-        for want in ["toolbar", "layers", "properties", "legend", "plots", "diagnostics"] {
-            assert!(seen.iter().any(|s| s == want), "{want} is not in the layout");
+        for want in [
+            "toolbar",
+            "layers",
+            "properties",
+            "legend",
+            "plots",
+            "diagnostics",
+        ] {
+            assert!(
+                seen.iter().any(|s| s == want),
+                "{want} is not in the layout"
+            );
         }
         // Exactly one empty leaf: the central node the 3D view shows through.
-        assert_eq!(empty_leaves(&panels.layout), 1, "the viewport hole is missing or duplicated");
+        assert_eq!(
+            empty_leaves(&panels.layout),
+            1,
+            "the viewport hole is missing or duplicated"
+        );
     }
 
     fn collect(layout: &DockLayout, out: &mut Vec<String>) {

@@ -297,7 +297,10 @@ impl MetricsConfig {
     /// perfectly good average the moment the flood fill finished.
     pub fn parameter_hash(&self) -> u64 {
         let patch = |h: ParameterHash, p: &FlowPatch| {
-            h.vec3(p.center_mm).vec3(p.normal).vec3(p.half_u).vec3(p.half_v)
+            h.vec3(p.center_mm)
+                .vec3(p.normal)
+                .vec3(p.half_u)
+                .vec3(p.half_v)
         };
         let mut h = ParameterHash::new()
             .u64(self.grid.dims.x as u64)
@@ -521,7 +524,9 @@ impl DuctMetrics {
     ) -> Result<bool> {
         let patches = self.cfg.patches();
         let grid = self.cfg.grid;
-        let Some(g) = &mut self.gpu else { return Ok(false) };
+        let Some(g) = &mut self.gpu else {
+            return Ok(false);
+        };
         let a = g.planes.record(
             queue,
             encoder,
@@ -569,7 +574,11 @@ impl DuctMetrics {
                 .find(|v| v.step == f.step)
                 .or_else(|| volume_frames.last())
                 .map(|v| VolumeReading::from_accums(&v.data[0], &v.data[1], self.cfg.grid, &lu));
-            self.observe(Snapshot { step: f.step, planes: readings, volume });
+            self.observe(Snapshot {
+                step: f.step,
+                planes: readings,
+                volume,
+            });
             folded += 1;
         }
         // A volume frame with no plane partner still updates the peak velocity
@@ -596,7 +605,10 @@ impl DuctMetrics {
             // Nothing here is defined without both an inlet and an outlet, and
             // silently folding half a frame would move the averages by an
             // amount nobody could later account for.
-            log::debug!("metrics: ignoring a snapshot with {} planes", snap.planes.len());
+            log::debug!(
+                "metrics: ignoring a snapshot with {} planes",
+                snap.planes.len()
+            );
             return;
         }
         self.monitor.set_parameters(self.cfg.parameter_hash());
@@ -608,8 +620,11 @@ impl DuctMetrics {
 
         // Every inlet mouth feeds the part, so the flow in is the sum. The
         // pressures below stay the primary inlet's.
-        let extra: Vec<&PlaneReading> =
-            self.cfg.extra_inlet_slots().filter_map(|i| snap.planes.get(i)).collect();
+        let extra: Vec<&PlaneReading> = self
+            .cfg
+            .extra_inlet_slots()
+            .filter_map(|i| snap.planes.get(i))
+            .collect();
         let q_in = inlet.flow_rate_m3s + extra.iter().map(|p| p.flow_rate_m3s).sum::<f64>();
         let q_out = outlet.flow_rate_m3s;
         self.monitor.observe(series::Q_IN, q_in);
@@ -625,8 +640,13 @@ impl DuctMetrics {
         // question. Only the mass one gates: `rho u` is what the continuity
         // equation conserves, and `u` alone differs between the planes by the
         // compressibility of the solver. See the module docs.
-        let ratio =
-            |a: f64, b: f64| if a.abs() > 1e-30 { Some((a - b).abs() / a.abs()) } else { None };
+        let ratio = |a: f64, b: f64| {
+            if a.abs() > 1e-30 {
+                Some((a - b).abs() / a.abs())
+            } else {
+                None
+            }
+        };
         if let Some(imbalance) = ratio(mdot_in, mdot_out).filter(|v| v.is_finite()) {
             self.monitor.observe(series::IMBALANCE, imbalance);
             self.monitor.set_mass_imbalance(imbalance);
@@ -642,7 +662,8 @@ impl DuctMetrics {
             (inlet.mean_density_kgm3(), outlet.mean_density_kgm3())
         {
             if rho_out.abs() > 1e-30 {
-                self.monitor.observe(series::EXPANSION, rho_in / rho_out - 1.0);
+                self.monitor
+                    .observe(series::EXPANSION, rho_in / rho_out - 1.0);
             }
         }
 
@@ -669,9 +690,12 @@ impl DuctMetrics {
         self.monitor.observe(series::CV, outlet.cv);
         self.monitor.observe(series::P05, outlet.p05_ms);
         self.monitor.observe(series::P95, outlet.p95_ms);
-        self.monitor.observe(series::BACKFLOW, outlet.backflow_fraction);
-        self.monitor.observe(series::DEFLECTION, outlet.deflection_deg);
-        self.monitor.observe(series::CONE, outlet.cone_half_angle_deg);
+        self.monitor
+            .observe(series::BACKFLOW, outlet.backflow_fraction);
+        self.monitor
+            .observe(series::DEFLECTION, outlet.deflection_deg);
+        self.monitor
+            .observe(series::CONE, outlet.cone_half_angle_deg);
         self.monitor.observe(
             series::THROW,
             throw_distance_m(
@@ -699,7 +723,8 @@ impl DuctMetrics {
 
         self.last_step = snap.step;
         self.frames += 1;
-        self.monitor.set_flow_throughs(self.flow_throughs_at(snap.step));
+        self.monitor
+            .set_flow_throughs(self.flow_throughs_at(snap.step));
         self.latest = Some(snap);
     }
 
@@ -762,7 +787,10 @@ impl DuctMetrics {
 
     /// Flow-throughs elapsed since the window opened.
     fn flow_throughs_at(&self, step: u64) -> f64 {
-        let per = self.cfg.units.steps_per_flow_through(self.cfg.duct_length_mm);
+        let per = self
+            .cfg
+            .units
+            .steps_per_flow_through(self.cfg.duct_length_mm);
         if per > 0.0 && per.is_finite() {
             step.saturating_sub(self.window_origin_step) as f64 / per
         } else {
@@ -790,7 +818,10 @@ impl DuctMetrics {
         let inlet_last = last.map(|s| s.inlet().clone());
         let outlet_last = last.map(|s| s.outlet().clone());
 
-        let d_h = inlet_last.as_ref().map(|r| r.hydraulic_diameter_mm).unwrap_or(0.0);
+        let d_h = inlet_last
+            .as_ref()
+            .map(|r| r.hydraulic_diameter_mm)
+            .unwrap_or(0.0);
 
         MetricsReport {
             step: self.last_step,
@@ -837,7 +868,10 @@ impl DuctMetrics {
                 p05_ms: self.est(series::P05),
                 p95_ms: self.est(series::P95),
                 backflow_fraction: self.est(series::BACKFLOW),
-                histogram: outlet_last.as_ref().map(|r| r.histogram.clone()).unwrap_or_default(),
+                histogram: outlet_last
+                    .as_ref()
+                    .map(|r| r.histogram.clone())
+                    .unwrap_or_default(),
                 histogram_range_ms: outlet_last
                     .as_ref()
                     .map(|r| (r.hist_min_ms, r.hist_max_ms))
@@ -890,7 +924,10 @@ impl DuctMetrics {
         // domain, what was passed is the domain.
         if let (Some(v), Some(domain)) = (
             self.cfg.passage_volume_mm3,
-            self.latest.as_ref().and_then(|s| s.volume).map(|v| v.fluid_volume_mm3),
+            self.latest
+                .as_ref()
+                .and_then(|s| s.volume)
+                .map(|v| v.fluid_volume_mm3),
         ) {
             if domain > 0.0 && v > 0.1 * domain {
                 w.push(format!(
@@ -1125,11 +1162,15 @@ pub struct MetricsReport {
 impl MetricsReport {
     /// The contract's reduced record for the inlet plane, if one has arrived.
     pub fn inlet_sample(&self) -> Option<MetricSample> {
-        self.inlet.as_ref().map(|r| r.metric_sample(self.step as u32))
+        self.inlet
+            .as_ref()
+            .map(|r| r.metric_sample(self.step as u32))
     }
 
     pub fn outlet_sample(&self) -> Option<MetricSample> {
-        self.outlet.as_ref().map(|r| r.metric_sample(self.step as u32))
+        self.outlet
+            .as_ref()
+            .map(|r| r.metric_sample(self.step as u32))
     }
 
     /// Is the mass balance inside the 1% gate?
@@ -1163,7 +1204,11 @@ impl MetricsReport {
             ("flow in", self.flow_in.litres_per_second(), "L/s"),
             ("flow out", self.flow_out.litres_per_second(), "L/s"),
             ("mass flow in", scale(self.mass_flow_in_kgs, 1000.0), "g/s"),
-            ("mass flow out", scale(self.mass_flow_out_kgs, 1000.0), "g/s"),
+            (
+                "mass flow out",
+                scale(self.mass_flow_out_kgs, 1000.0),
+                "g/s",
+            ),
             ("mass imbalance", self.mass_imbalance, "-"),
             ("volumetric imbalance", self.volumetric_imbalance, "-"),
             ("volumetric expansion", self.volumetric_expansion, "-"),
@@ -1203,7 +1248,11 @@ impl MetricsReport {
             self.flow_in.cfm(),
             self.flow_out.litres_per_second(),
             self.mass_imbalance.mean * 100.0,
-            if self.mass_balance_ok { "ok" } else { "BROKEN: nothing below is trustworthy" }
+            if self.mass_balance_ok {
+                "ok"
+            } else {
+                "BROKEN: nothing below is trustworthy"
+            }
         ));
         // Only when the two disagree by enough to change a decision. On an
         // incompressible-looking run this line would be noise; on the test part
@@ -1280,15 +1329,21 @@ impl MetricsReport {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ad_gpu::types::{flags, Bbox};
     use crate::field::{field_layout, FieldRefs, FieldTextures};
+    use ad_gpu::types::{flags, Bbox};
 
     fn units() -> LatticeUnits {
         LatticeUnits::for_air(1.0, 2.0, 0.05)
     }
 
     fn grid() -> Grid {
-        Grid::covering(Bbox { min: Vec3::ZERO, max: Vec3::splat(48.0) }, 1.0)
+        Grid::covering(
+            Bbox {
+                min: Vec3::ZERO,
+                max: Vec3::splat(48.0),
+            },
+            1.0,
+        )
     }
 
     fn patches() -> (FlowPatch, FlowPatch) {
@@ -1299,7 +1354,10 @@ mod tests {
             half_u: Vec3::Y * 8.0,
             half_v: Vec3::Z * 8.0,
         };
-        let outlet = FlowPatch { center_mm: Vec3::new(36.0, 24.0, 24.0), ..inlet };
+        let outlet = FlowPatch {
+            center_mm: Vec3::new(36.0, 24.0, 24.0),
+            ..inlet
+        };
         (inlet, outlet)
     }
 
@@ -1409,7 +1467,14 @@ mod tests {
 
     #[test]
     fn flow_conversions_carry_the_error_bar_with_the_mean() {
-        let e = Estimate { mean: 0.00635, sem: 0.00004, std_dev: 0.0004, n: 100, n_eff: 40.0, tau_int: 1.25 };
+        let e = Estimate {
+            mean: 0.00635,
+            sem: 0.00004,
+            std_dev: 0.0004,
+            n: 100,
+            n_eff: 40.0,
+            tau_int: 1.25,
+        };
         let f = Flow(e);
         assert!((f.litres_per_second().mean - 6.35).abs() < 1e-9);
         assert!((f.cfm().mean - 13.4549).abs() < 1e-3);
@@ -1448,16 +1513,17 @@ mod tests {
         for step in 0..600u64 {
             let snap = Snapshot {
                 step,
-                planes: vec![
-                    reading(q, u_in, 20.0, 18.0),
-                    reading(q, u_out, 0.0, -8.0),
-                ],
+                planes: vec![reading(q, u_in, 20.0, 18.0), reading(q, u_out, 0.0, -8.0)],
                 volume: None,
             };
             m.observe(snap);
         }
         let r = m.report();
-        assert!(r.mass_imbalance.mean.abs() < 1e-12, "{}", r.mass_imbalance.mean);
+        assert!(
+            r.mass_imbalance.mean.abs() < 1e-12,
+            "{}",
+            r.mass_imbalance.mean
+        );
         assert!(r.mass_balance_ok);
         assert!((r.total_pressure_drop_pa.mean - 20.0).abs() < 1e-9);
         assert!((r.static_pressure_drop_pa.mean - 26.0).abs() < 1e-9);
@@ -1489,7 +1555,10 @@ mod tests {
         for step in 0..200u64 {
             m.observe(Snapshot {
                 step,
-                planes: vec![reading(0.00635, 2.0, 20.0, 18.0), reading(0.00635, 3.71, 0.0, -8.0)],
+                planes: vec![
+                    reading(0.00635, 2.0, 20.0, 18.0),
+                    reading(0.00635, 3.71, 0.0, -8.0),
+                ],
                 volume: None,
             });
         }
@@ -1518,9 +1587,18 @@ mod tests {
         let r = m.report();
         assert!(r.wall.measured());
         assert!((r.wall.mean_y_plus.mean - 3.0).abs() < 1e-9);
-        assert!(r.wall.max_shear_pa.sem == 0.0, "a constant peak has no scatter");
-        assert!(r.wall.mean_shear_pa.sem > 0.0, "a jittering mean must show one");
-        assert!(r.wall.resolves_viscous_sublayer(), "y+ ~ 6 is inside the sublayer");
+        assert!(
+            r.wall.max_shear_pa.sem == 0.0,
+            "a constant peak has no scatter"
+        );
+        assert!(
+            r.wall.mean_shear_pa.sem > 0.0,
+            "a jittering mean must show one"
+        );
+        assert!(
+            r.wall.resolves_viscous_sublayer(),
+            "y+ ~ 6 is inside the sublayer"
+        );
         assert!(r.summary().contains("viscous sublayer resolved"));
         let names: Vec<&str> = r.scalars().iter().map(|(n, _, _)| *n).collect();
         assert!(names.contains(&"peak y+") && names.contains(&"mean wall shear"));
@@ -1582,8 +1660,15 @@ mod tests {
         let r = m.report();
 
         // The gate sees conserved mass and passes.
-        assert!(r.mass_imbalance.mean.abs() < 1e-12, "mass imbalance {}", r.mass_imbalance.mean);
-        assert!(r.mass_balance_ok, "a mass-conserving duct must pass the gate");
+        assert!(
+            r.mass_imbalance.mean.abs() < 1e-12,
+            "mass imbalance {}",
+            r.mass_imbalance.mean
+        );
+        assert!(
+            r.mass_balance_ok,
+            "a mass-conserving duct must pass the gate"
+        );
         assert!(r.trustworthy());
 
         // The volumetric imbalance is emphatically *not* zero, and is still
@@ -1593,8 +1678,14 @@ mod tests {
             "volumetric imbalance {}",
             r.volumetric_imbalance.mean
         );
-        assert!(r.volumetric_imbalance.mean > 0.05, "the two must not have been conflated");
-        assert!(r.flow_out.m3s().mean > r.flow_in.m3s().mean, "the air expanded");
+        assert!(
+            r.volumetric_imbalance.mean > 0.05,
+            "the two must not have been conflated"
+        );
+        assert!(
+            r.flow_out.m3s().mean > r.flow_in.m3s().mean,
+            "the air expanded"
+        );
 
         // ...and the difference between them is accounted for, not left hanging.
         assert!((r.volumetric_expansion.mean - want_expansion).abs() < 1e-9);
@@ -1604,7 +1695,11 @@ mod tests {
             r.unexplained_volumetric_imbalance()
         );
         assert!(r.compressibility_is_material());
-        assert!(r.summary().contains("volumetric imbalance"), "{}", r.summary());
+        assert!(
+            r.summary().contains("volumetric imbalance"),
+            "{}",
+            r.summary()
+        );
 
         // The mass flows themselves survive to the report, both equal to what
         // was fed in.
@@ -1625,8 +1720,15 @@ mod tests {
             });
         }
         let r = leaky.report();
-        assert!((r.mass_imbalance.mean - 0.05).abs() < 1e-9, "{}", r.mass_imbalance.mean);
-        assert!(!r.mass_balance_ok, "5% of the mass went missing and nothing noticed");
+        assert!(
+            (r.mass_imbalance.mean - 0.05).abs() < 1e-9,
+            "{}",
+            r.mass_imbalance.mean
+        );
+        assert!(
+            !r.mass_balance_ok,
+            "5% of the mass went missing and nothing noticed"
+        );
     }
 
     /// A reset mid-run must re-arm the transient gate.
@@ -1646,21 +1748,38 @@ mod tests {
         // Ten flow-throughs of a perfectly steady duct: well past the gate.
         let frame = || Snapshot {
             step: 0,
-            planes: vec![reading(0.00635, 2.0, 20.0, 18.0), reading(0.00635, 3.71, 0.0, -8.0)],
+            planes: vec![
+                reading(0.00635, 2.0, 20.0, 18.0),
+                reading(0.00635, 3.71, 0.0, -8.0),
+            ],
             volume: None,
         };
         let end = (per * 10.0) as u64;
         for i in 0..200u64 {
-            m.observe(Snapshot { step: i * end / 200, ..frame() });
+            m.observe(Snapshot {
+                step: i * end / 200,
+                ..frame()
+            });
         }
-        assert!(m.report().flow_throughs > discard, "{}", m.report().flow_throughs);
-        assert_ne!(m.report().health, Health::Transient, "the run really was past the transient");
+        assert!(
+            m.report().flow_throughs > discard,
+            "{}",
+            m.report().flow_throughs
+        );
+        assert_ne!(
+            m.report().health,
+            Health::Transient,
+            "the run really was past the transient"
+        );
 
         // The user drags the inlet slider. The application clears the averages,
         // and the solver keeps counting from where it was.
         m.monitor_mut().reset();
         for i in 0..40u64 {
-            m.observe(Snapshot { step: end + i, ..frame() });
+            m.observe(Snapshot {
+                step: end + i,
+                ..frame()
+            });
         }
 
         let r = m.report();
@@ -1703,7 +1822,10 @@ mod tests {
         });
 
         let want = tau_ideal_s(PASSAGE_MM3, q);
-        assert!((want - 0.0202).abs() < 1e-3, "20 ms through a 128 cm^3 passage: {want}");
+        assert!(
+            (want - 0.0202).abs() < 1e-3,
+            "20 ms through a 128 cm^3 passage: {want}"
+        );
         assert!(
             (m.rtd().tau_ideal_s() - want).abs() / want < 1e-12,
             "tau_ideal = {} s, passage V/Q = {want} s (domain V/Q would be {} s)",
@@ -1716,7 +1838,10 @@ mod tests {
         for _ in 0..100 {
             m.rtd_mut().record(crate::rtd::AgeSample::new(want, 1.0));
         }
-        let dead = m.rtd().dead_volume_fraction().expect("a known passage gives a known tau");
+        let dead = m
+            .rtd()
+            .dead_volume_fraction()
+            .expect("a known passage gives a known tau");
         assert!(dead.abs() < 1e-9, "dead volume {dead}");
 
         // Handed the domain volume by mistake, the report says so rather than
@@ -1730,7 +1855,10 @@ mod tests {
             volume: Some(domain_volume(DOMAIN_MM3)),
         });
         assert!(
-            m.report().warnings.iter().any(|w| w.contains("looks like the domain")),
+            m.report()
+                .warnings
+                .iter()
+                .any(|w| w.contains("looks like the domain")),
             "{:?}",
             m.report().warnings
         );
@@ -1757,7 +1885,10 @@ mod tests {
         for step in 0..500u64 {
             m.observe(Snapshot {
                 step,
-                planes: vec![reading(0.004, 2.0, 10.0, 9.0), reading(0.004, 3.7, 0.0, -4.0)],
+                planes: vec![
+                    reading(0.004, 2.0, 10.0, 9.0),
+                    reading(0.004, 3.7, 0.0, -4.0),
+                ],
                 volume: None,
             });
         }
@@ -1769,7 +1900,10 @@ mod tests {
         for step in 500..1000u64 {
             m.observe(Snapshot {
                 step,
-                planes: vec![reading(0.010, 5.0, 60.0, 55.0), reading(0.010, 9.3, 0.0, -20.0)],
+                planes: vec![
+                    reading(0.010, 5.0, 60.0, 55.0),
+                    reading(0.010, 9.3, 0.0, -20.0),
+                ],
                 volume: None,
             });
         }
@@ -1809,8 +1943,15 @@ mod tests {
             });
         }
         let r = m.report();
-        assert!((r.total_pressure_drop_pa.mean - 20.0).abs() < 0.1, "{}", r.total_pressure_drop_pa);
-        assert!(r.total_pressure_drop_pa.sem > 0.0, "a fluctuating signal must have an error bar");
+        assert!(
+            (r.total_pressure_drop_pa.mean - 20.0).abs() < 0.1,
+            "{}",
+            r.total_pressure_drop_pa
+        );
+        assert!(
+            r.total_pressure_drop_pa.sem > 0.0,
+            "a fluctuating signal must have an error bar"
+        );
         // Correlated samples: fewer effective ones than raw ones.
         assert!(
             r.total_pressure_drop_pa.n_eff < r.total_pressure_drop_pa.n as f64 * 0.5,
@@ -1834,14 +1975,20 @@ mod tests {
         let cfg = config();
         let tex = FieldTextures::new_exact(&gpu.device, g);
         let u_lb = 0.05f32;
-        tex.fill(&gpu.queue, |_, _| (Vec3::X * u_lb, 1.0, flags::FLUID)).unwrap();
+        tex.fill(&gpu.queue, |_, _| (Vec3::X * u_lb, 1.0, flags::FLUID))
+            .unwrap();
 
         let layout = field_layout(&gpu.device);
         let (vv, dv) = (tex.velocity_view(), tex.density_view());
         let group = crate::field::field_bind_group(
             &gpu.device,
             &layout,
-            &FieldRefs { grid: g, velocity: &vv, density: &dv, flags: tex.flags_buffer() },
+            &FieldRefs {
+                grid: g,
+                velocity: &vv,
+                density: &dv,
+                flags: tex.flags_buffer(),
+            },
         );
         let mut m = DuctMetrics::with_samples(&gpu.device, &layout, cfg, 256).unwrap();
 
@@ -1884,7 +2031,10 @@ mod tests {
         // Uniform flow: the profile is perfect and points along the normal.
         assert!((r.uniformity.gamma.mean - 1.0).abs() < 1e-3);
         assert!(r.jet.deflection_deg.mean < 0.1);
-        assert!(r.peak_speed_ms.mean > 0.0, "the volume pass produced nothing");
+        assert!(
+            r.peak_speed_ms.mean > 0.0,
+            "the volume pass produced nothing"
+        );
         assert_eq!(r.reverse_volume_fraction.mean, 0.0);
         // ...and the contract's reduced record comes out of the same reading.
         let s = r.outlet_sample().expect("an outlet sample should exist");

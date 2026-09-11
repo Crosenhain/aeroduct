@@ -96,7 +96,10 @@ mod tests {
         write_rgba(&path, 4, 4, &pixels).unwrap();
 
         let bytes = std::fs::read(&path).unwrap();
-        assert_eq!(&bytes[..8], &[0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A]);
+        assert_eq!(
+            &bytes[..8],
+            &[0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A]
+        );
         // Walk the chunks and verify every CRC.
         let mut i = 8usize;
         let mut kinds = Vec::new();
@@ -104,12 +107,15 @@ mod tests {
             let len = u32::from_be_bytes(bytes[i..i + 4].try_into().unwrap()) as usize;
             let kind = &bytes[i + 4..i + 8];
             let data = &bytes[i + 8..i + 8 + len];
-            let want = u32::from_be_bytes(
-                bytes[i + 8 + len..i + 12 + len].try_into().unwrap(),
-            );
+            let want = u32::from_be_bytes(bytes[i + 8 + len..i + 12 + len].try_into().unwrap());
             let mut input = kind.to_vec();
             input.extend_from_slice(data);
-            assert_eq!(crc32(&input), want, "bad CRC on {:?}", std::str::from_utf8(kind));
+            assert_eq!(
+                crc32(&input),
+                want,
+                "bad CRC on {:?}",
+                std::str::from_utf8(kind)
+            );
             kinds.push(String::from_utf8_lossy(kind).to_string());
             i += 12 + len;
         }

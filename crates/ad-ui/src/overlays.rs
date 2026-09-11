@@ -36,8 +36,12 @@ impl GizmoMode {
             GizmoMode::Off => "off",
         }
     }
-    pub const ALL: [GizmoMode; 4] =
-        [GizmoMode::Translate, GizmoMode::Rotate, GizmoMode::Scale, GizmoMode::Off];
+    pub const ALL: [GizmoMode; 4] = [
+        GizmoMode::Translate,
+        GizmoMode::Rotate,
+        GizmoMode::Scale,
+        GizmoMode::Off,
+    ];
 }
 
 /// Local versus world axes for the gizmo.
@@ -87,7 +91,11 @@ pub struct Placement {
 
 impl Default for Placement {
     fn default() -> Self {
-        Self { translation_mm: Vec3::ZERO, rotation: Quat::IDENTITY, scale: 1.0 }
+        Self {
+            translation_mm: Vec3::ZERO,
+            rotation: Quat::IDENTITY,
+            scale: 1.0,
+        }
     }
 }
 
@@ -112,7 +120,11 @@ impl Placement {
     pub fn from_matrix(m: Mat4) -> Self {
         let (scale, rotation, translation) = m.to_scale_rotation_translation();
         let s = ((scale.x.abs() + scale.y.abs() + scale.z.abs()) / 3.0).max(1e-4);
-        Self { translation_mm: translation, rotation, scale: s }
+        Self {
+            translation_mm: translation,
+            rotation,
+            scale: s,
+        }
     }
 
     /// Convert to the geometry crate's transform, which the voxeliser takes.
@@ -125,7 +137,11 @@ impl Placement {
     }
 
     pub fn from_geom(t: ad_geom::Transform) -> Self {
-        Self { translation_mm: t.translation, rotation: t.rotation, scale: t.scale }
+        Self {
+            translation_mm: t.translation,
+            rotation: t.rotation,
+            scale: t.scale,
+        }
     }
 }
 
@@ -195,8 +211,12 @@ impl ParticleSeed {
             ParticleSeed::Probes => "probes",
         }
     }
-    pub const ALL: [ParticleSeed; 4] =
-        [ParticleSeed::Inlet, ParticleSeed::Volume, ParticleSeed::Slice, ParticleSeed::Probes];
+    pub const ALL: [ParticleSeed; 4] = [
+        ParticleSeed::Inlet,
+        ParticleSeed::Volume,
+        ParticleSeed::Slice,
+        ParticleSeed::Probes,
+    ];
 }
 
 /// One cutting plane.
@@ -252,7 +272,12 @@ impl SliceSettings {
             1 => Vec3::Y,
             _ => Vec3::Z,
         };
-        Self { name: name.into(), origin_mm: center, normal, ..Default::default() }
+        Self {
+            name: name.into(),
+            origin_mm: center,
+            normal,
+            ..Default::default()
+        }
     }
 
     /// Placement for the gizmo: the translation is the plane origin and the
@@ -305,10 +330,18 @@ impl VentSettings {
     /// Largest louver aim, degrees. Same cap as the mouth inlet's.
     pub const MAX_AIM_DEG: f32 = 60.0;
 
-    pub fn new(name: impl Into<String>, placement: Placement, width_mm: f32, height_mm: f32) -> Self {
+    pub fn new(
+        name: impl Into<String>,
+        placement: Placement,
+        width_mm: f32,
+        height_mm: f32,
+    ) -> Self {
         Self {
             name: name.into(),
-            placement: Placement { scale: 1.0, ..placement },
+            placement: Placement {
+                scale: 1.0,
+                ..placement
+            },
             width_mm: width_mm.max(1.0),
             height_mm: height_mm.max(1.0),
             speed_scale: 1.0,
@@ -324,7 +357,10 @@ impl VentSettings {
     /// The rectangle's width and height directions, unit, car frame.
     pub fn axes(&self) -> (Vec3, Vec3) {
         let r = self.placement.rotation;
-        ((r * Vec3::X).normalize_or(Vec3::X), (r * Vec3::Y).normalize_or(Vec3::Y))
+        (
+            (r * Vec3::X).normalize_or(Vec3::X),
+            (r * Vec3::Y).normalize_or(Vec3::Y),
+        )
     }
 
     /// The way the air leaves, unit, car frame: the normal turned by the aim.
@@ -374,7 +410,13 @@ impl Default for IsoSettings {
     fn default() -> Self {
         // 0.5 in Q-tilde: the middle of the useful 0.1-2 band, matching
         // `ad_render::SoftIso::default`.
-        Self { enabled: false, level: 0.5, opacity: 0.85, color_by_field: false, single_sided: false }
+        Self {
+            enabled: false,
+            level: 0.5,
+            opacity: 0.85,
+            color_by_field: false,
+            single_sided: false,
+        }
     }
 }
 
@@ -395,7 +437,14 @@ pub struct StreamlineSettings {
 
 impl Default for StreamlineSettings {
     fn default() -> Self {
-        Self { enabled: false, count: 256, max_steps: 2000, step_cells: 0.5, bidirectional: true, width_px: 1.5 }
+        Self {
+            enabled: false,
+            count: 256,
+            max_steps: 2000,
+            step_cells: 0.5,
+            bidirectional: true,
+            width_px: 1.5,
+        }
     }
 }
 
@@ -414,7 +463,11 @@ pub struct Probes {
 
 impl Probes {
     pub fn new() -> Self {
-        Self { items: Vec::new(), next_id: 1, history: 2048 }
+        Self {
+            items: Vec::new(),
+            next_id: 1,
+            history: 2048,
+        }
     }
 
     pub fn add(&mut self, position_mm: Vec3) -> u32 {
@@ -513,7 +566,11 @@ mod tests {
         let back = Placement::from_matrix(p.matrix());
         s.set_placement(back);
         assert!((s.origin_mm - Vec3::new(1.0, 2.0, 3.0)).length() < 1e-4);
-        assert!((s.normal - Vec3::Z).length() < 1e-4, "normal drifted to {:?}", s.normal);
+        assert!(
+            (s.normal - Vec3::Z).length() < 1e-4,
+            "normal drifted to {:?}",
+            s.normal
+        );
     }
 
     #[test]
@@ -525,7 +582,11 @@ mod tests {
             let p = Placement::from_matrix(s.placement().matrix());
             s.set_placement(p);
         }
-        assert!((s.normal - want).length() < 1e-3, "drifted from {want:?} to {:?}", s.normal);
+        assert!(
+            (s.normal - want).length() < 1e-3,
+            "drifted from {want:?} to {:?}",
+            s.normal
+        );
     }
 
     #[test]
@@ -533,11 +594,8 @@ mod tests {
         // `ad_geom::Scene::set_transform` asserts scale > 0, because a mirror
         // flips every winding and inverts the SDF. The gizmo can produce one by
         // dragging a scale handle through zero.
-        let m = Mat4::from_scale_rotation_translation(
-            Vec3::splat(-2.0),
-            Quat::IDENTITY,
-            Vec3::ZERO,
-        );
+        let m =
+            Mat4::from_scale_rotation_translation(Vec3::splat(-2.0), Quat::IDENTITY, Vec3::ZERO);
         let p = Placement::from_matrix(m);
         assert!(p.scale > 0.0, "scale came out {}", p.scale);
         assert!(p.to_geom().scale > 0.0);
@@ -557,7 +615,10 @@ mod tests {
         assert!(v.direction().x > 0.0, "sideways is toward local +X");
         v.placement.rotation = Quat::from_rotation_y(std::f32::consts::FRAC_PI_2);
         v.aim_deg = [0.0, 0.0];
-        assert!(v.direction().abs_diff_eq(Vec3::X, 1e-5), "yawed a quarter turn, it blows along +X");
+        assert!(
+            v.direction().abs_diff_eq(Vec3::X, 1e-5),
+            "yawed a quarter turn, it blows along +X"
+        );
         let c = v.corners();
         assert!((c[1] - c[0]).length() - 140.0 < 1e-3 && (c[3] - c[0]).length() - 15.0 < 1e-3);
         let mut moved = v.clone();
@@ -573,7 +634,11 @@ mod tests {
         assert_eq!(snap_for(GizmoMode::Translate, mm, deg), mm);
         assert_eq!(snap_for(GizmoMode::Rotate, mm, deg), deg);
         assert_eq!(snap_for(GizmoMode::Scale, mm, deg), None);
-        assert_eq!(snap_for(GizmoMode::Rotate, mm, None), None, "no snap means none");
+        assert_eq!(
+            snap_for(GizmoMode::Rotate, mm, None),
+            None,
+            "no snap means none"
+        );
     }
 
     #[test]
@@ -636,7 +701,10 @@ mod tests {
         assert_eq!(probe.speed.x.len(), 16);
         assert!((probe.velocity_ms.x - 99.0).abs() < 1e-6);
         p.clear_history();
-        assert!(p.get(id).unwrap().pressure.is_empty(), "a reset must drop probe history too");
+        assert!(
+            p.get(id).unwrap().pressure.is_empty(),
+            "a reset must drop probe history too"
+        );
         assert_eq!(p.len(), 1, "the probes themselves survive");
     }
 
@@ -645,13 +713,19 @@ mod tests {
         let mut p = Probes::new();
         let id = p.add(Vec3::ZERO);
         p.record(id, 0.0, 0.0, Vec3::ZERO, false);
-        assert!(!p.get(id).unwrap().in_fluid, "a probe inside the wall reads nonsense");
+        assert!(
+            !p.get(id).unwrap().in_fluid,
+            "a probe inside the wall reads nonsense"
+        );
     }
 
     #[test]
     fn defaults_are_sane_for_a_fresh_session() {
         assert!(ParticleSettings::default().enabled);
-        assert!(!IsoSettings::default().enabled, "an empty isosurface looks like a bug");
+        assert!(
+            !IsoSettings::default().enabled,
+            "an empty isosurface looks like a bug"
+        );
         assert!(!StreamlineSettings::default().enabled);
         assert_eq!(GizmoMode::default(), GizmoMode::Translate);
         assert_eq!(GizmoSpace::default(), GizmoSpace::World);

@@ -41,7 +41,11 @@ mod cuda_gates {
     use glam::{UVec3, Vec3};
 
     fn grid_of(dims: UVec3) -> Grid {
-        Grid { dims, dx_mm: 1.0, origin_mm: Vec3::ZERO }
+        Grid {
+            dims,
+            dx_mm: 1.0,
+            origin_mm: Vec3::ZERO,
+        }
     }
 
     /// A CUDA solver, or `None` with a printed reason.
@@ -93,7 +97,11 @@ mod cuda_gates {
 
     /// Worst element-wise difference between two macroscopic fields.
     fn compare_fields(a: &[[f32; 4]], b: &[[f32; 4]], dims: UVec3) -> (f32, f32, UVec3) {
-        assert_eq!(a.len(), b.len(), "the two backends returned different field sizes");
+        assert_eq!(
+            a.len(),
+            b.len(),
+            "the two backends returned different field sizes"
+        );
         let mut worst_rho = 0.0f32;
         let mut worst_u = 0.0f32;
         let mut at = UVec3::ZERO;
@@ -140,7 +148,9 @@ mod cuda_gates {
         cfg.periodic = [true; 3];
         cfg.initial_velocity = Vec3::new(0.06, -0.03, 0.02);
         let mask = vec![flags::FLUID; (dims.x * dims.y * dims.z) as usize];
-        let Some(mut gpu) = cuda(dims, &mask, cfg) else { return };
+        let Some(mut gpu) = cuda(dims, &mask, cfg) else {
+            return;
+        };
 
         let total = |f: &[[f32; 4]]| f.iter().map(|v| v[3] as f64).sum::<f64>();
         let cells = (dims.x * dims.y * dims.z) as f64;
@@ -192,7 +202,9 @@ mod cuda_gates {
                 cfg.periodic = [true, false, true];
                 cfg.body_force = Vec3::new(force, 0.0, 0.0);
 
-                let Some(mut gpu) = cuda(dims, &mask, cfg) else { return };
+                let Some(mut gpu) = cuda(dims, &mask, cfg) else {
+                    return;
+                };
                 // Diffusive relaxation is h^2/nu; at tau = 0.51 that is ~4400
                 // steps per e-folding, so 120k steps is ~27 of them.
                 gpu.step(120_000).expect("step");
@@ -205,7 +217,10 @@ mod cuda_gates {
             let spread = (widths.iter().cloned().fold(f32::MIN, f32::max)
                 - widths.iter().cloned().fold(f32::MAX, f32::min))
                 / N as f32;
-            println!("CUDA {model:?}: width spread across tau {:.4}%", spread * 100.0);
+            println!(
+                "CUDA {model:?}: width spread across tau {:.4}%",
+                spread * 100.0
+            );
             match model {
                 CollisionModel::Trt => {
                     assert!(
@@ -245,9 +260,11 @@ mod cuda_gates {
             return;
         }
         for set in [VelocitySet::D3Q19, VelocitySet::D3Q27] {
-            for collision in
-                [CollisionModel::Trt, CollisionModel::Bgk, CollisionModel::RegularizedBgk]
-            {
+            for collision in [
+                CollisionModel::Trt,
+                CollisionModel::Bgk,
+                CollisionModel::RegularizedBgk,
+            ] {
                 let dims = UVec3::new(12, 10, 8);
                 let mut cfg = clean_config(0.7);
                 cfg.set = set;
@@ -259,7 +276,9 @@ mod cuda_gates {
                 let mask = vec![flags::FLUID; (dims.x * dims.y * dims.z) as usize];
                 let domain = PaddedDomain::new(dims, cfg.periodic, &mask, cfg.set);
                 let mut cpu = ReferenceLbm::new(domain, cfg);
-                let Some(mut gpu) = cuda(dims, &mask, cfg) else { return };
+                let Some(mut gpu) = cuda(dims, &mask, cfg) else {
+                    return;
+                };
 
                 for _ in 0..200 {
                     cpu.step();
@@ -267,9 +286,17 @@ mod cuda_gates {
                 gpu.step(200).expect("step");
                 let field = gpu.read_macroscopic().expect("readback");
                 let (drho, du, at) = compare_to_reference(&cpu, &field, dims);
-                println!("CUDA {set:?}/{collision:?}: worst drho {drho:e}, worst du {du:e} at {at:?}");
-                assert!(drho < 5e-6, "{set:?}/{collision:?}: density differs by {drho:e}");
-                assert!(du < 5e-6, "{set:?}/{collision:?}: velocity differs by {du:e} at {at:?}");
+                println!(
+                    "CUDA {set:?}/{collision:?}: worst drho {drho:e}, worst du {du:e} at {at:?}"
+                );
+                assert!(
+                    drho < 5e-6,
+                    "{set:?}/{collision:?}: density differs by {drho:e}"
+                );
+                assert!(
+                    du < 5e-6,
+                    "{set:?}/{collision:?}: velocity differs by {du:e} at {at:?}"
+                );
             }
         }
     }
@@ -289,7 +316,9 @@ mod cuda_gates {
 
         let domain = PaddedDomain::new(dims, cfg.periodic, &mask, cfg.set);
         let mut cpu = ReferenceLbm::new(domain, cfg);
-        let Some(mut gpu) = cuda(dims, &mask, cfg) else { return };
+        let Some(mut gpu) = cuda(dims, &mask, cfg) else {
+            return;
+        };
 
         for _ in 0..300 {
             cpu.step();
@@ -324,7 +353,9 @@ mod cuda_gates {
         cfg.initial_velocity = Vec3::new(0.06, 0.0, 0.0);
         cfg.body_force = Vec3::new(2e-5, 0.0, 0.0);
 
-        let Some(mut cu) = cuda(dims, &mask, cfg) else { return };
+        let Some(mut cu) = cuda(dims, &mask, cfg) else {
+            return;
+        };
         let Some(ctx) = harness::gpu() else { return };
         let mut wg = Solver::new(&ctx, grid_of(dims), &mask, &[], cfg).expect("wgpu solver");
 
@@ -346,7 +377,10 @@ mod cuda_gates {
             "CUDA vs wgpu after {STEPS} steps: worst drho {drho:e}, worst du {du:e} at {at:?}"
         );
         assert!(drho < 5e-6, "backends disagree on density by {drho:e}");
-        assert!(du < 5e-6, "backends disagree on velocity by {du:e} at {at:?}");
+        assert!(
+            du < 5e-6,
+            "backends disagree on velocity by {du:e} at {at:?}"
+        );
     }
 
     /// The generated kernel must survive NVRTC for every configuration the
@@ -361,17 +395,20 @@ mod cuda_gates {
         let dims = UVec3::new(8, 8, 8);
         let mask = vec![flags::FLUID; 8 * 8 * 8];
         for set in [VelocitySet::D3Q19, VelocitySet::D3Q27] {
-            for collision in
-                [CollisionModel::Trt, CollisionModel::Bgk, CollisionModel::RegularizedBgk]
-            {
+            for collision in [
+                CollisionModel::Trt,
+                CollisionModel::Bgk,
+                CollisionModel::RegularizedBgk,
+            ] {
                 for workgroup_size in [64u32, 128] {
                     let mut cfg = clean_config(0.6);
                     cfg.set = set;
                     cfg.collision = collision;
                     cfg.workgroup_size = workgroup_size;
                     cfg.periodic = [true; 3];
-                    let s = CudaSolver::new(grid_of(dims), &mask, &[], cfg)
-                        .unwrap_or_else(|e| panic!("{set:?}/{collision:?}/wg{workgroup_size}: {e:#}"));
+                    let s = CudaSolver::new(grid_of(dims), &mask, &[], cfg).unwrap_or_else(|e| {
+                        panic!("{set:?}/{collision:?}/wg{workgroup_size}: {e:#}")
+                    });
                     assert_eq!(s.kernel_spec().set, set);
                     assert_eq!(s.kernel_spec().block_x, workgroup_size);
                 }

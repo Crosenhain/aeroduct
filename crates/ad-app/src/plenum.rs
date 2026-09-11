@@ -266,7 +266,11 @@ impl Plenum {
         dx_mm: f32,
         sponge_cells: u32,
     ) -> Option<Depths> {
-        let dx = if dx_mm.is_finite() && dx_mm > 0.0 { dx_mm } else { 1.0 };
+        let dx = if dx_mm.is_finite() && dx_mm > 0.0 {
+            dx_mm
+        } else {
+            1.0
+        };
         let (in_face, d_h_in) = axis_face(mouths.get(inlet))?;
         let (out_face, d_h_out) = axis_face(mouths.get(outlet))?;
 
@@ -319,7 +323,10 @@ impl Plenum {
         d.in_face.widen(&mut lo, &mut hi, d.upstream);
 
         Some(Domain {
-            bbox: Bbox { min: scene.min - lo, max: scene.max + hi },
+            bbox: Bbox {
+                min: scene.min - lo,
+                max: scene.max + hi,
+            },
             lo_mm: lo,
             hi_mm: hi,
             plenum: Some(*self),
@@ -433,7 +440,11 @@ impl CarveReport {
             self.fluid_before as f64 / 1e6,
             self.fluid_after as f64 / 1e6,
             100.0 * (1.0 - self.fluid_after as f64 / self.fluid_before.max(1) as f64),
-            if self.connected { "" } else { " [ABANDONED: the inlet does not reach the outlet]" },
+            if self.connected {
+                ""
+            } else {
+                " [ABANDONED: the inlet does not reach the outlet]"
+            },
         )
     }
 }
@@ -529,7 +540,15 @@ fn section(grid: Grid, mask: &[u8], mouth: &Mouth) -> Option<Section> {
         );
         return None;
     }
-    Some(Section { axis, plane_row, min_side: face.min_side, u_axis, v_axis, open, u_len: nu })
+    Some(Section {
+        axis,
+        plane_row,
+        min_side: face.min_side,
+        u_axis,
+        v_axis,
+        open,
+        u_len: nu,
+    })
 }
 
 /// The mouth's footprint, as a half-extent per axis.
@@ -640,9 +659,7 @@ fn retain_connected(mask: &mut [u8], grid: Grid, inlet: &Section, outlet: &Secti
         }
     }
 
-    let reached_outlet = targets
-        .into_iter()
-        .any(|c| seen[grid.linear(c) as usize]);
+    let reached_outlet = targets.into_iter().any(|c| seen[grid.linear(c) as usize]);
     if !reached_outlet {
         return false;
     }
@@ -654,7 +671,6 @@ fn retain_connected(mask: &mut [u8], grid: Grid, inlet: &Section, outlet: &Secti
     true
 }
 
-
 /// Cells on the domain face at the far end of a plenum: the extension's own
 /// cross-section, at the row the boundary condition lives on.
 ///
@@ -663,7 +679,11 @@ fn retain_connected(mask: &mut [u8], grid: Grid, inlet: &Section, outlet: &Secti
 /// and a tube cell can never be three different ideas of "the opening".
 fn plenum_face_cells(grid: Grid, section: &Section) -> Vec<UVec3> {
     let axis = section.axis;
-    let row = if section.min_side { 0 } else { grid.dims[axis] - 1 };
+    let row = if section.min_side {
+        0
+    } else {
+        grid.dims[axis] - 1
+    };
     let mut out = Vec::new();
     for a in 0..grid.dims[section.u_axis] {
         for b in 0..grid.dims[section.v_axis] {
@@ -685,7 +705,9 @@ mod tests {
     use crate::domain::test_fixtures::{mouth, part};
 
     fn grid_for(p: &Plenum, scene: Bbox, mouths: &[Mouth], dx: f32) -> (Domain, Grid) {
-        let d = p.plan(scene, mouths, 0, 1, dx, 20).expect("axis-aligned mouths give a plan");
+        let d = p
+            .plan(scene, mouths, 0, 1, dx, 20)
+            .expect("axis-aligned mouths give a plan");
         (d, Grid::covering(d.bbox, dx))
     }
 
@@ -696,15 +718,29 @@ mod tests {
         let p = Plenum::default();
         let d = p.depths(&mouths, 0, 1, 0.75, 20).unwrap();
 
-        assert!((d.upstream - DEFAULT_UPSTREAM_D_H * d.d_h_in).abs() < 1e-3, "{d:?}");
-        assert!((d.downstream - DEFAULT_DOWNSTREAM_D_H * d.d_h_out).abs() < 1e-3, "{d:?}");
+        assert!(
+            (d.upstream - DEFAULT_UPSTREAM_D_H * d.d_h_in).abs() < 1e-3,
+            "{d:?}"
+        );
+        assert!(
+            (d.downstream - DEFAULT_DOWNSTREAM_D_H * d.d_h_out).abs() < 1e-3,
+            "{d:?}"
+        );
         // ...and the two mouths really do have different D_h, so a depth taken
         // from the wrong one would be visible here.
-        assert!((d.d_h_in - d.d_h_out).abs() > 1.0, "the fixture cannot tell the two apart");
+        assert!(
+            (d.d_h_in - d.d_h_out).abs() > 1.0,
+            "the fixture cannot tell the two apart"
+        );
 
         // Doubling the multiplier doubles the plenum, which is the property that
         // makes a depth sweep a meaningful experiment rather than a clamp sweep.
-        let deep = Plenum { upstream_d_h: 4.0, ..p }.depths(&mouths, 0, 1, 0.75, 20).unwrap();
+        let deep = Plenum {
+            upstream_d_h: 4.0,
+            ..p
+        }
+        .depths(&mouths, 0, 1, 0.75, 20)
+        .unwrap();
         assert!((deep.upstream - 2.0 * d.upstream).abs() < 1e-3);
     }
 
@@ -713,13 +749,18 @@ mod tests {
     #[test]
     fn the_outlet_plane_sits_outside_the_near_field_and_the_sponge() {
         let (scene, mouths) = part();
-        for (dx, sponge, downstream_d_h) in
-            [(0.75f32, 20u32, 3.0f32), (0.75, 20, 0.0), (0.5, 200, 3.0), (1.0, 20, 1.0)]
-        {
-            let p = Plenum { downstream_d_h, ..Plenum::default() };
+        for (dx, sponge, downstream_d_h) in [
+            (0.75f32, 20u32, 3.0f32),
+            (0.75, 20, 0.0),
+            (0.5, 200, 3.0),
+            (1.0, 20, 1.0),
+        ] {
+            let p = Plenum {
+                downstream_d_h,
+                ..Plenum::default()
+            };
             let d = p.depths(&mouths, 0, 1, dx, sponge).unwrap();
-            let needed =
-                NEAR_FIELD_D_H * d.d_h_out + (sponge + SPONGE_CLEARANCE_CELLS) as f32 * dx;
+            let needed = NEAR_FIELD_D_H * d.d_h_out + (sponge + SPONGE_CLEARANCE_CELLS) as f32 * dx;
             assert!(
                 d.downstream >= needed - 1e-3,
                 "dx {dx}, {sponge} sponge cells, {downstream_d_h} D_h: {} < {needed}",
@@ -728,7 +769,10 @@ mod tests {
             // ...and the box really is that deep on the outlet's own face. Mouth
             // B is on y = 0 with its normal +y, so the plenum is at y-min.
             let plan = p.plan(scene, &mouths, 0, 1, dx, sponge).unwrap();
-            assert!(plan.lo_mm.y >= needed - 1e-3, "the plan did not spend the depth it computed");
+            assert!(
+                plan.lo_mm.y >= needed - 1e-3,
+                "the plan did not spend the depth it computed"
+            );
         }
     }
 
@@ -746,17 +790,34 @@ mod tests {
         // Reversed: inlet on B (y-min), outlet on A (z-min).
         let d_fwd = p.depths(&mouths, 0, 1, 0.75, 20).unwrap();
         let d_rev = p.depths(&mouths, 1, 0, 0.75, 20).unwrap();
-        assert!((fwd.lo_mm.z - d_fwd.upstream).abs() < 1e-3, "inlet plenum is not on z-min");
-        assert!((fwd.lo_mm.y - d_fwd.downstream).abs() < 1e-3, "outlet plenum is not on y-min");
-        assert!((rev.lo_mm.y - d_rev.upstream).abs() < 1e-3, "the inlet plenum did not follow");
-        assert!((rev.lo_mm.z - d_rev.downstream).abs() < 1e-3, "the outlet plenum did not follow");
-        assert_ne!(fwd.bbox, rev.bbox, "a swap must re-derive the box, not reuse it");
+        assert!(
+            (fwd.lo_mm.z - d_fwd.upstream).abs() < 1e-3,
+            "inlet plenum is not on z-min"
+        );
+        assert!(
+            (fwd.lo_mm.y - d_fwd.downstream).abs() < 1e-3,
+            "outlet plenum is not on y-min"
+        );
+        assert!(
+            (rev.lo_mm.y - d_rev.upstream).abs() < 1e-3,
+            "the inlet plenum did not follow"
+        );
+        assert!(
+            (rev.lo_mm.z - d_rev.downstream).abs() < 1e-3,
+            "the outlet plenum did not follow"
+        );
+        assert_ne!(
+            fwd.bbox, rev.bbox,
+            "a swap must re-derive the box, not reuse it"
+        );
 
         // The four faces that are neither plenum keep their slack either way.
-        for (name, a, b) in
-            [("-x", fwd.lo_mm.x, rev.lo_mm.x), ("+x", fwd.hi_mm.x, rev.hi_mm.x),
-             ("+y", fwd.hi_mm.y, rev.hi_mm.y), ("+z", fwd.hi_mm.z, rev.hi_mm.z)]
-        {
+        for (name, a, b) in [
+            ("-x", fwd.lo_mm.x, rev.lo_mm.x),
+            ("+x", fwd.hi_mm.x, rev.hi_mm.x),
+            ("+y", fwd.hi_mm.y, rev.hi_mm.y),
+            ("+z", fwd.hi_mm.z, rev.hi_mm.z),
+        ] {
             assert_eq!(a, b, "the {name} face moved when the inlet was swapped");
         }
     }
@@ -768,14 +829,25 @@ mod tests {
         let (part_bbox, mouths) = part();
         for blocker in [
             // Out in what used to be the exit jet.
-            Bbox { min: Vec3::new(-20.0, -60.0, 10.0), max: Vec3::new(20.0, -50.0, 30.0) },
+            Bbox {
+                min: Vec3::new(-20.0, -60.0, 10.0),
+                max: Vec3::new(20.0, -50.0, 30.0),
+            },
             // Behind the inlet, inside what is now the inlet plenum.
-            Bbox { min: Vec3::new(-10.0, 55.0, -30.0), max: Vec3::new(10.0, 65.0, -20.0) },
+            Bbox {
+                min: Vec3::new(-10.0, 55.0, -30.0),
+                max: Vec3::new(10.0, 65.0, -20.0),
+            },
             // Off to one side, where the plenum domain has almost no margin.
-            Bbox { min: Vec3::new(80.0, 10.0, 10.0), max: Vec3::new(95.0, 20.0, 20.0) },
+            Bbox {
+                min: Vec3::new(80.0, 10.0, 10.0),
+                max: Vec3::new(95.0, 20.0, 20.0),
+            },
         ] {
             let scene = part_bbox.union(blocker);
-            let d = Plenum::default().plan(scene, &mouths, 0, 1, 0.75, 20).unwrap();
+            let d = Plenum::default()
+                .plan(scene, &mouths, 0, 1, 0.75, 20)
+                .unwrap();
             assert!(
                 d.bbox.contains(blocker.min) && d.bbox.contains(blocker.max),
                 "{blocker:?} fell outside {:?}",
@@ -791,7 +863,9 @@ mod tests {
     #[test]
     fn the_plenum_box_is_a_fraction_of_the_room_and_still_holds_the_part() {
         let (scene, mouths) = part();
-        let plenum = Plenum::default().plan(scene, &mouths, 0, 1, 0.75, 20).unwrap();
+        let plenum = Plenum::default()
+            .plan(scene, &mouths, 0, 1, 0.75, 20)
+            .unwrap();
         let room = crate::domain::DomainMargins {
             isotropic_frac: Some(crate::domain::LEGACY_ISOTROPIC_MARGIN),
             plenum: None,
@@ -801,7 +875,10 @@ mod tests {
 
         let cells = |b: Bbox| Grid::covering(b, 0.75).cell_count() as f64;
         let ratio = cells(room.bbox) / cells(plenum.bbox);
-        assert!(ratio > 3.0, "the plenum domain saved almost nothing: {ratio:.2}x");
+        assert!(
+            ratio > 3.0,
+            "the plenum domain saved almost nothing: {ratio:.2}x"
+        );
         assert!(plenum.bbox.contains(scene.min) && plenum.bbox.contains(scene.max));
     }
 
@@ -816,11 +893,16 @@ mod tests {
     fn carved() -> (Grid, Vec<u8>, Vec<Mouth>, Plenum) {
         // A 20 x 20 x 20 mm part with a 4 x 4 mm bore from z = 0 to y = 0,
         // through a corner elbow, and open air in the rest of the box.
-        let scene = Bbox { min: Vec3::ZERO, max: Vec3::splat(20.0) };
+        let scene = Bbox {
+            min: Vec3::ZERO,
+            max: Vec3::splat(20.0),
+        };
         let a = mouth(scene, 2, true, 4.0, 4.0); // on z = 0, centred
         let b = mouth(scene, 1, true, 4.0, 4.0); // on y = 0, centred
         let p = Plenum::default();
-        let domain = p.plan(scene, &[a.clone(), b.clone()], 0, 1, 1.0, 2).unwrap();
+        let domain = p
+            .plan(scene, &[a.clone(), b.clone()], 0, 1, 1.0, 2)
+            .unwrap();
         let grid = Grid::covering(domain.bbox, 1.0);
 
         // Everything inside the scene box is solid except an L of bore joining
@@ -885,7 +967,10 @@ mod tests {
 
         // The sealed pocket is gone.
         let corner = grid
-            .cell_range(Bbox { min: Vec3::splat(16.0), max: Vec3::splat(19.0) })
+            .cell_range(Bbox {
+                min: Vec3::splat(16.0),
+                max: Vec3::splat(19.0),
+            })
             .expect("the pocket is inside the domain");
         for z in corner.0.z..=corner.1.z {
             for y in corner.0.y..=corner.1.y {
@@ -912,9 +997,14 @@ mod tests {
     /// more than twice the open area.
     #[test]
     fn the_extension_has_the_mouths_own_open_area_not_its_bounding_rectangle() {
-        let scene = Bbox { min: Vec3::ZERO, max: Vec3::splat(20.0) };
+        let scene = Bbox {
+            min: Vec3::ZERO,
+            max: Vec3::splat(20.0),
+        };
         let m = mouth(scene, 2, true, 4.0, 4.0);
-        let plan = Plenum::default().plan(scene, &[m.clone()], 0, 0, 1.0, 2).unwrap();
+        let plan = Plenum::default()
+            .plan(scene, &[m.clone()], 0, 0, 1.0, 2)
+            .unwrap();
         let grid = Grid::covering(plan.bbox, 1.0);
 
         // Everything inside the part is solid except a cross-shaped bore.
@@ -952,8 +1042,15 @@ mod tests {
         );
         // The rectangle would have been 5 x 5 = 25 cells at this dx; the cross
         // inside it is fewer, and that gap is the flow error.
-        assert!(face.len() < 25, "the extension is the bounding rectangle after all");
-        assert!(face.len() > 8, "the extension collapsed to nothing: {}", face.len());
+        assert!(
+            face.len() < 25,
+            "the extension is the bounding rectangle after all"
+        );
+        assert!(
+            face.len() > 8,
+            "the extension collapsed to nothing: {}",
+            face.len()
+        );
         // Every row of the extension has exactly that cross-section, so there is
         // no step for the flow to separate off anywhere along it.
         for z in 0..s.plane_row {
@@ -961,7 +1058,10 @@ mod tests {
                 .flat_map(|y| (0..grid.dims.x).map(move |x| UVec3::new(x, y, z)))
                 .filter(|c| flags::is_fluid(mask[grid.linear(*c) as usize]))
                 .count();
-            assert_eq!(open, plane_open, "the extension changes area at row z = {z}");
+            assert_eq!(
+                open, plane_open,
+                "the extension changes area at row z = {z}"
+            );
         }
     }
 
@@ -988,7 +1088,12 @@ mod tests {
     fn a_blocked_duct_abandons_the_fill_rather_than_sealing_the_outlet() {
         let (grid, mut mask, mouths, p) = carved();
         // Plug the elbow.
-        let mid = grid.cell_range(Bbox { min: Vec3::splat(8.0), max: Vec3::splat(12.0) }).unwrap();
+        let mid = grid
+            .cell_range(Bbox {
+                min: Vec3::splat(8.0),
+                max: Vec3::splat(12.0),
+            })
+            .unwrap();
         for z in mid.0.z..=mid.1.z {
             for y in mid.0.y..=mid.1.y {
                 for x in mid.0.x..=mid.1.x {
@@ -1000,11 +1105,22 @@ mod tests {
         // mouths, not a guess about connectivity — but the flood fill on top of
         // them must have changed nothing.
         let mut walls_only = mask.clone();
-        wall_off_plenum(&mut walls_only, grid, &section(grid, &mask, &mouths[0]).unwrap());
-        wall_off_plenum(&mut walls_only, grid, &section(grid, &mask, &mouths[1]).unwrap());
+        wall_off_plenum(
+            &mut walls_only,
+            grid,
+            &section(grid, &mask, &mouths[0]).unwrap(),
+        );
+        wall_off_plenum(
+            &mut walls_only,
+            grid,
+            &section(grid, &mask, &mouths[1]).unwrap(),
+        );
 
         let report = p.carve(&mut mask, grid, &mouths, 0, 1);
-        assert!(!report.connected, "a plugged duct was reported as connected");
+        assert!(
+            !report.connected,
+            "a plugged duct was reported as connected"
+        );
         assert_eq!(
             mask, walls_only,
             "the fill entombed cells after reporting that it had been abandoned"
@@ -1015,7 +1131,10 @@ mod tests {
             .into_iter()
             .filter(|c| flags::is_fluid(mask[grid.linear(*c) as usize]))
             .count();
-        assert!(open > 0, "the outlet was sealed by a fill that claimed to have given up");
+        assert!(
+            open > 0,
+            "the outlet was sealed by a fill that claimed to have given up"
+        );
     }
 
     /// Open walls leave the outlet chamber open, which is the only difference
@@ -1026,7 +1145,11 @@ mod tests {
         let (grid, mut solid, mouths, p) = carved();
         let mut open = solid.clone();
         p.carve(&mut solid, grid, &mouths, 0, 1);
-        Plenum { walls: PlenumWalls::Open, ..p }.carve(&mut open, grid, &mouths, 0, 1);
+        Plenum {
+            walls: PlenumWalls::Open,
+            ..p
+        }
+        .carve(&mut open, grid, &mouths, 0, 1);
 
         assert!(
             open.iter().filter(|f| flags::is_fluid(**f)).count()
@@ -1064,12 +1187,17 @@ mod tests {
     #[test]
     fn every_row_outside_the_mouth_plane_is_walled_whatever_the_rounding() {
         for offset in [0.0f32, 0.1, 0.25, 0.49, 0.5, 0.51, 0.75, 0.9, 0.99] {
-            let scene = Bbox { min: Vec3::ZERO, max: Vec3::splat(20.0) };
+            let scene = Bbox {
+                min: Vec3::ZERO,
+                max: Vec3::splat(20.0),
+            };
             let m = mouth(scene, 2, true, 4.0, 4.0);
             // Shift the grid so the mouth plane sits `offset` of a cell above a
             // row centre, without moving the geometry.
             let dx = 1.0;
-            let plan = Plenum::default().plan(scene, &[m.clone()], 0, 0, dx, 2).unwrap();
+            let plan = Plenum::default()
+                .plan(scene, &[m.clone()], 0, 0, dx, 2)
+                .unwrap();
             let mut grid = Grid::covering(plan.bbox, dx);
             grid.origin_mm.z -= offset * dx;
 
@@ -1094,7 +1222,8 @@ mod tests {
                             && (p.y - m.patch.center_mm.y).abs() <= half.y;
                         let fluid = flags::is_fluid(mask[grid.linear(cell) as usize]);
                         assert_eq!(
-                            fluid, inside,
+                            fluid,
+                            inside,
                             "offset {offset}: row z = {z} ({zc:.2} mm, outside the plane at \
                              {:.2}) is {} at {cell:?}",
                             m.patch.center_mm.z,
@@ -1114,11 +1243,17 @@ mod tests {
         // An all-fluid mask stands in for the voxelised part here: what is under
         // test is where the plane lands, not what shape it is.
         let mut mask = vec![flags::FLUID; grid.cell_count() as usize];
-        let plane = p.carve(&mut mask, grid, &mouths, 0, 1).inlet_plane_mm.unwrap();
+        let plane = p
+            .carve(&mut mask, grid, &mouths, 0, 1)
+            .inlet_plane_mm
+            .unwrap();
         let depths = p.depths(&mouths, 0, 1, 0.75, 20).unwrap();
 
         // Mouth A is on z = 0; the extension runs to z = -upstream.
-        assert!(plane < 0.0, "the inlet plane is not upstream of the mouth: {plane}");
+        assert!(
+            plane < 0.0,
+            "the inlet plane is not upstream of the mouth: {plane}"
+        );
         let gap = mouths[0].patch.center_mm.z - plane;
         assert!(
             (gap - depths.upstream).abs() < grid.dx_mm,
@@ -1127,7 +1262,10 @@ mod tests {
         );
         // ...and it is a real cell row, not a coordinate between two.
         let k = (plane - grid.origin_mm.z) / grid.dx_mm;
-        assert!((k - k.round()).abs() < 1e-4, "the inlet plane is off-lattice: {k}");
+        assert!(
+            (k - k.round()).abs() < 1e-4,
+            "the inlet plane is off-lattice: {k}"
+        );
 
         // Swapped, it moves to the other mouth's face — and to that mouth's own
         // development length, which is a different number because the two
@@ -1137,9 +1275,16 @@ mod tests {
         let mut mask = vec![flags::FLUID; g.cell_count() as usize];
         let plane = p.carve(&mut mask, g, &mouths, 1, 0).inlet_plane_mm.unwrap();
         let rev = p.depths(&mouths, 1, 0, 0.75, 20).unwrap();
-        assert!(plane < 0.0, "the swapped inlet plane is not upstream of mouth B: {plane}");
+        assert!(
+            plane < 0.0,
+            "the swapped inlet plane is not upstream of mouth B: {plane}"
+        );
         let gap = mouths[1].patch.center_mm.y - plane;
-        assert!((gap - rev.upstream).abs() < g.dx_mm, "{gap} mm, wanted {}", rev.upstream);
+        assert!(
+            (gap - rev.upstream).abs() < g.dx_mm,
+            "{gap} mm, wanted {}",
+            rev.upstream
+        );
     }
 
     /// The property the whole domain exists for: after the carve and the
@@ -1168,9 +1313,15 @@ mod tests {
         );
 
         let count = |bit: u8| {
-            mask.iter().filter(|f| flags::is_fluid(**f) && **f & bit != 0).count()
+            mask.iter()
+                .filter(|f| flags::is_fluid(**f) && **f & bit != 0)
+                .count()
         };
-        assert_eq!(count(flags::EQUILIBRIUM), 0, "the plenum domain grew an open face");
+        assert_eq!(
+            count(flags::EQUILIBRIUM),
+            0,
+            "the plenum domain grew an open face"
+        );
         assert!(count(flags::INLET) > 0, "the inlet was carved away");
         assert!(count(flags::OUTLET) > 0, "the outlet was carved away");
         // The sponge is a layer, not a plane: four rows of the outlet
@@ -1185,7 +1336,10 @@ mod tests {
         // what makes the assertion above about this domain rather than about
         // `apply_boundaries` refusing to flag anything.
         let (grid, mut mask, mouths, _) = carved();
-        let open = Plenum { walls: PlenumWalls::Open, ..p };
+        let open = Plenum {
+            walls: PlenumWalls::Open,
+            ..p
+        };
         let report = open.carve(&mut mask, grid, &mouths, 0, 1);
         crate::sim::apply_boundaries(
             &mut mask,
@@ -1200,7 +1354,9 @@ mod tests {
             &[],
         );
         assert!(
-            mask.iter().filter(|f| flags::is_fluid(**f) && **f & flags::EQUILIBRIUM != 0).count()
+            mask.iter()
+                .filter(|f| flags::is_fluid(**f) && **f & flags::EQUILIBRIUM != 0)
+                .count()
                 > 0,
             "the open chamber has no equilibrium faces either"
         );
@@ -1211,9 +1367,13 @@ mod tests {
         let (scene, mouths) = part();
         let mut skew = mouths.clone();
         skew[1].patch.normal = Vec3::new(0.6, 0.6, 0.5).normalize();
-        assert!(Plenum::default().plan(scene, &skew, 0, 1, 0.75, 20).is_none());
+        assert!(Plenum::default()
+            .plan(scene, &skew, 0, 1, 0.75, 20)
+            .is_none());
         assert!(Plenum::default().depths(&skew, 0, 1, 0.75, 20).is_none());
         // ...and an empty scene never produces a box out of nothing.
-        assert!(Plenum::default().plan(Bbox::EMPTY, &mouths, 0, 1, 0.75, 20).is_none());
+        assert!(Plenum::default()
+            .plan(Bbox::EMPTY, &mouths, 0, 1, 0.75, 20)
+            .is_none());
     }
 }

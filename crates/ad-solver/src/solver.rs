@@ -29,9 +29,9 @@
 
 use std::sync::Arc;
 
-use anyhow::{Context as _, Result};
 use ad_gpu::types::{flags, BoundaryLink, DdfPrecision, Grid, VelocitySet};
 use ad_gpu::{DdfBuffers, GpuContext, Profiler, ShaderDefines, ShaderLoader};
+use anyhow::{Context as _, Result};
 use bytemuck::{Pod, Zeroable};
 use glam::{UVec3, Vec3};
 use wgpu::util::DeviceExt as _;
@@ -146,9 +146,18 @@ impl Solver {
         // The DDF allocation is sized to the padded grid, since that is what the
         // index scheme addresses. The halo is 2/N of each axis: 2.5% of cells at
         // the interactive tier, and it buys branch-free boundary handling.
-        let padded_grid = Grid { dims: domain.padded, ..grid };
-        let ddf = DdfBuffers::allocate(&gpu.device, &gpu.limits, padded_grid, cfg.set, cfg.precision)
-            .context("allocating distribution function buffers")?;
+        let padded_grid = Grid {
+            dims: domain.padded,
+            ..grid
+        };
+        let ddf = DdfBuffers::allocate(
+            &gpu.device,
+            &gpu.limits,
+            padded_grid,
+            cfg.set,
+            cfg.precision,
+        )
+        .context("allocating distribution function buffers")?;
 
         let device = gpu.device.clone();
         let queue = gpu.queue.clone();
@@ -167,7 +176,12 @@ impl Solver {
         });
         // A zero-length storage buffer is invalid, so keep one dummy entry.
         let boundary_link_data: Vec<BoundaryLink> = if links.links.is_empty() {
-            vec![BoundaryLink { cell: 0, direction: 0, q_quantised: 0, _pad: [0; 2] }]
+            vec![BoundaryLink {
+                cell: 0,
+                direction: 0,
+                q_quantised: 0,
+                _pad: [0; 2],
+            }]
         } else {
             links.links.clone()
         };
@@ -179,7 +193,11 @@ impl Solver {
 
         let uniform_buffers = [0u32, 1].map(|parity| {
             device.create_buffer(&wgpu::BufferDescriptor {
-                label: Some(if parity == 0 { "lbm uniforms (even)" } else { "lbm uniforms (odd)" }),
+                label: Some(if parity == 0 {
+                    "lbm uniforms (even)"
+                } else {
+                    "lbm uniforms (odd)"
+                }),
                 size: std::mem::size_of::<LbmUniforms>() as u64,
                 usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
                 mapped_at_creation: false,
@@ -295,8 +313,18 @@ impl Solver {
             })
         };
         let init_pipeline = compute("lbm init", &step_layout, &step_module, "init");
-        let step_pipeline = compute("lbm stream_collide", &step_layout, &step_module, "stream_collide");
-        let macro_pipeline = compute("lbm macroscopic", &macro_layout, &macro_module, "macroscopic");
+        let step_pipeline = compute(
+            "lbm stream_collide",
+            &step_layout,
+            &step_module,
+            "stream_collide",
+        );
+        let macro_pipeline = compute(
+            "lbm macroscopic",
+            &macro_layout,
+            &macro_module,
+            "macroscopic",
+        );
 
         // ---- bind groups ----
         let group0 = [0usize, 1].map(|p| {
@@ -308,8 +336,14 @@ impl Solver {
                         binding: 0,
                         resource: uniform_buffers[p].as_entire_binding(),
                     },
-                    wgpu::BindGroupEntry { binding: 1, resource: flags_buffer.as_entire_binding() },
-                    wgpu::BindGroupEntry { binding: 2, resource: link_buffer.as_entire_binding() },
+                    wgpu::BindGroupEntry {
+                        binding: 1,
+                        resource: flags_buffer.as_entire_binding(),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 2,
+                        resource: link_buffer.as_entire_binding(),
+                    },
                     wgpu::BindGroupEntry {
                         binding: 3,
                         resource: boundary_link_buffer.as_entire_binding(),
@@ -325,11 +359,20 @@ impl Solver {
         let vel_view = velocity_texture.create_view(&wgpu::TextureViewDescriptor::default());
         let den_view = density_texture.create_view(&wgpu::TextureViewDescriptor::default());
         let mut g2_entries = vec![
-            wgpu::BindGroupEntry { binding: 0, resource: wgpu::BindingResource::TextureView(&vel_view) },
-            wgpu::BindGroupEntry { binding: 1, resource: wgpu::BindingResource::TextureView(&den_view) },
+            wgpu::BindGroupEntry {
+                binding: 0,
+                resource: wgpu::BindingResource::TextureView(&vel_view),
+            },
+            wgpu::BindGroupEntry {
+                binding: 1,
+                resource: wgpu::BindingResource::TextureView(&den_view),
+            },
         ];
         if let Some(b) = &macro_buffer {
-            g2_entries.push(wgpu::BindGroupEntry { binding: 2, resource: b.as_entire_binding() });
+            g2_entries.push(wgpu::BindGroupEntry {
+                binding: 2,
+                resource: b.as_entire_binding(),
+            });
         }
         let group2 = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("lbm macroscopic"),
@@ -337,7 +380,13 @@ impl Solver {
             entries: &g2_entries,
         });
 
-        let profiler = Profiler::new(&device, &queue, 8, gpu.caps.timestamps, gpu.caps.peak_bandwidth);
+        let profiler = Profiler::new(
+            &device,
+            &queue,
+            8,
+            gpu.caps.timestamps,
+            gpu.caps.peak_bandwidth,
+        );
 
         let mut me = Self {
             device,
@@ -474,7 +523,9 @@ impl Solver {
 
         let mut enc = self
             .device
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("lbm reset") });
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("lbm reset"),
+            });
         // Zeroing is not strictly required — every slot the solver reads is
         // written by `init` — but it costs one clear per reset and removes any
         // chance of a NaN in an unread slot propagating through a future change.
@@ -577,9 +628,15 @@ impl Solver {
         let d = self.padded_dispatch();
         let mut enc = self
             .device
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("lbm step") });
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("lbm step"),
+            });
         {
-            let scope = if self.profiling { self.profiler.scope_per(STEP_SCOPE, n) } else { None };
+            let scope = if self.profiling {
+                self.profiler.scope_per(STEP_SCOPE, n)
+            } else {
+                None
+            };
             let mut pass = enc.begin_compute_pass(&wgpu::ComputePassDescriptor {
                 label: Some("lbm stream_collide"),
                 timestamp_writes: scope,
@@ -648,9 +705,11 @@ impl Solver {
 
     /// Recompute the macroscopic textures from the current populations.
     pub fn compute_macroscopic(&mut self) {
-        let mut enc = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-            label: Some("lbm macroscopic"),
-        });
+        let mut enc = self
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("lbm macroscopic"),
+            });
         self.record_macroscopic(&mut enc);
         self.queue.submit(Some(enc.finish()));
     }
@@ -658,7 +717,11 @@ impl Solver {
     fn record_macroscopic(&mut self, enc: &mut wgpu::CommandEncoder) {
         let parity = (self.steps % 2) as usize;
         let d = self.interior_dispatch();
-        let scope = if self.profiling { self.profiler.scope(MACRO_SCOPE) } else { None };
+        let scope = if self.profiling {
+            self.profiler.scope(MACRO_SCOPE)
+        } else {
+            None
+        };
         let mut pass = enc.begin_compute_pass(&wgpu::ComputePassDescriptor {
             label: Some("lbm macroscopic"),
             timestamp_writes: scope,
@@ -676,11 +739,13 @@ impl Solver {
     /// must bind *this* view (plus a sampler), never the storage view the
     /// macroscopic pass writes through.
     pub fn velocity_view(&self) -> wgpu::TextureView {
-        self.velocity_texture.create_view(&wgpu::TextureViewDescriptor::default())
+        self.velocity_texture
+            .create_view(&wgpu::TextureViewDescriptor::default())
     }
 
     pub fn density_view(&self) -> wgpu::TextureView {
-        self.density_texture.create_view(&wgpu::TextureViewDescriptor::default())
+        self.density_texture
+            .create_view(&wgpu::TextureViewDescriptor::default())
     }
 
     /// Read the macroscopic field back to the CPU as `(u.x, u.y, u.z, rho)` per
@@ -693,9 +758,11 @@ impl Solver {
             anyhow::bail!("read_macroscopic needs SolverConfig::macroscopic_buffer = true");
         }
         let bytes = self.domain.interior_cell_count() * 16;
-        let mut enc = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-            label: Some("lbm macroscopic readback"),
-        });
+        let mut enc = self
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("lbm macroscopic readback"),
+            });
         self.record_macroscopic(&mut enc);
         let (Some(src), Some(dst)) = (&self.macro_buffer, &self.macro_readback) else {
             unreachable!("checked above")
@@ -751,7 +818,8 @@ impl Solver {
     /// bandwidth-bound kernel this is the only performance number that means
     /// anything on its own.
     pub fn roofline_fraction(&self) -> Option<f64> {
-        self.profiler.roofline_fraction(STEP_SCOPE, self.bytes_per_step())
+        self.profiler
+            .roofline_fraction(STEP_SCOPE, self.bytes_per_step())
     }
 
     /// Milliseconds per step, averaged over recent timed batches.
@@ -771,19 +839,30 @@ impl Solver {
 
     fn padded_dispatch(&self) -> UVec3 {
         let wg = self.cfg.workgroup_size.max(1);
-        UVec3::new(self.domain.padded.x.div_ceil(wg), self.domain.padded.y, self.domain.padded.z)
+        UVec3::new(
+            self.domain.padded.x.div_ceil(wg),
+            self.domain.padded.y,
+            self.domain.padded.z,
+        )
     }
 
     fn interior_dispatch(&self) -> UVec3 {
         let wg = self.cfg.workgroup_size.max(1);
-        UVec3::new(self.domain.interior.x.div_ceil(wg), self.domain.interior.y, self.domain.interior.z)
+        UVec3::new(
+            self.domain.interior.x.div_ceil(wg),
+            self.domain.interior.y,
+            self.domain.interior.z,
+        )
     }
 
     fn write_uniforms(&mut self) {
         for parity in 0..2u32 {
             let u = self.uniforms(parity);
-            self.queue
-                .write_buffer(&self.uniform_buffers[parity as usize], 0, bytemuck::bytes_of(&u));
+            self.queue.write_buffer(
+                &self.uniform_buffers[parity as usize],
+                0,
+                bytemuck::bytes_of(&u),
+            );
         }
     }
 
@@ -795,8 +874,10 @@ impl Solver {
         let mut inlet_nrm = [[0.0f32; 4]; 4];
         for slot in 0..4u8 {
             let s = self.cfg.inlet_slot(slot);
-            inlet_vel[slot as usize] =
-                s.velocity.extend(if s.local_density { 1.0 } else { 0.0 }).to_array();
+            inlet_vel[slot as usize] = s
+                .velocity
+                .extend(if s.local_density { 1.0 } else { 0.0 })
+                .to_array();
             inlet_nrm[slot as usize] = s.normal.extend(0.0).to_array();
         }
         LbmUniforms {
@@ -907,9 +988,18 @@ pub fn build_loader(cfg: SolverConfig, layout: shaders::DdfLayout) -> ShaderLoad
     loader.add_virtual("lbm/generated_head.wgsl", head);
     loader.add_virtual("lbm/generated_ddf.wgsl", generated[split..].to_string());
 
-    loader.add_virtual("lbm/common.wgsl", include_str!("../../../shaders/lbm/common.wgsl"));
-    loader.add_virtual("lbm/collision.wgsl", include_str!("../../../shaders/lbm/collision.wgsl"));
-    loader.add_virtual("lbm/boundary.wgsl", include_str!("../../../shaders/lbm/boundary.wgsl"));
+    loader.add_virtual(
+        "lbm/common.wgsl",
+        include_str!("../../../shaders/lbm/common.wgsl"),
+    );
+    loader.add_virtual(
+        "lbm/collision.wgsl",
+        include_str!("../../../shaders/lbm/collision.wgsl"),
+    );
+    loader.add_virtual(
+        "lbm/boundary.wgsl",
+        include_str!("../../../shaders/lbm/boundary.wgsl"),
+    );
     loader.add_virtual(
         "lbm/stream_collide.wgsl",
         include_str!("../../../shaders/lbm/stream_collide.wgsl"),
@@ -942,7 +1032,12 @@ pub fn open_mask(dims: UVec3) -> Vec<u8> {
 }
 
 /// Bytes of VRAM the DDFs for `grid` would need, including the halo.
-pub fn ddf_bytes(grid: Grid, periodic: [bool; 3], set: VelocitySet, precision: DdfPrecision) -> u64 {
+pub fn ddf_bytes(
+    grid: Grid,
+    periodic: [bool; 3],
+    set: VelocitySet,
+    precision: DdfPrecision,
+) -> u64 {
     let pad = UVec3::new(
         if periodic[0] { 0 } else { 2 },
         if periodic[1] { 0 } else { 2 },
@@ -1023,7 +1118,10 @@ mod tests {
         assert!(submits < 100_000, "{submits} submits is too many");
 
         // A degenerate grid must not divide by zero or ask for zero steps.
-        assert_eq!(max_steps_per_submit_for(0).max(1), max_steps_per_submit_for(0));
+        assert_eq!(
+            max_steps_per_submit_for(0).max(1),
+            max_steps_per_submit_for(0)
+        );
         assert!(max_steps_per_submit_for(u64::MAX) >= 1);
     }
 
@@ -1096,7 +1194,10 @@ mod tests {
                                 let src = loader.load(entry, &defines).unwrap_or_else(|e| {
                                     panic!("{entry} {set:?} {precision:?} {layout:?}: {e}")
                                 });
-                                assert!(src.contains("@compute"), "{entry}: no entry point emitted");
+                                assert!(
+                                    src.contains("@compute"),
+                                    "{entry}: no entry point emitted"
+                                );
                                 assert!(
                                     !src.contains("#WG_X"),
                                     "{entry}: workgroup size was not substituted"
@@ -1158,13 +1259,19 @@ mod tests {
         };
         let padded = ddf_bytes(grid, [false; 3], VelocitySet::D3Q19, DdfPrecision::Fp16c);
         let bare = ddf_bytes(
-            Grid { dims: grid.dims - UVec3::splat(0), ..grid },
+            Grid {
+                dims: grid.dims - UVec3::splat(0),
+                ..grid
+            },
             [true; 3],
             VelocitySet::D3Q19,
             DdfPrecision::Fp16c,
         );
         let overhead = padded as f64 / bare as f64 - 1.0;
         assert!(overhead < 0.03, "halo overhead is {:.2}%", overhead * 100.0);
-        assert!(padded < 1_250_000_000, "{padded} bytes at the interactive tier");
+        assert!(
+            padded < 1_250_000_000,
+            "{padded} bytes at the interactive tier"
+        );
     }
 }

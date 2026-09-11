@@ -23,7 +23,7 @@
 use crate::bins::TriangleBins;
 use crate::scene::{FlatGeometry, Scene};
 use ad_gpu::types::flags;
-use ad_gpu::{Bbox, BoundaryLink, Grid, GpuContext, ShaderDefines, ShaderLoader, VelocitySet};
+use ad_gpu::{Bbox, BoundaryLink, GpuContext, Grid, ShaderDefines, ShaderLoader, VelocitySet};
 use anyhow::{bail, Context as _, Result};
 use bytemuck::{Pod, Zeroable};
 use glam::{UVec3, Vec3};
@@ -49,7 +49,11 @@ pub struct VoxelizeConfig {
 
 impl Default for VoxelizeConfig {
     fn default() -> Self {
-        Self { band_voxels: 3.5, bin_voxels: 12.0, max_fill_iterations: 24 }
+        Self {
+            band_voxels: 3.5,
+            bin_voxels: 12.0,
+            max_fill_iterations: 24,
+        }
     }
 }
 
@@ -91,13 +95,21 @@ impl VoxelStats {
             self.grid.dims.z,
             self.grid.dx_mm,
             self.total_ms,
-            if self.incremental { " (incremental)" } else { "" },
+            if self.incremental {
+                " (incremental)"
+            } else {
+                ""
+            },
             self.solid_cells,
             self.solid_volume_mm3(),
             self.boundary_cells,
             self.link_count,
             self.fill_iterations,
-            if self.fill_converged { "" } else { " -- DID NOT CONVERGE" },
+            if self.fill_converged {
+                ""
+            } else {
+                " -- DID NOT CONVERGE"
+            },
         )
     }
 }
@@ -142,7 +154,11 @@ pub struct GpuTriPn {
 
 fn to_gpu_tri(t: &[Vec3; 3]) -> GpuTri {
     let f = |v: Vec3| [v.x, v.y, v.z, 0.0];
-    GpuTri { a: f(t[0]), b: f(t[1]), c: f(t[2]) }
+    GpuTri {
+        a: f(t[0]),
+        b: f(t[1]),
+        c: f(t[2]),
+    }
 }
 
 fn to_gpu_pn(p: &[Vec3; 7]) -> GpuTriPn {
@@ -270,8 +286,7 @@ impl Voxelizer {
             bail!("geometry voxeliser shaders failed to compile: {err}");
         }
 
-        let uniform_stride =
-            (gpu.limits.min_uniform_buffer_offset_alignment as u64).max(256);
+        let uniform_stride = (gpu.limits.min_uniform_buffer_offset_alignment as u64).max(256);
 
         let storage = wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST;
         let uniforms = device.create_buffer(&wgpu::BufferDescriptor {
@@ -342,7 +357,9 @@ impl Voxelizer {
     }
 
     pub fn band_mm(&self) -> f32 {
-        self.grid.map(|g| g.dx_mm * self.config.band_voxels).unwrap_or(0.0)
+        self.grid
+            .map(|g| g.dx_mm * self.config.band_voxels)
+            .unwrap_or(0.0)
     }
 
     /// Narrow-band signed distance, one `f32` per cell, negative inside.
@@ -401,7 +418,10 @@ impl Voxelizer {
         };
 
         if !full && dirty.is_none() {
-            return Ok(self.stats.clone().expect("stats exist once a run has happened"));
+            return Ok(self
+                .stats
+                .clone()
+                .expect("stats exist once a run has happened"));
         }
 
         if full {
@@ -458,7 +478,10 @@ impl Voxelizer {
                 min: grid.cell_center_mm(region_lo) - Vec3::splat(reach),
                 max: grid.cell_center_mm(region_hi) + Vec3::splat(reach),
             };
-            self.bins.as_ref().unwrap().collect_in_aabb(world, &mut self.active);
+            self.bins
+                .as_ref()
+                .unwrap()
+                .collect_in_aabb(world, &mut self.active);
         } else {
             self.active.extend(0..self.geom.len() as u32);
         }
@@ -510,7 +533,13 @@ impl Voxelizer {
 
         // Stage 1-4 plus the fill seed, in one submit.
         let mut enc = self.encoder("geom narrow band");
-        self.pass(&mut enc, "clear", &self.pipelines.clear_region, UV_REGION, groups(region_cells));
+        self.pass(
+            &mut enc,
+            "clear",
+            &self.pipelines.clear_region,
+            UV_REGION,
+            groups(region_cells),
+        );
         self.pass(
             &mut enc,
             "seed distance",
@@ -525,11 +554,29 @@ impl Voxelizer {
             UV_REGION,
             self.active.len().clamp(1, 65535) as u32,
         );
-        self.pass(&mut enc, "sign", &self.pipelines.sign_band, UV_REGION, groups(region_cells));
+        self.pass(
+            &mut enc,
+            "sign",
+            &self.pipelines.sign_band,
+            UV_REGION,
+            groups(region_cells),
+        );
         if incremental {
-            self.pass(&mut enc, "reset fill", &self.pipelines.reset_fill, UV_SWEEP_X, groups(cells));
+            self.pass(
+                &mut enc,
+                "reset fill",
+                &self.pipelines.reset_fill,
+                UV_SWEEP_X,
+                groups(cells),
+            );
         }
-        self.pass(&mut enc, "seed fill", &self.pipelines.seed_exterior, UV_SWEEP_X, groups(cells));
+        self.pass(
+            &mut enc,
+            "seed fill",
+            &self.pipelines.seed_exterior,
+            UV_SWEEP_X,
+            groups(cells),
+        );
         self.queue.submit([enc.finish()]);
 
         // Flood fill. Sweeps are batched between convergence checks because each
@@ -574,8 +621,20 @@ impl Voxelizer {
         let mut enc = self.encoder("geom classify");
         enc.clear_buffer(&self.flags, 0, None);
         enc.clear_buffer(&self.counters, 0, None);
-        self.pass(&mut enc, "resolve", &self.pipelines.resolve_unknown, UV_CLASSIFY, groups(cells));
-        self.pass(&mut enc, "count links", &self.pipelines.classify, UV_CLASSIFY, groups(cells));
+        self.pass(
+            &mut enc,
+            "resolve",
+            &self.pipelines.resolve_unknown,
+            UV_CLASSIFY,
+            groups(cells),
+        );
+        self.pass(
+            &mut enc,
+            "count links",
+            &self.pipelines.classify,
+            UV_CLASSIFY,
+            groups(cells),
+        );
         enc.copy_buffer_to_buffer(&self.counters, 0, &self.readback, 0, COUNTER_WORDS * 4);
         self.queue.submit([enc.finish()]);
 
@@ -594,7 +653,13 @@ impl Voxelizer {
 
         let mut enc = self.encoder("geom links");
         enc.clear_buffer(&self.counters, 0, None);
-        self.pass(&mut enc, "write links", &self.pipelines.classify, UV_CLASSIFY, groups(cells));
+        self.pass(
+            &mut enc,
+            "write links",
+            &self.pipelines.classify,
+            UV_CLASSIFY,
+            groups(cells),
+        );
         enc.copy_buffer_to_buffer(&self.counters, 0, &self.readback, 0, COUNTER_WORDS * 4);
         self.queue.submit([enc.finish()]);
         let final_counts = self.read_counters()?;
@@ -735,10 +800,13 @@ impl Voxelizer {
             }
             let tris: Vec<GpuTri> = self.geom.tris[r.clone()].iter().map(to_gpu_tri).collect();
             let pn: Vec<GpuTriPn> = self.geom.pn[r.clone()].iter().map(to_gpu_pn).collect();
-            self.queue.write_buffer(&self.tris, r.start as u64 * 48, bytemuck::cast_slice(&tris));
-            self.queue.write_buffer(&self.pn, r.start as u64 * 112, bytemuck::cast_slice(&pn));
+            self.queue
+                .write_buffer(&self.tris, r.start as u64 * 48, bytemuck::cast_slice(&tris));
+            self.queue
+                .write_buffer(&self.pn, r.start as u64 * 112, bytemuck::cast_slice(&pn));
         }
-        self.queue.write_buffer(&self.active_buf, 0, bytemuck::cast_slice(&self.active));
+        self.queue
+            .write_buffer(&self.active_buf, 0, bytemuck::cast_slice(&self.active));
     }
 
     fn ensure_buffers(&mut self, grid: Grid) -> Result<()> {
@@ -774,8 +842,11 @@ impl Voxelizer {
             let storage = wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST;
             self.dist = self.buffer("geom dist", cells * 4, storage);
             self.tri_idx = self.buffer("geom tri index", cells * 4, storage);
-            self.phi =
-                self.buffer("geom phi", cells * 4, storage | wgpu::BufferUsages::COPY_SRC);
+            self.phi = self.buffer(
+                "geom phi",
+                cells * 4,
+                storage | wgpu::BufferUsages::COPY_SRC,
+            );
             self.state = self.buffer("geom fill state", cells * 4, storage);
             self.flags = self.buffer(
                 "geom flags",
@@ -866,8 +937,12 @@ fn groups(items: u64) -> u32 {
 /// Inclusive cell range covering a world-space box, clamped to the grid.
 fn cell_range(grid: Grid, b: Bbox) -> (UVec3, UVec3) {
     let last = (grid.dims - UVec3::ONE).as_vec3();
-    let lo = ((b.min - grid.origin_mm) / grid.dx_mm).floor().clamp(Vec3::ZERO, last);
-    let hi = ((b.max - grid.origin_mm) / grid.dx_mm).ceil().clamp(Vec3::ZERO, last);
+    let lo = ((b.min - grid.origin_mm) / grid.dx_mm)
+        .floor()
+        .clamp(Vec3::ZERO, last);
+    let hi = ((b.max - grid.origin_mm) / grid.dx_mm)
+        .ceil()
+        .clamp(Vec3::ZERO, last);
     (lo.as_uvec3(), hi.as_uvec3())
 }
 
@@ -878,7 +953,9 @@ fn map_and_read(device: &wgpu::Device, buffer: &wgpu::Buffer, len: u64) -> Resul
         let _ = tx.send(r);
     });
     let _ = device.poll(wgpu::PollType::wait_indefinitely());
-    rx.recv().context("GPU readback channel closed")?.context("GPU buffer map failed")?;
+    rx.recv()
+        .context("GPU readback channel closed")?
+        .context("GPU buffer map failed")?;
     let out = match slice.get_mapped_range() {
         Ok(view) => view.to_vec(),
         Err(e) => {
@@ -943,10 +1020,18 @@ fn bind_group_layout(device: &wgpu::Device) -> wgpu::BindGroupLayout {
 /// `ad_gpu::lattice::wgsl_prelude`.
 fn build_module(device: &wgpu::Device) -> Result<wgpu::ShaderModule> {
     let mut loader = ShaderLoader::new(".");
-    loader.add_virtual("geom/common.wgsl", include_str!("../../../shaders/geom/common.wgsl"));
-    loader
-        .add_virtual("geom/voxelize.wgsl", include_str!("../../../shaders/geom/voxelize.wgsl"));
-    loader.add_virtual("geom/lattice.wgsl", ad_gpu::lattice::wgsl_prelude(VelocitySet::D3Q19));
+    loader.add_virtual(
+        "geom/common.wgsl",
+        include_str!("../../../shaders/geom/common.wgsl"),
+    );
+    loader.add_virtual(
+        "geom/voxelize.wgsl",
+        include_str!("../../../shaders/geom/voxelize.wgsl"),
+    );
+    loader.add_virtual(
+        "geom/lattice.wgsl",
+        ad_gpu::lattice::wgsl_prelude(VelocitySet::D3Q19),
+    );
     loader.add_virtual("geom/flags.wgsl", flags_prelude());
     loader.create_module(device, "geom/voxelize.wgsl", &ShaderDefines::new())
 }
@@ -965,10 +1050,18 @@ fn flags_prelude() -> String {
 /// a GPU.
 pub fn shader_source() -> Result<String> {
     let mut loader = ShaderLoader::new(".");
-    loader.add_virtual("geom/common.wgsl", include_str!("../../../shaders/geom/common.wgsl"));
-    loader
-        .add_virtual("geom/voxelize.wgsl", include_str!("../../../shaders/geom/voxelize.wgsl"));
-    loader.add_virtual("geom/lattice.wgsl", ad_gpu::lattice::wgsl_prelude(VelocitySet::D3Q19));
+    loader.add_virtual(
+        "geom/common.wgsl",
+        include_str!("../../../shaders/geom/common.wgsl"),
+    );
+    loader.add_virtual(
+        "geom/voxelize.wgsl",
+        include_str!("../../../shaders/geom/voxelize.wgsl"),
+    );
+    loader.add_virtual(
+        "geom/lattice.wgsl",
+        ad_gpu::lattice::wgsl_prelude(VelocitySet::D3Q19),
+    );
     loader.add_virtual("geom/flags.wgsl", flags_prelude());
     loader.load("geom/voxelize.wgsl", &ShaderDefines::new())
 }
@@ -991,9 +1084,18 @@ mod tests {
     #[test]
     fn shader_preprocesses_and_pulls_in_the_generated_tables() {
         let src = shader_source().expect("preprocessing must not depend on a GPU");
-        assert!(src.contains("const Q: u32 = 19u;"), "lattice prelude missing");
-        assert!(src.contains("const FLAG_SOLID: u32 = 1u;"), "flag prelude missing");
-        assert!(src.contains("fn closest_point_on_tri"), "common.wgsl missing");
+        assert!(
+            src.contains("const Q: u32 = 19u;"),
+            "lattice prelude missing"
+        );
+        assert!(
+            src.contains("const FLAG_SOLID: u32 = 1u;"),
+            "flag prelude missing"
+        );
+        assert!(
+            src.contains("fn closest_point_on_tri"),
+            "common.wgsl missing"
+        );
         for entry in [
             "clear_region",
             "seed_distance",
@@ -1005,24 +1107,42 @@ mod tests {
             "resolve_unknown",
             "classify",
         ] {
-            assert!(src.contains(&format!("fn {entry}(")), "entry point {entry} missing");
+            assert!(
+                src.contains(&format!("fn {entry}(")),
+                "entry point {entry} missing"
+            );
         }
     }
 
     #[test]
     fn cell_range_clamps_to_the_grid() {
         let grid = Grid::covering(
-            Bbox { min: Vec3::ZERO, max: Vec3::splat(10.0) },
+            Bbox {
+                min: Vec3::ZERO,
+                max: Vec3::splat(10.0),
+            },
             1.0,
         );
-        let (lo, hi) = cell_range(grid, Bbox { min: Vec3::splat(-100.0), max: Vec3::splat(100.0) });
+        let (lo, hi) = cell_range(
+            grid,
+            Bbox {
+                min: Vec3::splat(-100.0),
+                max: Vec3::splat(100.0),
+            },
+        );
         assert_eq!(lo, UVec3::ZERO);
         assert_eq!(hi, grid.dims - UVec3::ONE);
 
         let (lo, hi) = cell_range(
             grid,
-            Bbox { min: Vec3::splat(3.4), max: Vec3::splat(6.6) },
+            Bbox {
+                min: Vec3::splat(3.4),
+                max: Vec3::splat(6.6),
+            },
         );
-        assert!(lo.x <= 3 && hi.x >= 7, "range {lo:?}..{hi:?} must cover the box");
+        assert!(
+            lo.x <= 3 && hi.x >= 7,
+            "range {lo:?}..{hi:?} must cover the box"
+        );
     }
 }

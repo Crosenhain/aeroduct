@@ -155,14 +155,7 @@ pub fn subdivide_to_edge_length(
 }
 
 /// Split a planar quad `a-b-c-d` (in order) along its shorter diagonal.
-fn quad(
-    emit: &mut impl FnMut(u32, u32, u32),
-    positions: &[Vec3],
-    a: u32,
-    b: u32,
-    c: u32,
-    d: u32,
-) {
+fn quad(emit: &mut impl FnMut(u32, u32, u32), positions: &[Vec3], a: u32, b: u32, c: u32, d: u32) {
     let p = |i: u32| positions[i as usize];
     if (p(a) - p(c)).length_squared() <= (p(b) - p(d)).length_squared() {
         emit(a, b, c);
@@ -194,8 +187,16 @@ mod tests {
     fn subdivision_reaches_the_target_edge_length() {
         let m = primitives::box_mesh(Vec3::ZERO, Vec3::splat(10.0));
         let s = subdivide_to_edge_length(&m, 1.0, 4_000_000, 16);
-        assert!(s.converged, "did not converge: longest edge {}", s.max_edge_mm);
-        assert!(s.max_edge_mm <= 1.0 + 1e-5, "longest edge {}", s.max_edge_mm);
+        assert!(
+            s.converged,
+            "did not converge: longest edge {}",
+            s.max_edge_mm
+        );
+        assert!(
+            s.max_edge_mm <= 1.0 + 1e-5,
+            "longest edge {}",
+            s.max_edge_mm
+        );
         assert!(s.mesh.triangle_count() > m.triangle_count());
     }
 
@@ -212,7 +213,11 @@ mod tests {
             let s = subdivide_to_edge_length(&m, 1.0, 4_000_000, 16);
             let after = s.mesh.health();
 
-            assert!(after.is_watertight_manifold(), "cracked: {}", after.report());
+            assert!(
+                after.is_watertight_manifold(),
+                "cracked: {}",
+                after.report()
+            );
             assert!(
                 (after.signed_volume_mm3 - before.signed_volume_mm3).abs()
                     / before.signed_volume_mm3.abs()
@@ -222,15 +227,17 @@ mod tests {
                 after.signed_volume_mm3
             );
             assert!(
-                (after.surface_area_mm2 - before.surface_area_mm2).abs()
-                    / before.surface_area_mm2
+                (after.surface_area_mm2 - before.surface_area_mm2).abs() / before.surface_area_mm2
                     < 1e-4,
                 "area changed: {} -> {}",
                 before.surface_area_mm2,
                 after.surface_area_mm2
             );
             // A closed surface keeps its Euler characteristic under refinement.
-            assert_eq!(after.topology.euler_characteristic, before.topology.euler_characteristic);
+            assert_eq!(
+                after.topology.euler_characteristic,
+                before.topology.euler_characteristic
+            );
         }
     }
 
@@ -264,7 +271,10 @@ mod tests {
         for t in 0..s.mesh.triangle_count() {
             let parent = m.face_normal(s.source[t] as usize);
             let child = s.mesh.face_normal(t);
-            assert!(child.dot(parent) > 0.99, "triangle {t} flipped: {child:?} vs {parent:?}");
+            assert!(
+                child.dot(parent) > 0.99,
+                "triangle {t} flipped: {child:?} vs {parent:?}"
+            );
         }
     }
 
@@ -283,7 +293,11 @@ mod tests {
         let m = primitives::box_mesh(Vec3::ZERO, Vec3::splat(1000.0));
         let s = subdivide_to_edge_length(&m, 0.01, 50_000, 32);
         assert!(!s.converged);
-        assert!(s.mesh.triangle_count() <= 50_000, "{} triangles", s.mesh.triangle_count());
+        assert!(
+            s.mesh.triangle_count() <= 50_000,
+            "{} triangles",
+            s.mesh.triangle_count()
+        );
         // Even a truncated refinement must not tear the surface.
         assert!(s.mesh.topology().is_watertight_manifold());
     }

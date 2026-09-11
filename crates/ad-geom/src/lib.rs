@@ -64,7 +64,10 @@ pub fn test_stl_path() -> Option<std::path::PathBuf> {
         "../../Airflow redirector - Part 1.stl",
         "../Airflow redirector - Part 1.stl",
     ];
-    candidates.iter().map(|c| manifest.join(c)).find(|p| p.exists())
+    candidates
+        .iter()
+        .map(|c| manifest.join(c))
+        .find(|p| p.exists())
 }
 
 /// Acquire a GPU context for a test, or `None` if this machine has no adapter.

@@ -173,7 +173,12 @@ impl VolumeRenderer {
                     wgpu::TextureSampleType::Float { filterable: false },
                     wgpu::TextureViewDimension::D2,
                 ),
-                util::texture_entry(4, cs, wgpu::TextureSampleType::Depth, wgpu::TextureViewDimension::D2),
+                util::texture_entry(
+                    4,
+                    cs,
+                    wgpu::TextureSampleType::Depth,
+                    wgpu::TextureViewDimension::D2,
+                ),
                 util::sampled_float_entry(5, cs, wgpu::TextureViewDimension::D3),
                 util::storage_texture_entry(6, cs, VOLUME_FORMAT, wgpu::TextureViewDimension::D2),
                 util::storage_texture_entry(7, cs, FRONT_FORMAT, wgpu::TextureViewDimension::D2),
@@ -223,7 +228,11 @@ impl VolumeRenderer {
 
         let sdf_fallback = device.create_texture(&wgpu::TextureDescriptor {
             label: Some("empty SDF stand-in"),
-            size: wgpu::Extent3d { width: 1, height: 1, depth_or_array_layers: 1 },
+            size: wgpu::Extent3d {
+                width: 1,
+                height: 1,
+                depth_or_array_layers: 1,
+            },
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D3,
@@ -244,7 +253,11 @@ impl VolumeRenderer {
                 bytes_per_row: Some(4),
                 rows_per_image: Some(1),
             },
-            wgpu::Extent3d { width: 1, height: 1, depth_or_array_layers: 1 },
+            wgpu::Extent3d {
+                width: 1,
+                height: 1,
+                depth_or_array_layers: 1,
+            },
         );
         let sdf_fallback_view = sdf_fallback.create_view(&wgpu::TextureViewDescriptor {
             label: Some("empty SDF stand-in"),
@@ -457,7 +470,11 @@ impl VolumeRenderer {
             front_alpha: self.settings.front_alpha.clamp(0.001, 0.999),
             sdf_min_mm: sdf_min,
             sdf_inv_size: sdf_inv,
-            ambient: self.settings.ambient.extend(self.settings.specular).to_array(),
+            ambient: self
+                .settings
+                .ambient
+                .extend(self.settings.specular)
+                .to_array(),
         };
         queue.write_buffer(&self.uniform, 0, bytemuck::bytes_of(&u));
 
@@ -466,7 +483,10 @@ impl VolumeRenderer {
             label: Some("volume"),
             layout: &self.layout,
             entries: &[
-                wgpu::BindGroupEntry { binding: 0, resource: self.uniform.as_entire_binding() },
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: self.uniform.as_entire_binding(),
+                },
                 wgpu::BindGroupEntry {
                     binding: 1,
                     resource: wgpu::BindingResource::TextureView(&self.lut_view),
@@ -483,7 +503,10 @@ impl VolumeRenderer {
                     binding: 4,
                     resource: wgpu::BindingResource::TextureView(opaque_depth),
                 },
-                wgpu::BindGroupEntry { binding: 5, resource: wgpu::BindingResource::TextureView(sdf_view) },
+                wgpu::BindGroupEntry {
+                    binding: 5,
+                    resource: wgpu::BindingResource::TextureView(sdf_view),
+                },
                 wgpu::BindGroupEntry {
                     binding: 6,
                     resource: wgpu::BindingResource::TextureView(&self.color_storage),
@@ -530,7 +553,10 @@ mod tests {
         let s = VolumeSettings::default();
         assert!(s.step_scale > 0.0 && s.step_scale <= 2.0);
         assert!(s.skip_empty_space, "skipping must be on by default");
-        assert!((s.light_dir.length() - 1.0).abs() < 1e-5, "light must be normalised");
+        assert!(
+            (s.light_dir.length() - 1.0).abs() < 1e-5,
+            "light must be normalised"
+        );
         assert!(s.resolution_divisor >= 1);
         // The front threshold has to be low enough that a wispy vortex still
         // gets a reprojection depth, and high enough not to latch onto noise.

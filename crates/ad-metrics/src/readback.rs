@@ -143,7 +143,9 @@ impl<T: Pod> ReadbackRing<T> {
     /// Are any slots free? Cheap enough to call before doing the work that
     /// produces `src`, so a saturated ring can skip the whole reduction.
     pub fn has_capacity(&self) -> bool {
-        self.slots.iter().any(|s| s.state.load(Ordering::Acquire) == state::FREE)
+        self.slots
+            .iter()
+            .any(|s| s.state.load(Ordering::Acquire) == state::FREE)
     }
 
     /// Record a copy of `src` (from `offset`) into a free slot.
@@ -166,7 +168,9 @@ impl<T: Pod> ReadbackRing<T> {
             }
             encoder.copy_buffer_to_buffer(src, offset, &self.slots[i].buffer, 0, self.bytes);
             self.slots[i].tag = step;
-            self.slots[i].state.store(state::RECORDED, Ordering::Release);
+            self.slots[i]
+                .state
+                .store(state::RECORDED, Ordering::Release);
             self.next = (i + 1) % n;
             return true;
         }
@@ -188,12 +192,18 @@ impl<T: Pod> ReadbackRing<T> {
                 state::RECORDED => {
                     slot.state.store(state::PENDING, Ordering::Release);
                     let flag = slot.state.clone();
-                    slot.buffer.slice(..).map_async(wgpu::MapMode::Read, move |r| {
-                        flag.store(
-                            if r.is_ok() { state::READY } else { state::FAILED },
-                            Ordering::Release,
-                        );
-                    });
+                    slot.buffer
+                        .slice(..)
+                        .map_async(wgpu::MapMode::Read, move |r| {
+                            flag.store(
+                                if r.is_ok() {
+                                    state::READY
+                                } else {
+                                    state::FAILED
+                                },
+                                Ordering::Release,
+                            );
+                        });
                     nudge = true;
                 }
                 state::PENDING => nudge = true,
@@ -218,7 +228,10 @@ impl<T: Pod> ReadbackRing<T> {
                     slot.buffer.unmap();
                     slot.state.store(state::FREE, Ordering::Release);
                     if let Some(data) = data {
-                        out.push(Frame { step: slot.tag, data });
+                        out.push(Frame {
+                            step: slot.tag,
+                            data,
+                        });
                     }
                 }
                 _ => {}
@@ -281,7 +294,8 @@ mod tests {
         let mut seen = 0u64;
         for step in 0..64u64 {
             let payload: Vec<u32> = (0..64).map(|i| i + step as u32 * 1000).collect();
-            gpu.queue.write_buffer(&src, 0, bytemuck::cast_slice(&payload));
+            gpu.queue
+                .write_buffer(&src, 0, bytemuck::cast_slice(&payload));
             let mut enc = gpu
                 .device
                 .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
@@ -290,7 +304,12 @@ mod tests {
             gpu.queue.submit([enc.finish()]);
             for f in ring.poll(&gpu.device) {
                 assert_eq!(f.data.len(), 64);
-                assert_eq!(f.data[0], f.step as u32 * 1000, "frame {} came back wrong", f.step);
+                assert_eq!(
+                    f.data[0],
+                    f.step as u32 * 1000,
+                    "frame {} came back wrong",
+                    f.step
+                );
                 seen += 1;
             }
         }
@@ -319,7 +338,10 @@ mod tests {
         assert!(ring.record(&mut enc, &src, 0, 0));
         assert!(ring.record(&mut enc, &src, 0, 1));
         assert!(!ring.has_capacity());
-        assert!(!ring.record(&mut enc, &src, 0, 2), "a full ring must refuse");
+        assert!(
+            !ring.record(&mut enc, &src, 0, 2),
+            "a full ring must refuse"
+        );
         assert_eq!(ring.dropped(), 1);
         gpu.queue.submit([enc.finish()]);
 
@@ -339,7 +361,8 @@ mod tests {
         });
         let mut ring = ReadbackRing::<u32>::new(&gpu.device, "order", 4, 3);
         for step in [100u64, 200, 300] {
-            gpu.queue.write_buffer(&src, 0, bytemuck::cast_slice(&[step as u32; 4]));
+            gpu.queue
+                .write_buffer(&src, 0, bytemuck::cast_slice(&[step as u32; 4]));
             let mut enc = gpu
                 .device
                 .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
@@ -348,7 +371,10 @@ mod tests {
         }
         let frames = ring.drain_blocking(&gpu.device);
         assert_eq!(frames.len(), 3);
-        assert_eq!(frames.iter().map(|f| f.step).collect::<Vec<_>>(), vec![100, 200, 300]);
+        assert_eq!(
+            frames.iter().map(|f| f.step).collect::<Vec<_>>(),
+            vec![100, 200, 300]
+        );
         for f in &frames {
             assert_eq!(f.data[0], f.step as u32);
         }

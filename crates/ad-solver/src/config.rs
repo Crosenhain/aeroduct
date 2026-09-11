@@ -27,7 +27,11 @@ pub struct InletSpec {
 
 impl Default for InletSpec {
     fn default() -> Self {
-        Self { velocity: Vec3::ZERO, normal: Vec3::X, local_density: false }
+        Self {
+            velocity: Vec3::ZERO,
+            normal: Vec3::X,
+            local_density: false,
+        }
     }
 }
 
@@ -262,7 +266,12 @@ impl SolverConfig {
     /// fields (body force, periodicity, reference density) in
     /// [`crate::LbmUniforms`]; those are deliberately not in `SimUniforms`
     /// because nothing outside the solver needs them.
-    pub fn sim_uniforms(&self, grid: &ad_gpu::types::Grid, step_parity: u32, total_steps: u32) -> SimUniforms {
+    pub fn sim_uniforms(
+        &self,
+        grid: &ad_gpu::types::Grid,
+        step_parity: u32,
+        total_steps: u32,
+    ) -> SimUniforms {
         SimUniforms {
             dims: [grid.dims.x, grid.dims.y, grid.dims.z],
             step_parity,
@@ -292,7 +301,11 @@ mod tests {
         // The interactive tier: dx = 0.75 mm at 8 m/s gives tau0 ~ 0.5008, which
         // the duct smoke test showed diverges at Cs = 0.11.
         let coarse = SolverConfig::from_units(LatticeUnits::for_air(0.75, 8.0, 0.1));
-        assert!(coarse.tau0 < 0.515, "expected a coarse tau0, got {}", coarse.tau0);
+        assert!(
+            coarse.tau0 < 0.515,
+            "expected a coarse tau0, got {}",
+            coarse.tau0
+        );
         assert_eq!(coarse.smagorinsky_c, 0.17);
     }
 

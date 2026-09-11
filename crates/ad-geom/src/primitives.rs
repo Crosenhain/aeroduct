@@ -194,7 +194,10 @@ impl ConvexSolid {
                 continue;
             }
             let d = n.dot(mesh.triangle(t)[0]);
-            if !planes.iter().any(|(pn, pd)| pn.dot(n) > 0.9999 && (pd - d).abs() < 1e-4) {
+            if !planes
+                .iter()
+                .any(|(pn, pd)| pn.dot(n) > 0.9999 && (pd - d).abs() < 1e-4)
+            {
                 planes.push((n, d));
             }
         }
@@ -203,7 +206,10 @@ impl ConvexSolid {
 
     /// Signed "algebraic" distance: exact inside, a lower bound outside.
     pub fn plane_max(&self, p: Vec3) -> f32 {
-        self.planes.iter().map(|(n, d)| n.dot(p) - d).fold(f32::NEG_INFINITY, f32::max)
+        self.planes
+            .iter()
+            .map(|(n, d)| n.dot(p) - d)
+            .fold(f32::NEG_INFINITY, f32::max)
     }
 
     pub fn contains(&self, p: Vec3) -> bool {
@@ -239,12 +245,19 @@ mod tests {
 
     #[test]
     fn prism_and_wedge_are_watertight() {
-        for m in [sharp_wedge(25.0, 20.0, 10.0), prism(&[
-            Vec2::new(0.0, 0.0),
-            Vec2::new(5.0, 0.0),
-            Vec2::new(5.0, 5.0),
-            Vec2::new(0.0, 5.0),
-        ], -1.0, 1.0)] {
+        for m in [
+            sharp_wedge(25.0, 20.0, 10.0),
+            prism(
+                &[
+                    Vec2::new(0.0, 0.0),
+                    Vec2::new(5.0, 0.0),
+                    Vec2::new(5.0, 5.0),
+                    Vec2::new(0.0, 5.0),
+                ],
+                -1.0,
+                1.0,
+            ),
+        ] {
             let h = m.health();
             assert!(h.is_watertight_manifold(), "{}", h.report());
             assert!(h.signed_volume_mm3 > 0.0, "prism wound inside-out");
@@ -256,7 +269,12 @@ mod tests {
         let (min, max) = (Vec3::splat(-2.0), Vec3::splat(3.0));
         let solid = ConvexSolid::from_convex_mesh(&box_mesh(min, max));
         assert_eq!(solid.planes.len(), 6);
-        for p in [Vec3::ZERO, Vec3::splat(2.9), Vec3::splat(3.1), Vec3::new(0.0, 0.0, 10.0)] {
+        for p in [
+            Vec3::ZERO,
+            Vec3::splat(2.9),
+            Vec3::splat(3.1),
+            Vec3::new(0.0, 0.0, 10.0),
+        ] {
             assert_eq!(solid.contains(p), box_sdf(p, min, max) <= 0.0, "at {p:?}");
         }
     }

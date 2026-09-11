@@ -229,8 +229,8 @@ pub fn estimate(
     domain_mm: Option<[f32; 6]>,
     measured_steps_per_s: f64,
 ) -> ResolutionEstimate {
-    let in_range = dx_mm.is_finite()
-        && (ResolutionPanel::MIN_MM..=ResolutionPanel::MAX_MM).contains(&dx_mm);
+    let in_range =
+        dx_mm.is_finite() && (ResolutionPanel::MIN_MM..=ResolutionPanel::MAX_MM).contains(&dx_mm);
     if !in_range {
         return ResolutionEstimate {
             dx_mm,
@@ -253,10 +253,19 @@ pub fn estimate(
 
     let precision = crate::sim::precision_from_env();
     let rtd = crate::tracers::rtd_enabled();
-    let target_params = SimParams { dx_mm, domain_mm, ..*params };
+    let target_params = SimParams {
+        dx_mm,
+        domain_mm,
+        ..*params
+    };
     // The planner the build itself uses, so this is the grid Apply would get.
-    let (_, grid) =
-        crate::sim::plan_lattice(sim.duct_bbox(), &sim.mouths, sim.inlets[0], sim.outlet, &target_params);
+    let (_, grid) = crate::sim::plan_lattice(
+        sim.duct_bbox(),
+        &sim.mouths,
+        sim.inlets[0],
+        sim.outlet,
+        &target_params,
+    );
     let current = Footprint::of(sim.grid, precision, rtd);
     let target = Footprint::of(grid, precision, rtd);
     let limits = Limits::of(gpu);
@@ -313,7 +322,13 @@ mod tests {
     /// The room domain this part gets at the default margin: the 145 x 72 x 69
     /// mm part plus 58 mm on every side. About 21.6 M cells at 0.75 mm.
     fn room(dx_mm: f32) -> Grid {
-        Grid::covering(Bbox { min: Vec3::ZERO, max: Vec3::new(261.0, 188.0, 185.0) }, dx_mm)
+        Grid::covering(
+            Bbox {
+                min: Vec3::ZERO,
+                max: Vec3::new(261.0, 188.0, 185.0),
+            },
+            dx_mm,
+        )
     }
 
     fn fp32(dx_mm: f32) -> Footprint {
@@ -333,9 +348,13 @@ mod tests {
     fn the_footprint_is_the_solvers_own_allocation_plus_the_counted_extras() {
         let g = room(0.75);
         let f = Footprint::of(g, DdfPrecision::Fp32, false);
-        let ddf = ad_solver::solver::ddf_bytes(g, [false; 3], VelocitySet::D3Q19, DdfPrecision::Fp32);
+        let ddf =
+            ad_solver::solver::ddf_bytes(g, [false; 3], VelocitySet::D3Q19, DdfPrecision::Fp32);
         assert_eq!(f.resident_bytes, ddf + g.cell_count() * AUX_BYTES_PER_CELL);
-        assert_eq!(f.build_bytes, f.resident_bytes + g.cell_count() * BUILD_BYTES_PER_CELL);
+        assert_eq!(
+            f.build_bytes,
+            f.resident_bytes + g.cell_count() * BUILD_BYTES_PER_CELL
+        );
         // In FP32 the widest binding is one DDF direction: 4 bytes per padded
         // cell, the same as the link mask, and more than any interior field.
         assert_eq!(f.binding_bytes, ddf / 19);
@@ -344,7 +363,10 @@ mod tests {
         // RTD adds its buffers to both the total and, at 16 bytes a cell, the
         // widest binding.
         let r = Footprint::of(g, DdfPrecision::Fp32, true);
-        assert_eq!(r.resident_bytes, f.resident_bytes + g.cell_count() * RTD_BYTES_PER_CELL);
+        assert_eq!(
+            r.resident_bytes,
+            f.resident_bytes + g.cell_count() * RTD_BYTES_PER_CELL
+        );
         assert_eq!(r.binding_bytes, g.cell_count() * 16);
     }
 
@@ -378,15 +400,24 @@ mod tests {
         let current = fp32(1.0);
         let target = fp32(0.75);
 
-        let textures = Limits { max_texture_3d: 256, ..rtx_4090() };
+        let textures = Limits {
+            max_texture_3d: 256,
+            ..rtx_4090()
+        };
         let why = blocker(&current, &target, &textures).unwrap();
         assert!(why.contains("3D textures"), "{why}");
 
-        let binding = Limits { max_binding_bytes: 1 << 20, ..rtx_4090() };
+        let binding = Limits {
+            max_binding_bytes: 1 << 20,
+            ..rtx_4090()
+        };
         let why = blocker(&current, &target, &binding).unwrap();
         assert!(why.contains("binding"), "{why}");
 
-        let tiny = Limits { budget_bytes: Some(target.build_bytes - 1), ..rtx_4090() };
+        let tiny = Limits {
+            budget_bytes: Some(target.build_bytes - 1),
+            ..rtx_4090()
+        };
         let why = blocker(&current, &target, &tiny).unwrap();
         assert!(why.contains("to build"), "{why}");
     }
@@ -399,18 +430,27 @@ mod tests {
             budget_bytes: Some(current.resident_bytes + target.build_bytes - 1),
             ..rtx_4090()
         };
-        assert!(target.build_bytes < limits.budget_bytes.unwrap(), "fits on its own");
+        assert!(
+            target.build_bytes < limits.budget_bytes.unwrap(),
+            "fits on its own"
+        );
         let why = blocker(&current, &target, &limits).unwrap();
         assert!(why.contains("Apply 1 mm first"), "{why}");
 
         // One byte more and it goes.
-        let roomier = Limits { budget_bytes: limits.budget_bytes.map(|b| b + 1), ..limits };
+        let roomier = Limits {
+            budget_bytes: limits.budget_bytes.map(|b| b + 1),
+            ..limits
+        };
         assert_eq!(blocker(&current, &target, &roomier), None);
     }
 
     #[test]
     fn with_the_memory_size_unknown_only_the_hard_limits_apply() {
-        let unknown = Limits { budget_bytes: None, ..rtx_4090() };
+        let unknown = Limits {
+            budget_bytes: None,
+            ..rtx_4090()
+        };
         assert_eq!(blocker(&fp32(0.75), &fp32(0.3), &unknown), None);
     }
 
@@ -429,7 +469,10 @@ mod tests {
         // (0.75 / 0.5)^3 = 3.4: a finer grid is slower by the cell ratio.
         assert!((1000.0 / scaled - 3.375).abs() < 0.1, "{scaled}");
 
-        let paused = Throughput { measured_steps_per_s: 0.0, ..measured };
+        let paused = Throughput {
+            measured_steps_per_s: 0.0,
+            ..measured
+        };
         let predicted = steps_per_s(&current, &target, &paused).unwrap();
         let roofline = ad_gpu::predicted_steps_per_second(
             target.padded_cells,
@@ -440,7 +483,10 @@ mod tests {
         );
         assert_eq!(predicted, roofline);
 
-        let nothing = Throughput { peak_bandwidth: None, ..paused };
+        let nothing = Throughput {
+            peak_bandwidth: None,
+            ..paused
+        };
         assert_eq!(steps_per_s(&current, &target, &nothing), None);
     }
 }

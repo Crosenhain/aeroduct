@@ -43,7 +43,6 @@ use bytemuck::{Pod, Zeroable};
 use glam::{Mat4, Vec3};
 use std::collections::HashSet;
 
-
 /// G-buffer formats.
 pub const ALBEDO_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8Unorm;
 /// World normal in `xyz`, the per-vertex scalar channel in `w`.
@@ -220,7 +219,12 @@ pub struct GpuMesh {
 }
 
 impl GpuMesh {
-    pub fn upload(device: &wgpu::Device, queue: &wgpu::Queue, data: MeshData<'_>, style: MeshStyle) -> Self {
+    pub fn upload(
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        data: MeshData<'_>,
+        style: MeshStyle,
+    ) -> Self {
         let edges = edge_list(data.indices);
         let bbox = Bbox::from_points(data.vertices.iter().map(|v| Vec3::from_array(v.position)));
 
@@ -241,10 +245,22 @@ impl GpuMesh {
         };
 
         Self {
-            vertices: make("mesh vertices", bytemuck::cast_slice(data.vertices), wgpu::BufferUsages::VERTEX),
-            indices: make("mesh indices", bytemuck::cast_slice(data.indices), wgpu::BufferUsages::INDEX),
+            vertices: make(
+                "mesh vertices",
+                bytemuck::cast_slice(data.vertices),
+                wgpu::BufferUsages::VERTEX,
+            ),
+            indices: make(
+                "mesh indices",
+                bytemuck::cast_slice(data.indices),
+                wgpu::BufferUsages::INDEX,
+            ),
             index_count: data.indices.len() as u32,
-            edges: make("mesh edges", bytemuck::cast_slice(&edges), wgpu::BufferUsages::INDEX),
+            edges: make(
+                "mesh edges",
+                bytemuck::cast_slice(&edges),
+                wgpu::BufferUsages::INDEX,
+            ),
             edge_count: edges.len() as u32,
             style,
             bbox,
@@ -396,7 +412,11 @@ impl MeshRenderer {
             Some(wgpu::ColorTargetState {
                 format,
                 blend: None,
-                write_mask: if write { wgpu::ColorWrites::ALL } else { wgpu::ColorWrites::empty() },
+                write_mask: if write {
+                    wgpu::ColorWrites::ALL
+                } else {
+                    wgpu::ColorWrites::empty()
+                },
             })
         };
         let ghost_depth_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
@@ -576,15 +596,18 @@ impl MeshRenderer {
                     mesh.style.fresnel_power,
                     mesh.style.rim_strength,
                 ],
-                light_dir: self.light_dir.normalize_or(Vec3::Y).extend(self.light_intensity).to_array(),
-                ghost: [
-                    mesh.style.ghost_alpha.0,
-                    mesh.style.ghost_alpha.1,
-                    0.0,
-                    1.0,
-                ],
+                light_dir: self
+                    .light_dir
+                    .normalize_or(Vec3::Y)
+                    .extend(self.light_intensity)
+                    .to_array(),
+                ghost: [mesh.style.ghost_alpha.0, mesh.style.ghost_alpha.1, 0.0, 1.0],
             };
-            queue.write_buffer(&self.uniform, i as u64 * MESH_UNIFORM_STRIDE, bytemuck::bytes_of(&u));
+            queue.write_buffer(
+                &self.uniform,
+                i as u64 * MESH_UNIFORM_STRIDE,
+                bytemuck::bytes_of(&u),
+            );
         }
     }
 
@@ -670,13 +693,19 @@ impl MeshRenderer {
                 view: hdr,
                 depth_slice: None,
                 resolve_target: None,
-                ops: wgpu::Operations { load: wgpu::LoadOp::Load, store: wgpu::StoreOp::Store },
+                ops: wgpu::Operations {
+                    load: wgpu::LoadOp::Load,
+                    store: wgpu::StoreOp::Store,
+                },
             })],
             depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
                 view: depth,
                 // Test but do not write: a ghosted shell must not occlude
                 // anything drawn after it.
-                depth_ops: Some(wgpu::Operations { load: wgpu::LoadOp::Load, store: wgpu::StoreOp::Store }),
+                depth_ops: Some(wgpu::Operations {
+                    load: wgpu::LoadOp::Load,
+                    store: wgpu::StoreOp::Store,
+                }),
                 stencil_ops: None,
             }),
             timestamp_writes: None,
@@ -685,7 +714,11 @@ impl MeshRenderer {
         });
 
         let wire = self.display == MeshDisplay::Wireframe;
-        pass.set_pipeline(if wire { &self.wire_pipeline } else { &self.ghost_pipeline });
+        pass.set_pipeline(if wire {
+            &self.wire_pipeline
+        } else {
+            &self.ghost_pipeline
+        });
         pass.set_bind_group(0, camera_group, &[]);
         for (i, mesh) in meshes.iter().take(MAX_MESHES).enumerate() {
             if !mesh.visible {
@@ -721,7 +754,12 @@ mod tests {
         }
         assert_eq!(m, MeshDisplay::Solid, "cycle must return to its start");
         assert_eq!(seen.len(), 4);
-        for a in [MeshDisplay::Solid, MeshDisplay::Ghost, MeshDisplay::Wireframe, MeshDisplay::Off] {
+        for a in [
+            MeshDisplay::Solid,
+            MeshDisplay::Ghost,
+            MeshDisplay::Wireframe,
+            MeshDisplay::Off,
+        ] {
             assert!(seen.contains(&a), "{} was skipped", a.label());
         }
     }
@@ -756,7 +794,13 @@ mod tests {
 
         let mut pairs: Vec<(u32, u32)> = edges
             .chunks_exact(2)
-            .map(|c| if c[0] < c[1] { (c[0], c[1]) } else { (c[1], c[0]) })
+            .map(|c| {
+                if c[0] < c[1] {
+                    (c[0], c[1])
+                } else {
+                    (c[1], c[0])
+                }
+            })
             .collect();
         pairs.sort();
         assert_eq!(pairs, vec![(0, 1), (0, 2), (1, 2), (1, 3), (2, 3)]);
@@ -788,7 +832,10 @@ mod tests {
     fn mesh_uniform_fits_the_dynamic_offset_stride() {
         let size = std::mem::size_of::<MeshUniform>() as u64;
         assert_eq!(size % 16, 0);
-        assert!(size <= MESH_UNIFORM_STRIDE, "{size} exceeds the {MESH_UNIFORM_STRIDE}-byte stride");
+        assert!(
+            size <= MESH_UNIFORM_STRIDE,
+            "{size} exceeds the {MESH_UNIFORM_STRIDE}-byte stride"
+        );
         // 256 is the worst-case min_uniform_buffer_offset_alignment.
         assert_eq!(MESH_UNIFORM_STRIDE % 256, 0);
     }

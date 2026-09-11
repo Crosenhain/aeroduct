@@ -221,18 +221,25 @@ impl DuctMetricsSource {
         // assumes, and every target this runs on is little-endian.
         let words = pack_flags(&sim.mask);
         let bytes: Vec<u8> = words.iter().flat_map(|w| w.to_le_bytes()).collect();
-        let flags = gpu.device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("metrics interior flags"),
-            contents: &bytes,
-            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
-        });
+        let flags = gpu
+            .device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("metrics interior flags"),
+                contents: &bytes,
+                usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+            });
 
         let velocity = sim.solver.velocity_view();
         let density = sim.solver.density_view();
         let field_group = field_bind_group(
             &gpu.device,
             &layout,
-            &FieldRefs { grid: sim.grid, velocity: &velocity, density: &density, flags: &flags },
+            &FieldRefs {
+                grid: sim.grid,
+                velocity: &velocity,
+                density: &density,
+                flags: &flags,
+            },
         );
 
         // The passage volume has to be known before the configuration is built:
@@ -250,8 +257,8 @@ impl DuctMetricsSource {
 
         let cfg = metrics_config(sim, inlet, outlet, passage_volume_mm3);
         let duct_length_mm = cfg.duct_length_mm;
-        let metrics = DuctMetrics::new(&gpu.device, &layout, cfg)
-            .context("building the metrics passes")?;
+        let metrics =
+            DuctMetrics::new(&gpu.device, &layout, cfg).context("building the metrics passes")?;
 
         Ok(Self {
             device: gpu.device.clone(),
@@ -312,7 +319,9 @@ impl MetricsSource for DuctMetricsSource {
             self.profiler.begin_frame();
             let mut enc = self
                 .device
-                .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("metrics") });
+                .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                    label: Some("metrics"),
+                });
             if let Err(e) = self.metrics.record(
                 &self.queue,
                 &mut enc,
@@ -335,7 +344,12 @@ impl MetricsSource for DuctMetricsSource {
         }
 
         let report = self.metrics.report();
-        map_report(&report, patch_view(cx, cx.inlet), patch_view(cx, cx.outlet), out);
+        map_report(
+            &report,
+            patch_view(cx, cx.inlet),
+            patch_view(cx, cx.outlet),
+            out,
+        );
 
         // 4. Traces, on the step the readback actually came from.
         if self.last_trace_step != Some(report.step) && report.frames > 0 {
@@ -358,7 +372,11 @@ impl MetricsSource for DuctMetricsSource {
         // used, counted from the last reset by `DuctMetrics` itself, so the
         // progress bar and the traffic light can never disagree about how far
         // through the averaging window the run is.
-        let per = cx.sim.units.steps_per_flow_through(self.duct_length_mm).max(1.0);
+        let per = cx
+            .sim
+            .units
+            .steps_per_flow_through(self.duct_length_mm)
+            .max(1.0);
         let cfg = *self.metrics.monitor().config();
         out.stats = StatsWindowView {
             steps_in_window: cx.steps_in_window,
@@ -537,7 +555,9 @@ fn into_the_duct(mut patch: FlowPatch, grid: Grid) -> FlowPatch {
     if n == glam::Vec3::ZERO {
         return patch;
     }
-    let axis = (0..3).max_by(|a, b| n[*a].abs().total_cmp(&n[*b].abs())).unwrap_or(0);
+    let axis = (0..3)
+        .max_by(|a, b| n[*a].abs().total_cmp(&n[*b].abs()))
+        .unwrap_or(0);
     if n[axis].abs() > 0.999 {
         let k = ((patch.center_mm[axis] - grid.origin_mm[axis]) / grid.dx_mm).round();
         let k = k + n[axis].signum() * MEASUREMENT_OFFSET_CELLS;
@@ -618,14 +638,21 @@ fn map_report(report: &MetricsReport, inlet: PatchView, outlet: PatchView, out: 
     out.deflection_deg = reading(report.jet.deflection_deg);
     // `Jet::direction` falls back to the outlet normal before anything has been
     // measured; only a real deflection reading makes it a measurement.
-    out.jet_direction = out.deflection_deg.value.is_finite().then_some(report.jet.direction);
+    out.jet_direction = out
+        .deflection_deg
+        .value
+        .is_finite()
+        .then_some(report.jet.direction);
     out.max_speed = reading(report.peak_speed_ms);
 
     out.reynolds = report.reynolds;
     out.mach_lb = report.mach_lb;
     out.tau0 = report.tau0;
 
-    out.inlet = PatchView { mean_velocity: reading(report.inlet_velocity_ms), ..inlet };
+    out.inlet = PatchView {
+        mean_velocity: reading(report.inlet_velocity_ms),
+        ..inlet
+    };
     out.outlet = PatchView {
         mean_velocity: reading(report.outlet_velocity_ms),
         backflow_fraction: reading(report.uniformity.backflow_fraction),
@@ -665,7 +692,12 @@ fn histogram_view(report: &MetricsReport) -> HistogramView {
         name: "U_out".into(),
         unit: "m/s".into(),
         edges: (0..=bins).map(|i| lo + i as f64 * width).collect(),
-        counts: report.uniformity.histogram.iter().map(|(_, f)| *f).collect(),
+        counts: report
+            .uniformity
+            .histogram
+            .iter()
+            .map(|(_, f)| *f)
+            .collect(),
         mean: reading(report.outlet_velocity_ms),
     }
 }
@@ -677,12 +709,7 @@ fn histogram_view(report: &MetricsReport) -> HistogramView {
 /// honest SEM here with no autocorrelation correction to make. The variance
 /// ratio has no closed-form error, so it is marked instantaneous rather than
 /// given an invented one.
-fn map_rtd(
-    rtd: &ad_metrics::Rtd,
-    exits: u64,
-    trapped_fraction: f64,
-    out: &mut ResidenceTimeView,
-) {
+fn map_rtd(rtd: &ad_metrics::Rtd, exits: u64, trapped_fraction: f64, out: &mut ResidenceTimeView) {
     // Read `tau_ideal` back off the distribution rather than recomputing it, so
     // the panel and `Rtd::summary` can never quote two different ideal times for
     // the same duct.
@@ -729,9 +756,12 @@ fn push_traces(report: &MetricsReport, out: &mut MetricsView) {
         conv.flow_out = Trace::new("Q_out", "m^3/s");
         conv.pressure_drop = Trace::new("dp_total", "Pa");
     }
-    conv.flow_in.push(x, report.flow_in.m3s().mean, TRACE_CAPACITY);
-    conv.flow_out.push(x, report.flow_out.m3s().mean, TRACE_CAPACITY);
-    conv.pressure_drop.push(x, report.total_pressure_drop_pa.mean, TRACE_CAPACITY);
+    conv.flow_in
+        .push(x, report.flow_in.m3s().mean, TRACE_CAPACITY);
+    conv.flow_out
+        .push(x, report.flow_out.m3s().mean, TRACE_CAPACITY);
+    conv.pressure_drop
+        .push(x, report.total_pressure_drop_pa.mean, TRACE_CAPACITY);
 
     if let Some(r) = report.residual {
         if conv.residuals.is_empty() {
@@ -890,7 +920,14 @@ mod tests {
     use glam::Vec3;
 
     fn estimate(mean: f64, sem: f64, n: u64, n_eff: f64) -> Estimate {
-        Estimate { mean, sem, std_dev: sem * n_eff.sqrt(), n, n_eff, tau_int: n as f64 / (2.0 * n_eff) }
+        Estimate {
+            mean,
+            sem,
+            std_dev: sem * n_eff.sqrt(),
+            n,
+            n_eff,
+            tau_int: n as f64 / (2.0 * n_eff),
+        }
     }
 
     /// A plane reading with the fields the mapping reads. Air at the reference
@@ -994,7 +1031,11 @@ mod tests {
     }
 
     fn geometry(name: &str, area: f32) -> PatchView {
-        PatchView { name: name.into(), open_area_mm2: area, ..PatchView::default() }
+        PatchView {
+            name: name.into(),
+            open_area_mm2: area,
+            ..PatchView::default()
+        }
     }
 
     #[test]
@@ -1006,8 +1047,14 @@ mod tests {
         // SI throughout, and the *mean* carries its own SEM rather than the
         // standard deviation of the signal, which is 14x larger here.
         assert!((v.flow_rate.value - 6.35e-3).abs() < 1e-12);
-        assert!((v.flow_rate.sem - 8.0e-6).abs() < 1e-15, "the SEM was not preserved");
-        assert!(v.flow_rate.sem < r.flow_in.m3s().std_dev, "std_dev leaked in as the error bar");
+        assert!(
+            (v.flow_rate.sem - 8.0e-6).abs() < 1e-15,
+            "the SEM was not preserved"
+        );
+        assert!(
+            v.flow_rate.sem < r.flow_in.m3s().std_dev,
+            "std_dev leaked in as the error bar"
+        );
         assert!((v.pressure_drop.value - 14.2).abs() < 1e-12);
         assert!((v.pressure_drop.sem - 0.31).abs() < 1e-12);
         assert!((v.loss_coefficient.value - 0.58).abs() < 1e-12);
@@ -1123,7 +1170,10 @@ mod tests {
         assert_eq!(v.convergence.flow_out.y.len(), 2);
         assert_eq!(v.convergence.pressure_drop.y[0], 14.2);
         assert_eq!(v.convergence.residuals.len(), 1);
-        assert!(v.convergence.residuals[0].log_y, "a residual needs a log axis");
+        assert!(
+            v.convergence.residuals[0].log_y,
+            "a residual needs a log axis"
+        );
 
         // No residual, no trace: an absent number must not become a zero on a
         // log plot, where it would read as perfect convergence.
@@ -1141,7 +1191,11 @@ mod tests {
         map_rtd(&rtd, 0, f64::NAN, &mut v);
         assert!(!v.mean_residence_s.is_known());
         assert!(!v.histogram.is_valid());
-        assert!((v.ideal_residence_s - 0.020_357).abs() < 1e-5, "{}", v.ideal_residence_s);
+        assert!(
+            (v.ideal_residence_s - 0.020_357).abs() < 1e-5,
+            "{}",
+            v.ideal_residence_s
+        );
 
         // With no passage volume the app hands the distribution an infinite
         // ideal time, which must read as "unknown" rather than as a number the
@@ -1211,7 +1265,10 @@ mod tests {
         // translated by one cell along its own normal.
         let tilted = Vec3::new(0.0, 0.6, 0.8);
         let moved = at(tilted, 2.0);
-        assert!((moved - (2.0 + 0.8)).abs() < 1e-6, "tilted patch moved to {moved}");
+        assert!(
+            (moved - (2.0 + 0.8)).abs() < 1e-6,
+            "tilted patch moved to {moved}"
+        );
         // A degenerate normal must not produce a NaN centre.
         assert_eq!(at(Vec3::ZERO, 2.0), 2.0);
     }
@@ -1231,7 +1288,10 @@ mod tests {
         r.volumetric_imbalance = estimate(0.0761, 0.0004, 4000, 150.0);
         r.volumetric_expansion = estimate(0.0714, 0.0004, 4000, 150.0);
         assert!(r.mass_balance_ok, "mass is conserved to 0.15%");
-        assert!(r.compressibility_is_material(), "a 7.6% volume gap is worth saying");
+        assert!(
+            r.compressibility_is_material(),
+            "a 7.6% volume gap is worth saying"
+        );
         // The expansion accounts for all but half a percent of it.
         assert!(
             r.unexplained_volumetric_imbalance().abs() < 0.005,
@@ -1256,18 +1316,36 @@ mod tests {
     fn the_run_state_distinguishes_a_warm_up_from_an_average() {
         // A transient is not "averaging": the numbers exist but are still
         // contaminated by the initial condition.
-        assert_eq!(convergence_state(RunHealth::Transient), ConvergenceState::Warmup);
-        assert_eq!(convergence_state(RunHealth::Unknown), ConvergenceState::Warmup);
-        assert_eq!(convergence_state(RunHealth::Converging), ConvergenceState::Averaging);
-        assert_eq!(convergence_state(RunHealth::Converged), ConvergenceState::Converged);
-        assert_eq!(convergence_state(RunHealth::Diverged), ConvergenceState::Diverged);
+        assert_eq!(
+            convergence_state(RunHealth::Transient),
+            ConvergenceState::Warmup
+        );
+        assert_eq!(
+            convergence_state(RunHealth::Unknown),
+            ConvergenceState::Warmup
+        );
+        assert_eq!(
+            convergence_state(RunHealth::Converging),
+            ConvergenceState::Averaging
+        );
+        assert_eq!(
+            convergence_state(RunHealth::Converged),
+            ConvergenceState::Converged
+        );
+        assert_eq!(
+            convergence_state(RunHealth::Diverged),
+            ConvergenceState::Diverged
+        );
     }
 
     #[test]
     fn a_prescribed_reading_is_marked_provisional_rather_than_converged() {
         use ad_ui::format::{uncertain, Quantity, UnitSystem};
         let s = uncertain(instantaneous(3.0), Quantity::velocity(UnitSystem::Metric));
-        assert!(s.starts_with('~'), "a boundary condition must not read as a measurement: {s}");
+        assert!(
+            s.starts_with('~'),
+            "a boundary condition must not read as a measurement: {s}"
+        );
         assert!(!s.contains("+/-"));
     }
 }

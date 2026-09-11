@@ -50,9 +50,9 @@ use glam::Vec3;
 use crate::readback::{Frame, ReadbackRing};
 use crate::shaders;
 use crate::shaders::{
-    ACC_STRIDE, ANGLE_BINS, A_ANGLE_BASE, A_HIST_BASE, A_N_BACK, A_N_FLUID, A_N_INSIDE,
-    A_N_TOTAL, A_SCALAR_BASE, HIST_BINS, N_SCALARS, S_ABS_DEV, S_JX, S_JY, S_JZ, S_MAX_SPEED,
-    S_MAX_W, S_MDOT_PT, S_MIN_W, S_PS, S_PT, S_RHO_W, S_SPEED, S_W, S_W2,
+    ACC_STRIDE, ANGLE_BINS, A_ANGLE_BASE, A_HIST_BASE, A_N_BACK, A_N_FLUID, A_N_INSIDE, A_N_TOTAL,
+    A_SCALAR_BASE, HIST_BINS, N_SCALARS, S_ABS_DEV, S_JX, S_JY, S_JZ, S_MAX_SPEED, S_MAX_W,
+    S_MDOT_PT, S_MIN_W, S_PS, S_PT, S_RHO_W, S_SPEED, S_W, S_W2,
 };
 
 /// Workgroups along each side of the plane launch, whatever the sample count.
@@ -298,8 +298,14 @@ impl PlaneMetrics {
                 label: Some("metrics plane group1"),
                 layout: &group1_layout,
                 entries: &[
-                    wgpu::BindGroupEntry { binding: 0, resource: buf.as_entire_binding() },
-                    wgpu::BindGroupEntry { binding: 1, resource: acc.as_entire_binding() },
+                    wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: buf.as_entire_binding(),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 1,
+                        resource: acc.as_entire_binding(),
+                    },
                 ],
             }));
             uniforms.push(buf);
@@ -588,8 +594,11 @@ impl PlaneReading {
         // the volumetric flow exactly consistent with the density that relates
         // them.
         let mass_flow_kgs = sum_rho_w * to_flow * lu.rho_phys;
-        let bulk_velocity_ms =
-            if open_area_mm2 > 0.0 { flow_rate_m3s / (open_area_mm2 * 1e-6) } else { 0.0 };
+        let bulk_velocity_ms = if open_area_mm2 > 0.0 {
+            flow_rate_m3s / (open_area_mm2 * 1e-6)
+        } else {
+            0.0
+        };
 
         // Both pressures are lattice pressures already (p = c_s^2 (rho - 1) and
         // p_t = p + rho|u|^2/2), so the single factor rho_phys (dx/dt)^2 turns
@@ -613,7 +622,11 @@ impl PlaneReading {
             0.0
         };
         let variance = (sum_w2 / nf - w_bar * w_bar).max(0.0);
-        let cv = if w_bar.abs() > 1e-30 { variance.sqrt() / w_bar.abs() } else { 0.0 };
+        let cv = if w_bar.abs() > 1e-30 {
+            variance.sqrt() / w_bar.abs()
+        } else {
+            0.0
+        };
 
         let backflow_fraction = acc.n_backflow() as f64 / nf;
         let max_speed_ms = acc.scalar(S_MAX_SPEED) as f64 * c_u;
@@ -621,9 +634,14 @@ impl PlaneReading {
 
         let j = Vec3::new(acc.scalar(S_JX), acc.scalar(S_JY), acc.scalar(S_JZ));
         let n = patch.normal.normalize_or_zero();
-        let momentum_dir = if j.length_squared() > 0.0 { j.normalize() } else { n };
-        let deflection_deg =
-            (momentum_dir.dot(n).clamp(-1.0, 1.0) as f64).acos().to_degrees();
+        let momentum_dir = if j.length_squared() > 0.0 {
+            j.normalize()
+        } else {
+            n
+        };
+        let deflection_deg = (momentum_dir.dot(n).clamp(-1.0, 1.0) as f64)
+            .acos()
+            .to_degrees();
 
         let lo = acc.scalar(S_MIN_W) as f64 * c_u;
         let hi = acc.scalar(S_MAX_W) as f64 * c_u;
@@ -637,8 +655,11 @@ impl PlaneReading {
             2.0 * patch.half_v.length() as f64,
         );
         let perimeter = 2.0 * (a + b);
-        let hydraulic_diameter_mm =
-            if perimeter > 0.0 { 4.0 * open_area_mm2 / perimeter } else { 0.0 };
+        let hydraulic_diameter_mm = if perimeter > 0.0 {
+            4.0 * open_area_mm2 / perimeter
+        } else {
+            0.0
+        };
 
         Self {
             patch_area_mm2,
@@ -778,12 +799,18 @@ fn cone_half_angle(bins: &[u32], frac: f64) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ad_gpu::types::{flags, Bbox};
     use crate::field::{field_layout, FieldRefs, FieldTextures};
+    use ad_gpu::types::{flags, Bbox};
 
     /// A cube of grid covering `[0, size]` mm at `dx`.
     fn grid(size: f32, dx: f32) -> Grid {
-        Grid::covering(Bbox { min: Vec3::ZERO, max: Vec3::splat(size) }, dx)
+        Grid::covering(
+            Bbox {
+                min: Vec3::ZERO,
+                max: Vec3::splat(size),
+            },
+            dx,
+        )
     }
 
     fn units() -> LatticeUnits {
@@ -806,13 +833,20 @@ mod tests {
         let group = crate::field::field_bind_group(
             &gpu.device,
             &layout,
-            &FieldRefs { grid: g, velocity: &vv, density: &dv, flags: tex.flags_buffer() },
+            &FieldRefs {
+                grid: g,
+                velocity: &vv,
+                density: &dv,
+                flags: tex.flags_buffer(),
+            },
         );
         let mut pm = PlaneMetrics::with_samples(&gpu.device, &layout, 1, samples, 2).unwrap();
         let mut enc = gpu
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
-        assert!(pm.record(&gpu.queue, &mut enc, &group, g, &[patch], 1, None).unwrap());
+        assert!(pm
+            .record(&gpu.queue, &mut enc, &group, g, &[patch], 1, None)
+            .unwrap());
         gpu.queue.submit([enc.finish()]);
         let frames = pm.drain_blocking(&gpu.device);
         assert!(!frames.is_empty(), "no plane readback arrived");
@@ -823,7 +857,11 @@ mod tests {
     fn accumulator_sentinels_survive_a_round_trip_through_bit_patterns() {
         let a = PlaneAccum::initial();
         assert_eq!(a.n_total(), 0);
-        assert!(a.scalar(S_MAX_W) < -1.0e29, "max sentinel was {}", a.scalar(S_MAX_W));
+        assert!(
+            a.scalar(S_MAX_W) < -1.0e29,
+            "max sentinel was {}",
+            a.scalar(S_MAX_W)
+        );
         assert!(a.scalar(S_MIN_W) > 1.0e29);
         assert_eq!(a.scalar(S_W), 0.0);
         assert_eq!(a.histogram().len(), HIST_BINS);
@@ -837,8 +875,14 @@ mod tests {
         bins[64] = 1000;
         let (h, p05, p95) = velocity_histogram(&bins, 0.0, 1.0);
         assert_eq!(h.len(), HIST_BINS);
-        assert!((h[64].1 - 1.0).abs() < 1e-12, "all the weight should be in one bin");
-        assert!((p05 - 0.5).abs() < 0.01 && (p95 - 0.5).abs() < 0.01, "{p05} {p95}");
+        assert!(
+            (h[64].1 - 1.0).abs() < 1e-12,
+            "all the weight should be in one bin"
+        );
+        assert!(
+            (p05 - 0.5).abs() < 0.01 && (p95 - 0.5).abs() < 0.01,
+            "{p05} {p95}"
+        );
     }
 
     #[test]
@@ -893,7 +937,11 @@ mod tests {
             // directly; the CV floors out near 1% on a flat profile because it
             // is a cancellation of two nearly equal fp32 sums. See the note on
             // PlaneReading::cv.
-            assert!((r.uniformity - 1.0).abs() < 1e-4, "gamma = {}", r.uniformity);
+            assert!(
+                (r.uniformity - 1.0).abs() < 1e-4,
+                "gamma = {}",
+                r.uniformity
+            );
             assert!(r.cv < 0.01, "cv = {}", r.cv);
             assert_eq!(r.backflow_fraction, 0.0);
             // ...and its momentum points exactly along the flow.
@@ -1019,7 +1067,11 @@ mod tests {
             (Vec3::new(a * (p.y - y0), 0.0, 0.0), 1.0, flags::FLUID)
         });
         let scale = (a as f64 * 16.0 * units().c_u()) * (patch.area_mm2() as f64 * 1e-6);
-        assert!(r.flow_rate_m3s.abs() < 1e-5 * scale, "Q = {}", r.flow_rate_m3s);
+        assert!(
+            r.flow_rate_m3s.abs() < 1e-5 * scale,
+            "Q = {}",
+            r.flow_rate_m3s
+        );
         assert!(
             (r.backflow_fraction - 0.5).abs() < 0.01,
             "backflow {} should be half the plane",
@@ -1037,8 +1089,7 @@ mod tests {
         let r2 = measure(&gpu, g, patch2, 256, |_, p| {
             (Vec3::new(a * (p.y - y0), 0.0, 0.0), 1.0, flags::FLUID)
         });
-        let want =
-            (a * offset) as f64 * units().c_u() * (patch2.area_mm2() as f64 * 1e-6);
+        let want = (a * offset) as f64 * units().c_u() * (patch2.area_mm2() as f64 * 1e-6);
         assert!(
             (r2.flow_rate_m3s / want - 1.0).abs() < 2e-3,
             "Q = {} vs analytic {want}",
@@ -1109,7 +1160,9 @@ mod tests {
             half_u: Vec3::Y * 6.0,
             half_v: Vec3::Z * 6.0,
         };
-        let r = measure(&gpu, g, patch, 128, |_, _| (Vec3::X * u_lb, 1.0, flags::FLUID));
+        let r = measure(&gpu, g, patch, 128, |_, _| {
+            (Vec3::X * u_lb, 1.0, flags::FLUID)
+        });
 
         let u_ms = u_lb as f64 * lu.c_u();
         let want_dynamic = 0.5 * lu.rho_phys * u_ms * u_ms;
@@ -1119,7 +1172,11 @@ mod tests {
             "dynamic head {got} vs {want_dynamic}"
         );
         // rho = 1 exactly, so the static pressure is the reference: zero.
-        assert!(r.static_pressure_pa.abs() < 1e-6, "p_s = {}", r.static_pressure_pa);
+        assert!(
+            r.static_pressure_pa.abs() < 1e-6,
+            "p_s = {}",
+            r.static_pressure_pa
+        );
         // Uniform flow: the two weightings agree, to the precision of two
         // independent fp32 accumulations over 16,384 samples.
         assert!(
@@ -1145,7 +1202,9 @@ mod tests {
             half_u: Vec3::Y * 6.0,
             half_v: Vec3::Z * 6.0,
         };
-        let r = measure(&gpu, g, patch, 128, |_, _| (Vec3::X * u_lb, rho, flags::FLUID));
+        let r = measure(&gpu, g, patch, 128, |_, _| {
+            (Vec3::X * u_lb, rho, flags::FLUID)
+        });
 
         let want = rho as f64 * lu.rho_phys * r.flow_rate_m3s;
         assert!(
@@ -1154,8 +1213,13 @@ mod tests {
             r.mass_flow_kgs
         );
         // ...and the density that relates them comes back out.
-        let d = r.mean_density_kgm3().expect("a flowing plane has a mean density");
-        assert!((d / (rho as f64 * lu.rho_phys) - 1.0).abs() < 1e-4, "rho_bar = {d}");
+        let d = r
+            .mean_density_kgm3()
+            .expect("a flowing plane has a mean density");
+        assert!(
+            (d / (rho as f64 * lu.rho_phys) - 1.0).abs() < 1e-4,
+            "rho_bar = {d}"
+        );
     }
 
     /// An empty plane reports nothing rather than a plausible zero with a

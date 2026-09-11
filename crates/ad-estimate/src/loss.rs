@@ -220,7 +220,13 @@ pub fn haaland(re: f64, rel_roughness: f64) -> f64 {
 ///
 /// `rel_roughness` is `eps / D_h`, dimensionless.
 pub fn friction_factor(re: f64, rel_roughness: f64, section: Section) -> Friction {
-    let f_lam = |re: f64| if re > 0.0 { laminar_f_re(section) / re } else { 0.0 };
+    let f_lam = |re: f64| {
+        if re > 0.0 {
+            laminar_f_re(section) / re
+        } else {
+            0.0
+        }
+    };
     let smooth = rel_roughness <= 1e-9;
     let f_turb = |re: f64| {
         // Blasius inside its window, Colebrook everywhere else. They agree to
@@ -233,13 +239,21 @@ pub fn friction_factor(re: f64, rel_roughness: f64, section: Section) -> Frictio
     };
 
     if !(re > 0.0) {
-        return Friction { f: 0.0, regime: Regime::Laminar, sigma_rel: 0.0 };
+        return Friction {
+            f: 0.0,
+            regime: Regime::Laminar,
+            sigma_rel: 0.0,
+        };
     }
     if re <= RE_LAMINAR_MAX {
         // Fully-developed laminar friction is an exact solution of the
         // Navier-Stokes equations, not a fit. The 3% allows for the entrance
         // region, which is genuinely more resistive.
-        return Friction { f: f_lam(re), regime: Regime::Laminar, sigma_rel: 0.03 };
+        return Friction {
+            f: f_lam(re),
+            regime: Regime::Laminar,
+            sigma_rel: 0.03,
+        };
     }
     if re >= RE_TURBULENT_MIN {
         let sigma = if smooth && re < 1.0e5 {
@@ -253,7 +267,11 @@ pub fn friction_factor(re: f64, rel_roughness: f64, section: Section) -> Frictio
             // better than a factor of two anyway.
             0.15
         };
-        return Friction { f: f_turb(re), regime: Regime::Turbulent, sigma_rel: sigma };
+        return Friction {
+            f: f_turb(re),
+            regime: Regime::Turbulent,
+            sigma_rel: sigma,
+        };
     }
 
     let w = smoothstep((re - RE_LAMINAR_MAX) / (RE_TURBULENT_MIN - RE_LAMINAR_MAX));
@@ -508,7 +526,11 @@ pub fn gradual_contraction_k(a2_over_a1: f64, included_angle_deg: f64) -> Band {
     let sudden = sudden_contraction_k(a2_over_a1);
     let theta = included_angle_deg.abs().max(0.0).min(180.0);
     let half = (theta * 0.5).to_radians();
-    let m = if theta <= 45.0 { half.sin() } else { half.sin().sqrt() };
+    let m = if theta <= 45.0 {
+        half.sin()
+    } else {
+        half.sin().sqrt()
+    };
     Band::relative(sudden.mean * m, if theta >= 179.0 { 0.15 } else { 0.30 })
 }
 
@@ -536,7 +558,11 @@ pub fn gradual_contraction_k(a2_over_a1: f64, included_angle_deg: f64) -> Band {
 pub fn gradual_expansion_k(a1_over_a2: f64, included_angle_deg: f64) -> Band {
     let sudden = sudden_expansion_k(a1_over_a2);
     let theta = included_angle_deg.abs().max(0.0).min(180.0);
-    let c = if theta <= 45.0 { 2.6 * (theta * 0.5).to_radians().sin() } else { 1.0 };
+    let c = if theta <= 45.0 {
+        2.6 * (theta * 0.5).to_radians().sin()
+    } else {
+        1.0
+    };
     Band::relative(sudden.mean * c, if theta >= 179.0 { 0.05 } else { 0.30 })
 }
 
@@ -667,7 +693,10 @@ mod tests {
         let mut last = laminar_f_re_rectangular(1.0);
         for aspect in [1.5, 2.0, 3.0, 5.0, 10.0, 50.0] {
             let now = laminar_f_re_rectangular(aspect);
-            assert!(now > last, "f*Re fell from {last} to {now} at aspect {aspect}");
+            assert!(
+                now > last,
+                "f*Re fell from {last} to {now} at aspect {aspect}"
+            );
             last = now;
         }
         assert!(laminar_f_re_rectangular(1.0) < 64.0);
@@ -715,7 +744,10 @@ mod tests {
             // Not exact: at Re = 1e9 the viscous term is 1e-5 of the roughness
             // term, not zero. That residue is the whole reason Colebrook is
             // used instead of von Karman below Re = 1e7.
-            assert!((f / want - 1.0).abs() < 1e-4, "eps = {eps}: {f} against {want}");
+            assert!(
+                (f / want - 1.0).abs() < 1e-4,
+                "eps = {eps}: {f} against {want}"
+            );
         }
     }
 
@@ -741,8 +773,16 @@ mod tests {
         let smooth = friction_factor(re, 0.0, CIRC).f;
         let printed = friction_factor(re, crate::PRINTED_ROUGHNESS_MM / 6.3, CIRC).f;
         let rise = printed / smooth - 1.0;
-        assert!(rise > 0.15, "printed roughness only raised f by {:.1}%", rise * 100.0);
-        assert!(rise < 0.60, "printed roughness raised f by {:.1}%, implausible", rise * 100.0);
+        assert!(
+            rise > 0.15,
+            "printed roughness only raised f by {:.1}%",
+            rise * 100.0
+        );
+        assert!(
+            rise < 0.60,
+            "printed roughness raised f by {:.1}%, implausible",
+            rise * 100.0
+        );
     }
 
     #[test]
@@ -755,9 +795,17 @@ mod tests {
         // Approaching each end from inside the blend must converge to the same
         // value: no step.
         let just_above = friction_factor(RE_LAMINAR_MAX + 1e-6, 0.0, CIRC);
-        assert!((just_above.f - lam.f).abs() < 1e-6, "step of {}", just_above.f - lam.f);
+        assert!(
+            (just_above.f - lam.f).abs() < 1e-6,
+            "step of {}",
+            just_above.f - lam.f
+        );
         let just_below = friction_factor(RE_TURBULENT_MIN - 1e-6, 0.0, CIRC);
-        assert!((just_below.f - turb.f).abs() < 1e-6, "step of {}", just_below.f - turb.f);
+        assert!(
+            (just_below.f - turb.f).abs() < 1e-6,
+            "step of {}",
+            just_below.f - turb.f
+        );
 
         // Through the transition the blend must stay bracketed by the two
         // branches it is blending, and must end well above where it started.
@@ -773,18 +821,36 @@ mod tests {
             let f = friction_factor(re, 0.0, CIRC);
             assert_eq!(
                 f.regime,
-                if re >= RE_TURBULENT_MIN { Regime::Turbulent } else { Regime::Transitional }
+                if re >= RE_TURBULENT_MIN {
+                    Regime::Turbulent
+                } else {
+                    Regime::Transitional
+                }
             );
             let (lo, hi) = {
                 let (a, b) = (64.0 / re, blasius(re));
                 (a.min(b), a.max(b))
             };
-            assert!(f.f >= lo - 1e-12 && f.f <= hi + 1e-12, "f = {} outside [{lo}, {hi}] at Re = {re}", f.f);
+            assert!(
+                f.f >= lo - 1e-12 && f.f <= hi + 1e-12,
+                "f = {} outside [{lo}, {hi}] at Re = {re}",
+                f.f
+            );
             dip = dip.max(1.0 - f.f / lam.f);
         }
-        assert!(dip > 0.02, "the dip is real; if it vanished the blend changed");
-        assert!(dip < 0.08, "the blend dips {:.1}% below the laminar endpoint", dip * 100.0);
-        assert!(turb.f > lam.f * 1.4, "the transition should raise f substantially");
+        assert!(
+            dip > 0.02,
+            "the dip is real; if it vanished the blend changed"
+        );
+        assert!(
+            dip < 0.08,
+            "the blend dips {:.1}% below the laminar endpoint",
+            dip * 100.0
+        );
+        assert!(
+            turb.f > lam.f * 1.4,
+            "the transition should raise f substantially"
+        );
         // ...and it says loudly that it does not know.
         assert!(friction_factor(3000.0, 0.0, CIRC).sigma_rel >= 0.5);
     }
@@ -810,8 +876,12 @@ mod tests {
         // across H/W; Idelchik Diagram 6-7 gives 1.2-1.4 at square aspect;
         // Crane TP-410's 60 f_T is ~1.2. This must reproduce that consensus.
         let f = friction_factor(2.0e4, 0.0, CIRC).f;
-        for (hw, lo, hi) in [(0.25, 1.4, 1.8), (1.0, 1.1, 1.5), (2.0, 0.9, 1.3), (8.0, 1.0, 1.5)]
-        {
+        for (hw, lo, hi) in [
+            (0.25, 1.4, 1.8),
+            (1.0, 1.1, 1.5),
+            (2.0, 0.9, 1.3),
+            (8.0, 1.0, 1.5),
+        ] {
             let k = elbow_k(90.0, 0.0, hw, f);
             assert!(
                 k.mean >= lo && k.mean <= hi,
@@ -822,7 +892,10 @@ mod tests {
         // the whole point of radiusing a bend is lost.
         let mitre = elbow_k(90.0, 0.0, 1.0, f).mean;
         let radiused = elbow_k(90.0, 1.5, 1.0, f).mean;
-        assert!(mitre / radiused > 4.0, "mitre {mitre} vs radiused {radiused}");
+        assert!(
+            mitre / radiused > 4.0,
+            "mitre {mitre} vs radiused {radiused}"
+        );
     }
 
     #[test]
@@ -834,12 +907,18 @@ mod tests {
         // there. It is documentation of a disagreement, not a target.
         let f = friction_factor(2.0e4, 0.0, CIRC).f;
         let square = elbow_k(90.0, 0.0, 1.0, f);
-        assert!(square.high() < 2.0, "square mitre band {square} already reaches the contract");
+        assert!(
+            square.high() < 2.0,
+            "square mitre band {square} already reaches the contract"
+        );
 
         // Turning the hard way in a very flat duct does approach it.
         let flat = elbow_k(90.0, 0.0, 0.05, f);
         assert!(flat.mean > 1.7, "H/W = 0.05 mitre gave only K = {flat}");
-        assert!(flat.high() > 2.0, "even a 20:1 flat mitre band {flat} misses 2.0");
+        assert!(
+            flat.high() > 2.0,
+            "even a 20:1 flat mitre band {flat} misses 2.0"
+        );
         // ...and it says it is extrapolating while it does so.
         assert!(flat.relative_sigma() >= 0.40 - 1e-9);
     }
@@ -849,7 +928,10 @@ mod tests {
         let mut last = f64::INFINITY;
         for r in [0.0, 0.25, 0.5, 0.75, 1.0, 1.5, 2.0, 4.0, 8.0] {
             let k = bend_local_k(90.0, r, 1.0).mean;
-            assert!(k <= last + 1e-9, "K rose from {last} to {k} going to r/D = {r}");
+            assert!(
+                k <= last + 1e-9,
+                "K rose from {last} to {k} going to r/D = {r}"
+            );
             last = k;
         }
         let mut last = 0.0;
@@ -862,7 +944,10 @@ mod tests {
         let below = bend_local_k(90.0, 1.0 - 1e-9, 1.0).mean;
         let above = bend_local_k(90.0, 1.0 + 1e-9, 1.0).mean;
         assert!((below - above).abs() < 1e-6);
-        assert!((above - 0.21).abs() < 1e-6, "B1(1) should be 0.21, got {above}");
+        assert!(
+            (above - 0.21).abs() < 1e-6,
+            "B1(1) should be 0.21, got {above}"
+        );
     }
 
     #[test]
@@ -878,7 +963,13 @@ mod tests {
     fn sudden_expansion_is_exactly_borda_carnot() {
         // This one is a momentum balance, not a fit, so "exactly" means
         // exactly.
-        for (a1, a2) in [(1.0f64, 1.0f64), (1.0, 2.0), (1.0, 4.0), (1.0, 100.0), (3.0, 4.0)] {
+        for (a1, a2) in [
+            (1.0f64, 1.0f64),
+            (1.0, 2.0),
+            (1.0, 4.0),
+            (1.0, 100.0),
+            (3.0, 4.0),
+        ] {
             let want = (1.0 - a1 / a2).powi(2);
             let got = sudden_expansion_k(a1 / a2);
             assert!((got.mean - want).abs() < 1e-15, "{got} against {want}");
@@ -886,7 +977,9 @@ mod tests {
         // Discharging into a room is the A2 -> inf limit and costs exactly one
         // velocity head.
         assert!((sudden_expansion_k(0.0).mean - 1.0).abs() < 1e-15);
-        assert!((sudden_expansion_k(0.0).mean - exit_k(ExitCondition::Discharge).mean).abs() < 1e-15);
+        assert!(
+            (sudden_expansion_k(0.0).mean - exit_k(ExitCondition::Discharge).mean).abs() < 1e-15
+        );
         assert!(sudden_expansion_k(1.0).mean.abs() < 1e-15);
     }
 
@@ -917,7 +1010,10 @@ mod tests {
         // The diffuser branches must meet at 45 degrees, where 2.6 sin 22.5 = 1.
         let below = gradual_expansion_k(a_e, 45.0 - 1e-9).mean;
         let above = gradual_expansion_k(a_e, 45.0 + 1e-9).mean;
-        assert!((below / above - 1.0).abs() < 0.01, "{below} against {above}");
+        assert!(
+            (below / above - 1.0).abs() < 0.01,
+            "{below} against {above}"
+        );
     }
 
     #[test]
@@ -937,14 +1033,20 @@ mod tests {
             assert!(sudden_expansion_k(ratio).mean < sudden_contraction_k(ratio).mean);
         }
         let cross = (sudden_expansion_k(0.5).mean - sudden_contraction_k(0.5).mean).abs();
-        assert!(cross < 1e-15, "the curves should cross exactly at 0.5, gap {cross}");
+        assert!(
+            cross < 1e-15,
+            "the curves should cross exactly at 0.5, gap {cross}"
+        );
     }
 
     #[test]
     fn a_little_entry_radius_removes_most_of_the_entry_loss() {
         let sharp = entry_k(EntryCondition::Flush).mean;
         let rounded = entry_k(EntryCondition::Rounded { r_over_dh: 0.10 }).mean;
-        assert!(rounded < 0.25 * sharp, "sharp {sharp}, r/D = 0.1 gives {rounded}");
+        assert!(
+            rounded < 0.25 * sharp,
+            "sharp {sharp}, r/D = 0.1 gives {rounded}"
+        );
         assert!((entry_k(EntryCondition::Rounded { r_over_dh: 0.0 }).mean - sharp).abs() < 1e-15);
         assert!(entry_k(EntryCondition::ReEntrant).mean > sharp);
         assert!(entry_k(EntryCondition::BellMouth).mean < 0.05);
@@ -957,17 +1059,36 @@ mod tests {
         // No unwrap, no NaN, no infinity, whatever the geometry extractor hands
         // over — including the zeros and the absurd values a broken passage
         // produces.
-        let inputs = [0.0f64, -1.0, 1e-12, 1e12, f64::NAN, f64::INFINITY, f64::NEG_INFINITY];
+        let inputs = [
+            0.0f64,
+            -1.0,
+            1e-12,
+            1e12,
+            f64::NAN,
+            f64::INFINITY,
+            f64::NEG_INFINITY,
+        ];
         for &x in &inputs {
-            assert!(bend_local_k(90.0, x, 1.0).mean.is_finite(), "bend r/D = {x}");
-            assert!(bend_local_k(x, 1.0, 1.0).mean.is_finite(), "bend angle = {x}");
-            assert!(bend_local_k(90.0, 1.0, x).mean.is_finite(), "bend H/W = {x}");
+            assert!(
+                bend_local_k(90.0, x, 1.0).mean.is_finite(),
+                "bend r/D = {x}"
+            );
+            assert!(
+                bend_local_k(x, 1.0, 1.0).mean.is_finite(),
+                "bend angle = {x}"
+            );
+            assert!(
+                bend_local_k(90.0, 1.0, x).mean.is_finite(),
+                "bend H/W = {x}"
+            );
             assert!(elbow_k(90.0, 1.0, 1.0, x).mean.is_finite(), "elbow f = {x}");
             assert!(sudden_contraction_k(x).mean.is_finite());
             assert!(sudden_expansion_k(x).mean.is_finite());
             assert!(gradual_contraction_k(0.5, x).mean.is_finite());
             assert!(gradual_expansion_k(0.5, x).mean.is_finite());
-            assert!(entry_k(EntryCondition::Rounded { r_over_dh: x }).mean.is_finite());
+            assert!(entry_k(EntryCondition::Rounded { r_over_dh: x })
+                .mean
+                .is_finite());
             for section in [CIRC, Section::Rectangular { aspect: x }] {
                 let fr = friction_factor(x, 0.0, section);
                 assert!(fr.f.is_finite(), "f = {} at Re = {x}", fr.f);

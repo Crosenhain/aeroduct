@@ -182,7 +182,10 @@ impl WallMetrics {
         triangles: &[[Vec3; 3]],
         cfg: WallConfig,
     ) -> Result<Self> {
-        ensure!(!triangles.is_empty(), "wall metrics need at least one triangle");
+        ensure!(
+            !triangles.is_empty(),
+            "wall metrics need at least one triangle"
+        );
         let capacity = triangles.len() as u32;
 
         let group1_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -241,9 +244,18 @@ impl WallMetrics {
             label: Some("metrics wall group1"),
             layout: &group1_layout,
             entries: &[
-                wgpu::BindGroupEntry { binding: 0, resource: uniform.as_entire_binding() },
-                wgpu::BindGroupEntry { binding: 1, resource: records.as_entire_binding() },
-                wgpu::BindGroupEntry { binding: 2, resource: tris.as_entire_binding() },
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: uniform.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: records.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: tris.as_entire_binding(),
+                },
             ],
         });
 
@@ -253,12 +265,7 @@ impl WallMetrics {
             tris,
             records,
             group1,
-            ring: ReadbackRing::new(
-                device,
-                "metrics wall",
-                capacity as usize * WALL_STRIDE,
-                2,
-            ),
+            ring: ReadbackRing::new(device, "metrics wall", capacity as usize * WALL_STRIDE, 2),
             grid,
             tri_count: 0,
             capacity,
@@ -403,7 +410,10 @@ pub struct WallField<'a> {
 impl<'a> WallField<'a> {
     pub fn new(records: &'a [f32], lu: &LatticeUnits) -> Self {
         let c_u = lu.c_u();
-        Self { records, stress_factor: lu.rho_phys * c_u * c_u }
+        Self {
+            records,
+            stress_factor: lu.rho_phys * c_u * c_u,
+        }
     }
 
     pub fn len(&self) -> usize {
@@ -590,13 +600,23 @@ mod tests {
         gradient: f32,
         tris: &[[Vec3; 3]],
     ) -> Vec<f32> {
-        let grid = Grid::covering(Bbox { min: Vec3::ZERO, max: Vec3::splat(32.0) }, 1.0);
+        let grid = Grid::covering(
+            Bbox {
+                min: Vec3::ZERO,
+                max: Vec3::splat(32.0),
+            },
+            1.0,
+        );
         let tex = FieldTextures::new_exact(&gpu.device, grid);
         tex.fill(&gpu.queue, |_, p| {
             if p.y < y_w {
                 (Vec3::ZERO, 1.0, flags::SOLID)
             } else {
-                (Vec3::new(gradient * (p.y - y_w), 0.0, 0.0), 1.0, flags::FLUID)
+                (
+                    Vec3::new(gradient * (p.y - y_w), 0.0, 0.0),
+                    1.0,
+                    flags::FLUID,
+                )
             }
         })
         .unwrap();
@@ -615,10 +635,14 @@ mod tests {
         let group = crate::field::field_bind_group(
             &gpu.device,
             &layout,
-            &FieldRefs { grid, velocity: &vv, density: &dv, flags: tex.flags_buffer() },
+            &FieldRefs {
+                grid,
+                velocity: &vv,
+                density: &dv,
+                flags: tex.flags_buffer(),
+            },
         );
-        let mut wm =
-            WallMetrics::new(&gpu.device, &gpu.queue, &layout, grid, tris, cfg).unwrap();
+        let mut wm = WallMetrics::new(&gpu.device, &gpu.queue, &layout, grid, tris, cfg).unwrap();
         let nu_lb = units().nu_lb() as f32;
         let mut enc = gpu
             .device
@@ -677,20 +701,35 @@ mod tests {
             );
             assert!((t.probe_distance_cells - 1.5).abs() < 1e-4);
             // rho = 1 everywhere, so there is no pressure force at all.
-            assert!(t.pressure_force_n.length() < 1e-18, "{:?}", t.pressure_force_n);
+            assert!(
+                t.pressure_force_n.length() < 1e-18,
+                "{:?}",
+                t.pressure_force_n
+            );
             // The viscous force is tangential: along +X, the flow direction.
             let f = t.viscous_force_n;
-            assert!(f.x > 0.0 && f.y.abs() < 1e-3 * f.x.abs(), "viscous force {f:?}");
+            assert!(
+                f.x > 0.0 && f.y.abs() < 1e-3 * f.x.abs(),
+                "viscous force {f:?}"
+            );
         }
 
         let s = field.summary();
         assert_eq!(s.wetted_triangles, 2);
-        assert!((s.wetted_area_mm2 - 4.0).abs() < 1e-4, "area {}", s.wetted_area_mm2);
+        assert!(
+            (s.wetted_area_mm2 - 4.0).abs() < 1e-4,
+            "area {}",
+            s.wetted_area_mm2
+        );
         assert!((s.mean_shear_pa / want_tau_pa - 1.0).abs() < 0.02);
         assert!((s.max_shear_pa / want_tau_pa - 1.0).abs() < 0.02);
         assert!(s.wetted_fraction() == 1.0);
         // At y+ ~ 7.6 the contract's no-wall-function decision still holds.
-        assert!(s.resolves_viscous_sublayer(), "y+ peak was {}", s.max_y_plus);
+        assert!(
+            s.resolves_viscous_sublayer(),
+            "y+ peak was {}",
+            s.max_y_plus
+        );
         assert!(s.summary_line().contains("resolved"));
     }
 
@@ -744,7 +783,13 @@ mod tests {
     fn a_uniform_pressure_field_gives_a_pure_normal_force() {
         let Some(gpu) = crate::test_gpu() else { return };
         let lu = units();
-        let grid = Grid::covering(Bbox { min: Vec3::ZERO, max: Vec3::splat(32.0) }, 1.0);
+        let grid = Grid::covering(
+            Bbox {
+                min: Vec3::ZERO,
+                max: Vec3::splat(32.0),
+            },
+            1.0,
+        );
         let drho = 0.002f32;
         let tex = FieldTextures::new_exact(&gpu.device, grid);
         tex.fill(&gpu.queue, |_, p| {
@@ -766,7 +811,11 @@ mod tests {
             "wall pressure {} vs {want_p}",
             s.mean_pressure_pa
         );
-        assert!(s.mean_shear_pa < 1e-12, "still air has no shear: {}", s.mean_shear_pa);
+        assert!(
+            s.mean_shear_pa < 1e-12,
+            "still air has no shear: {}",
+            s.mean_shear_pa
+        );
         // F = -p n A, with n = +Y and A = 4 mm^2, so the force is -Y.
         let want_f = -want_p * 4.0e-6;
         assert!(

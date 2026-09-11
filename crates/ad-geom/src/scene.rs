@@ -29,11 +29,17 @@ impl Default for Transform {
 }
 
 impl Transform {
-    pub const IDENTITY: Self =
-        Self { translation: Vec3::ZERO, rotation: Quat::IDENTITY, scale: 1.0 };
+    pub const IDENTITY: Self = Self {
+        translation: Vec3::ZERO,
+        rotation: Quat::IDENTITY,
+        scale: 1.0,
+    };
 
     pub fn from_translation(t: Vec3) -> Self {
-        Self { translation: t, ..Self::IDENTITY }
+        Self {
+            translation: t,
+            ..Self::IDENTITY
+        }
     }
 
     #[inline]
@@ -89,7 +95,11 @@ impl MeshAsset {
     pub fn new(mesh: TriMesh) -> Arc<Self> {
         let pseudo = mesh.pseudo_normals();
         let local_bbox = mesh.bbox();
-        Arc::new(Self { mesh, pseudo, local_bbox })
+        Arc::new(Self {
+            mesh,
+            pseudo,
+            local_bbox,
+        })
     }
 
     pub fn triangle_count(&self) -> usize {
@@ -148,7 +158,11 @@ pub struct SceneDirty {
 
 impl SceneDirty {
     fn clean() -> Self {
-        Self { instances: Vec::new(), region: Bbox::EMPTY, structural: false }
+        Self {
+            instances: Vec::new(),
+            region: Bbox::EMPTY,
+            structural: false,
+        }
     }
 
     pub fn is_clean(&self) -> bool {
@@ -167,7 +181,10 @@ pub struct Scene {
 
 impl Scene {
     pub fn new() -> Self {
-        Self { instances: Vec::new(), dirty: None }
+        Self {
+            instances: Vec::new(),
+            dirty: None,
+        }
     }
 
     pub fn add(
@@ -232,7 +249,10 @@ impl Scene {
     /// must record both the old and the new footprint, because the cells the
     /// part *left* need rebuilding just as much as the ones it now covers.
     pub fn set_transform(&mut self, index: usize, transform: Transform) {
-        assert!(transform.scale > 0.0, "scale must be positive; a mirror flips every winding");
+        assert!(
+            transform.scale > 0.0,
+            "scale must be positive; a mirror flips every winding"
+        );
         let before = self.instances[index].world_bbox();
         self.instances[index].transform = transform;
         let after = self.instances[index].world_bbox();
@@ -269,7 +289,8 @@ impl Scene {
 
     /// Union of every visible instance's world-space AABB.
     pub fn bbox(&self) -> Bbox {
-        self.visible().fold(Bbox::EMPTY, |b, (_, i)| b.union(i.world_bbox()))
+        self.visible()
+            .fold(Bbox::EMPTY, |b, (_, i)| b.union(i.world_bbox()))
     }
 
     /// Union of the visible instances' world boxes for one role.
@@ -381,7 +402,11 @@ impl FlatGeometry {
     /// Rewrite one instance's triangles in place after it moved. The triangle
     /// *count* cannot change, so the buffer offsets stay valid and only this
     /// slice needs re-uploading.
-    pub fn refresh_instance(&mut self, scene: &Scene, scene_index: usize) -> Option<std::ops::Range<usize>> {
+    pub fn refresh_instance(
+        &mut self,
+        scene: &Scene,
+        scene_index: usize,
+    ) -> Option<std::ops::Range<usize>> {
         let (_, range) = self.ranges.iter().find(|(i, _)| *i == scene_index)?.clone();
         let inst = scene.instance(scene_index);
         let mesh = &inst.asset.mesh;
@@ -413,11 +438,18 @@ impl FlatGeometry {
     }
 
     pub fn bounds(&self) -> Vec<Bbox> {
-        self.tris.iter().map(|t| Bbox::from_points(t.iter().copied())).collect()
+        self.tris
+            .iter()
+            .map(|t| Bbox::from_points(t.iter().copied()))
+            .collect()
     }
 
     pub fn bbox(&self) -> Bbox {
-        self.tris.iter().flatten().copied().fold(Bbox::EMPTY, |b, p| b.union_point(p))
+        self.tris
+            .iter()
+            .flatten()
+            .copied()
+            .fold(Bbox::EMPTY, |b, p| b.union_point(p))
     }
 
     /// The pseudonormal for a closest-point feature, matching
@@ -469,7 +501,10 @@ mod tests {
             MeshRole::Obstruction,
         );
         assert_eq!(s.bbox_of_role(MeshRole::Duct).max, Vec3::splat(10.0));
-        assert_eq!(s.bbox_of_role(MeshRole::Obstruction).min, Vec3::new(100.0, 0.0, 0.0));
+        assert_eq!(
+            s.bbox_of_role(MeshRole::Obstruction).min,
+            Vec3::new(100.0, 0.0, 0.0)
+        );
     }
 
     #[test]
@@ -496,7 +531,10 @@ mod tests {
             rotation: Quat::from_rotation_z(std::f32::consts::FRAC_PI_4),
             scale: 1.0,
         };
-        let b = t.bbox(Bbox { min: Vec3::ZERO, max: Vec3::splat(10.0) });
+        let b = t.bbox(Bbox {
+            min: Vec3::ZERO,
+            max: Vec3::splat(10.0),
+        });
         let size = b.size();
         assert!((size.x - 10.0 * 2.0f32.sqrt()).abs() < 1e-4, "{size:?}");
         assert!((size.z - 10.0).abs() < 1e-5, "{size:?}");

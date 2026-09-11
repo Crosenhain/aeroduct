@@ -35,7 +35,11 @@ pub struct MouthConfig {
 
 impl Default for MouthConfig {
     fn default() -> Self {
-        Self { plane_tol_mm: 0.05, normal_tol: 0.99, min_area_mm2: 4.0 }
+        Self {
+            plane_tol_mm: 0.05,
+            normal_tol: 0.99,
+            min_area_mm2: 4.0,
+        }
     }
 }
 
@@ -61,7 +65,9 @@ impl Mouth {
     /// Perimeter of the opening, mm.
     pub fn perimeter_mm(&self) -> f32 {
         let n = self.boundary.len();
-        (0..n).map(|i| (self.boundary[(i + 1) % n] - self.boundary[i]).length()).sum()
+        (0..n)
+            .map(|i| (self.boundary[(i + 1) % n] - self.boundary[i]).length())
+            .sum()
     }
 
     /// Hydraulic diameter, `4A / P`. The Reynolds numbers in the contract are
@@ -99,7 +105,11 @@ pub fn detect_mouths(mesh: &TriMesh, bbox: Bbox, cfg: MouthConfig) -> Vec<Mouth>
     }
     for axis in 0..3usize {
         for on_min_side in [true, false] {
-            let w = if on_min_side { bbox.min[axis] } else { bbox.max[axis] };
+            let w = if on_min_side {
+                bbox.min[axis]
+            } else {
+                bbox.max[axis]
+            };
             out.extend(detect_on_plane(mesh, axis, on_min_side, w, cfg));
         }
     }
@@ -144,7 +154,10 @@ fn detect_on_plane(
             continue;
         }
         let i = mesh.indices[t];
-        let p: Vec<Vec2> = tri.iter().map(|q| Vec2::new(q.dot(u_axis), q.dot(v_axis))).collect();
+        let p: Vec<Vec2> = tri
+            .iter()
+            .map(|q| Vec2::new(q.dot(u_axis), q.dot(v_axis)))
+            .collect();
         let area2 = (p[1] - p[0]).perp_dot(p[2] - p[0]);
         if area2 == 0.0 {
             continue;
@@ -176,7 +189,9 @@ fn detect_on_plane(
     let starts: Vec<u32> = next.keys().copied().collect();
     for start in starts {
         while next.get(&start).is_some_and(|v| !v.is_empty()) {
-            let Some(loop_ix) = walk_loop(start, &mut next) else { continue };
+            let Some(loop_ix) = walk_loop(start, &mut next) else {
+                continue;
+            };
             if loop_ix.len() < 3 {
                 continue;
             }
@@ -196,8 +211,12 @@ fn detect_on_plane(
             }
             let open_area = -area;
 
-            let lo = pts2.iter().fold(Vec2::splat(f32::INFINITY), |a, b| a.min(*b));
-            let hi = pts2.iter().fold(Vec2::splat(f32::NEG_INFINITY), |a, b| a.max(*b));
+            let lo = pts2
+                .iter()
+                .fold(Vec2::splat(f32::INFINITY), |a, b| a.min(*b));
+            let hi = pts2
+                .iter()
+                .fold(Vec2::splat(f32::NEG_INFINITY), |a, b| a.max(*b));
             let half = (hi - lo) * 0.5;
             let plane_point = |c: Vec2| u_axis * c.x + v_axis * c.y + outward.abs() * w;
 
@@ -213,7 +232,10 @@ fn detect_on_plane(
                 open_area_mm2: open_area,
                 axis: axis as u8,
                 on_min_side,
-                boundary: loop_ix.iter().map(|i| mesh.positions[*i as usize]).collect(),
+                boundary: loop_ix
+                    .iter()
+                    .map(|i| mesh.positions[*i as usize])
+                    .collect(),
             });
         }
     }
@@ -307,15 +329,30 @@ mod tests {
         let h = m.health();
         assert!(h.is_watertight_manifold(), "{}", h.report());
         assert_eq!(h.topology.genus(), Some(1), "a tube is a torus");
-        assert!(h.signed_volume_mm3 > 0.0, "wound inside-out: {}", h.signed_volume_mm3);
+        assert!(
+            h.signed_volume_mm3 > 0.0,
+            "wound inside-out: {}",
+            h.signed_volume_mm3
+        );
     }
 
     #[test]
     fn both_ends_of_a_tube_are_found_with_the_right_area_and_normal() {
         let m = tube(Vec2::new(40.0, 20.0), Vec2::new(30.0, 10.0), 50.0);
         let mut found = detect_mouths(&m, m.bbox(), MouthConfig::default());
-        assert_eq!(found.len(), 2, "expected exactly two mouths, got {}", found.len());
-        found.sort_by(|a, b| a.patch.center_mm.z.partial_cmp(&b.patch.center_mm.z).unwrap());
+        assert_eq!(
+            found.len(),
+            2,
+            "expected exactly two mouths, got {}",
+            found.len()
+        );
+        found.sort_by(|a, b| {
+            a.patch
+                .center_mm
+                .z
+                .partial_cmp(&b.patch.center_mm.z)
+                .unwrap()
+        });
 
         let want_area = 30.0 * 10.0;
         for (mouth, sign) in found.iter().zip([1.0f32, -1.0]) {
@@ -352,19 +389,38 @@ mod tests {
         use crate::scene::{MeshAsset, Transform};
         let mut s = Scene::new();
         let duct = tube(Vec2::new(40.0, 20.0), Vec2::new(30.0, 10.0), 50.0);
-        s.add("duct", MeshAsset::new(duct), Transform::IDENTITY, MeshRole::Duct);
+        s.add(
+            "duct",
+            MeshAsset::new(duct),
+            Transform::IDENTITY,
+            MeshRole::Duct,
+        );
         // Beside the tube and longer than it, so it overhangs both mouth faces.
         let vane = primitives::box_mesh(Vec3::new(25.0, -5.0, -20.0), Vec3::new(35.0, 5.0, 70.0));
-        s.add("vane", MeshAsset::new(vane), Transform::IDENTITY, MeshRole::Obstruction);
+        s.add(
+            "vane",
+            MeshAsset::new(vane),
+            Transform::IDENTITY,
+            MeshRole::Obstruction,
+        );
         assert_eq!(detect_in_scene(&s, MouthConfig::default()).len(), 2);
     }
 
     #[test]
     fn tiny_holes_are_filtered_out() {
         let m = tube(Vec2::new(40.0, 20.0), Vec2::new(1.0, 1.0), 50.0);
-        let cfg = MouthConfig { min_area_mm2: 4.0, ..Default::default() };
-        assert!(detect_mouths(&m, m.bbox(), cfg).is_empty(), "a 1 mm^2 hole is not a mouth");
-        let cfg = MouthConfig { min_area_mm2: 0.1, ..Default::default() };
+        let cfg = MouthConfig {
+            min_area_mm2: 4.0,
+            ..Default::default()
+        };
+        assert!(
+            detect_mouths(&m, m.bbox(), cfg).is_empty(),
+            "a 1 mm^2 hole is not a mouth"
+        );
+        let cfg = MouthConfig {
+            min_area_mm2: 0.1,
+            ..Default::default()
+        };
         assert_eq!(detect_mouths(&m, m.bbox(), cfg).len(), 2);
     }
 
@@ -402,8 +458,12 @@ mod tests {
 
     #[test]
     fn polygon_area_sign_follows_the_winding() {
-        let ccw =
-            [Vec2::ZERO, Vec2::new(2.0, 0.0), Vec2::new(2.0, 3.0), Vec2::new(0.0, 3.0)];
+        let ccw = [
+            Vec2::ZERO,
+            Vec2::new(2.0, 0.0),
+            Vec2::new(2.0, 3.0),
+            Vec2::new(0.0, 3.0),
+        ];
         let (a, c) = polygon_area_and_centroid(&ccw);
         assert!((a - 6.0).abs() < 1e-5);
         assert!((c - Vec2::new(1.0, 1.5)).length() < 1e-5);

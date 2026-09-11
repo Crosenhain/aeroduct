@@ -42,8 +42,9 @@ pub enum Phase {
 }
 
 const PHASES: usize = 7;
-const PHASE_NAMES: [&str; PHASES] =
-    ["update", "solver", "metrics", "acquire", "render", "ui", "present"];
+const PHASE_NAMES: [&str; PHASES] = [
+    "update", "solver", "metrics", "acquire", "render", "ui", "present",
+];
 
 /// CPU time per [`Phase`] for one frame.
 pub struct Laps {
@@ -53,7 +54,10 @@ pub struct Laps {
 
 impl Laps {
     pub fn start(at: Instant) -> Self {
-        Self { last: at, ms: [0.0; PHASES] }
+        Self {
+            last: at,
+            ms: [0.0; PHASES],
+        }
     }
 
     /// Charge the time since the previous lap to `phase`.
@@ -76,8 +80,14 @@ struct Window {
 }
 
 impl Window {
-    const EMPTY: Self =
-        Self { frames: 0, dt_ms: 0.0, steps: 0.0, min_steps: u32::MAX, max_steps: 0, cpu: [0.0; PHASES] };
+    const EMPTY: Self = Self {
+        frames: 0,
+        dt_ms: 0.0,
+        steps: 0.0,
+        min_steps: u32::MAX,
+        max_steps: 0,
+        cpu: [0.0; PHASES],
+    };
 }
 
 pub struct FrameProfile {
@@ -145,8 +155,10 @@ impl FrameProfile {
             let macro_ms = solver.macroscopic_ms();
             let render_ms = self.gpu.timing("render").map(|t| t.mean_ms);
             let ui_ms = self.gpu.timing("ui").map(|t| t.mean_ms);
-            let gpu_ms: f64 =
-                [steps_ms, macro_ms, metrics_ms, render_ms, ui_ms].into_iter().flatten().sum();
+            let gpu_ms: f64 = [steps_ms, macro_ms, metrics_ms, render_ms, ui_ms]
+                .into_iter()
+                .flatten()
+                .sum();
             lines.push(format!(
                 "frame {:.2} ms ({:.0} fps), {:.2} steps/frame ({}-{}), GPU {:.2} ms accounted",
                 w.dt_ms,

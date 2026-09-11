@@ -83,11 +83,7 @@ impl UiBackend {
         let platform = WinitPlatform::init(&mut context, window);
         apply_theme(&mut context);
 
-        let init = WgpuInitInfo::new(
-            (*gpu.device).clone(),
-            (*gpu.queue).clone(),
-            surface_format,
-        );
+        let init = WgpuInitInfo::new((*gpu.device).clone(), (*gpu.queue).clone(), surface_format);
         let mut renderer = WgpuRenderer::new(init, &mut context)
             .map_err(|e| anyhow::anyhow!("creating the ImGui wgpu backend: {e}"))?;
         renderer.set_gamma_mode(GammaMode::Auto);
@@ -178,14 +174,20 @@ impl UiBackend {
         self.last_frame = now;
         let delta = dt.unwrap_or(elapsed);
 
-        self.context.prepare_frame(self.platform.frame_options(delta));
+        self.context
+            .prepare_frame(self.platform.frame_options(delta));
         // Split borrow: `frame()` takes `self.context`, `get_plot_ui` takes
         // `self.plot`, `begin_frame` takes `self.gizmo`. Disjoint fields, so
         // this is one mutable and two shared borrows of different places.
         let ui: &Ui = self.context.frame();
         let plot = self.plot.get_plot_ui(ui);
         let gizmo = self.gizmo.begin_frame(ui);
-        UiFrame { ui, plot, gizmo, delta_s: delta }
+        UiFrame {
+            ui,
+            plot,
+            gizmo,
+            delta_s: delta,
+        }
     }
 
     /// Push ImGui's requested cursor to the window.

@@ -9,7 +9,7 @@
 
 use ad_geom::scene::FlatGeometry;
 use ad_geom::{MeshAsset, MeshRole, Scene, Transform, Voxelizer};
-use ad_gpu::{Bbox, Grid, GpuContext};
+use ad_gpu::{Bbox, GpuContext, Grid};
 use glam::Vec3;
 
 fn main() -> anyhow::Result<()> {
@@ -26,7 +26,10 @@ fn main() -> anyhow::Result<()> {
     let t0 = std::time::Instant::now();
     let load = ad_geom::load_stl(&path)?;
     println!("{}", load.summary());
-    println!("loaded and welded in {:.0} ms", t0.elapsed().as_secs_f64() * 1e3);
+    println!(
+        "loaded and welded in {:.0} ms",
+        t0.elapsed().as_secs_f64() * 1e3
+    );
     println!("{}", load.health().report());
 
     for m in ad_geom::detect_mouths(&load.mesh, load.mesh.bbox(), Default::default()) {
@@ -83,7 +86,12 @@ fn main() -> anyhow::Result<()> {
 
         // Drag an obstruction beside the duct and time the incremental path.
         let mut scene = Scene::new();
-        scene.add("duct", MeshAsset::new(load.mesh.clone()), Transform::IDENTITY, MeshRole::Duct);
+        scene.add(
+            "duct",
+            MeshAsset::new(load.mesh.clone()),
+            Transform::IDENTITY,
+            MeshRole::Duct,
+        );
         let blob = scene.add(
             "blob",
             MeshAsset::new(ad_geom::primitives::uv_sphere(Vec3::ZERO, 6.0, 32, 16)),

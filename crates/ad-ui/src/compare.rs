@@ -155,7 +155,14 @@ pub fn delta(now: Reading, base: Reading, better: Better) -> Delta {
         _ => None,
     };
 
-    Delta { absolute, relative, combined_sem: combined, significance, direction, improved }
+    Delta {
+        absolute,
+        relative,
+        combined_sem: combined,
+        significance,
+        direction,
+        improved,
+    }
 }
 
 /// A frozen snapshot to compare against.
@@ -183,7 +190,12 @@ impl Baseline {
         inlet_velocity_ms: f32,
         metrics: &MetricsView,
     ) -> Self {
-        Self { label: label.into(), step, inlet_velocity_ms, metrics: metrics.clone() }
+        Self {
+            label: label.into(),
+            step,
+            inlet_velocity_ms,
+            metrics: metrics.clone(),
+        }
     }
 
     /// Whether the live run is at the same operating point as this baseline.
@@ -270,7 +282,11 @@ mod tests {
         assert_eq!(up(Better::Higher).improved, Some(true));
         assert_eq!(up(Better::Lower).improved, Some(false));
         assert_eq!(up(Better::Neutral).improved, None);
-        assert_eq!(up(Better::Neutral).direction, Direction::Up, "neutral still reports the sign");
+        assert_eq!(
+            up(Better::Neutral).direction,
+            Direction::Up,
+            "neutral still reports the sign"
+        );
     }
 
     #[test]
@@ -303,7 +319,10 @@ mod tests {
         assert_eq!(d.significance, Significance::WithinNoise);
         assert!(d.sigma().is_nan());
         // ...but a genuine difference with no error bars is still real.
-        assert_eq!(delta(r(2.0, 0.0), r(1.0, 0.0), Better::Lower).significance, Significance::Real);
+        assert_eq!(
+            delta(r(2.0, 0.0), r(1.0, 0.0), Better::Lower).significance,
+            Significance::Real
+        );
     }
 
     #[test]
@@ -338,7 +357,10 @@ mod tests {
         let base = Baseline::capture("as loaded", 12_000, 3.0, &MetricsView::default());
         assert!(base.same_operating_point(3.0));
         assert!(base.same_operating_point(3.02));
-        assert!(!base.same_operating_point(5.0), "comparing 3 m/s to 5 m/s is not an A/B test");
+        assert!(
+            !base.same_operating_point(5.0),
+            "comparing 3 m/s to 5 m/s is not an A/B test"
+        );
         assert_eq!(base.step, 12_000);
     }
 }

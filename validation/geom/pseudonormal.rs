@@ -58,7 +58,10 @@ fn the_naive_face_normal_sign_test_fails_on_a_sharp_edge() {
             for z in [-3.0f32, 0.0, 3.0] {
                 let p = dir * t + Vec3::new(0.0, 0.0, z);
                 let truth_inside = solid.contains(p);
-                assert!(!truth_inside, "the sample points must all be outside the wedge");
+                assert!(
+                    !truth_inside,
+                    "the sample points must all be outside the wedge"
+                );
                 sampled += 1;
                 if sdf.signed_distance(p) < 0.0 {
                     pseudonormal_wrong += 1;
@@ -171,7 +174,11 @@ fn a_hole_in_the_mesh_is_detected_by_ray_parity() {
     };
 
     let intact = ad_geom::ray_parity_voxelize(&soup(&mesh), grid);
-    assert!(intact.is_watertight(), "the intact sphere should be clean: {}", intact.report());
+    assert!(
+        intact.is_watertight(),
+        "the intact sphere should be clean: {}",
+        intact.report()
+    );
 
     // Knock out one triangle near the equator, where many rows pass through it.
     let victim = mesh.triangle_count() / 2;
@@ -182,8 +189,15 @@ fn a_hole_in_the_mesh_is_detected_by_ray_parity() {
     assert_eq!(health.topology.boundary_edges, 3, "{}", health.report());
 
     let leaky = ad_geom::ray_parity_voxelize(&soup(&mesh), grid);
-    assert!(!leaky.is_watertight(), "the hole went unnoticed: {}", leaky.report());
+    assert!(
+        !leaky.is_watertight(),
+        "the hole went unnoticed: {}",
+        leaky.report()
+    );
     assert!(leaky.odd_parity_rows > 0);
-    assert!(!leaky.odd_parity_examples.is_empty(), "no location reported for the leak");
+    assert!(
+        !leaky.odd_parity_examples.is_empty(),
+        "no location reported for the leak"
+    );
     assert!(leaky.report().contains("odd parity"));
 }

@@ -93,7 +93,10 @@ pub struct Fluid {
 
 impl Fluid {
     /// Air at 25 C, verbatim from [`ad_gpu::air`].
-    pub const AIR: Self = Self { rho: ad_gpu::air::RHO, nu: ad_gpu::air::NU };
+    pub const AIR: Self = Self {
+        rho: ad_gpu::air::RHO,
+        nu: ad_gpu::air::NU,
+    };
 
     /// Dynamic viscosity, Pa s.
     pub fn mu(&self) -> f64 {
@@ -138,10 +141,16 @@ pub struct Band {
 }
 
 impl Band {
-    pub const ZERO: Self = Self { mean: 0.0, sigma: 0.0 };
+    pub const ZERO: Self = Self {
+        mean: 0.0,
+        sigma: 0.0,
+    };
 
     pub fn new(mean: f64, sigma: f64) -> Self {
-        Self { mean, sigma: sigma.abs() }
+        Self {
+            mean,
+            sigma: sigma.abs(),
+        }
     }
 
     /// A value believed exact — a momentum balance, not a curve fit.
@@ -152,7 +161,10 @@ impl Band {
     /// A value with a relative uncertainty, e.g. `Band::relative(1.3, 0.30)`
     /// for "1.3, good to 30%".
     pub fn relative(mean: f64, rel: f64) -> Self {
-        Self { mean, sigma: (mean * rel).abs() }
+        Self {
+            mean,
+            sigma: (mean * rel).abs(),
+        }
     }
 
     pub fn low(&self) -> f64 {
@@ -176,7 +188,10 @@ impl Band {
     /// Multiply by an exactly-known factor. A unit conversion, or referencing a
     /// `K` to a different velocity.
     pub fn scale(self, k: f64) -> Self {
-        Self { mean: self.mean * k, sigma: self.sigma * k.abs() }
+        Self {
+            mean: self.mean * k,
+            sigma: self.sigma * k.abs(),
+        }
     }
 
     /// Whether `value` lies inside the band. Used by tests to say "the
@@ -197,7 +212,10 @@ impl Band {
             mean += b.mean;
             var += b.sigma * b.sigma;
         }
-        Band { mean, sigma: var.sqrt() }
+        Band {
+            mean,
+            sigma: var.sqrt(),
+        }
     }
 
     /// Quadrature sum, with the total relative uncertainty floored at
@@ -212,7 +230,10 @@ impl Band {
     /// the whole correlation method — stops that.
     pub fn sum_conservative(items: impl IntoIterator<Item = Band>, floor_rel: f64) -> Band {
         let b = Band::sum(items);
-        Band { mean: b.mean, sigma: b.sigma.max((b.mean * floor_rel).abs()) }
+        Band {
+            mean: b.mean,
+            sigma: b.sigma.max((b.mean * floor_rel).abs()),
+        }
     }
 }
 
@@ -314,7 +335,9 @@ impl LossBand {
 /// way these correlations get abused. Where an extrapolation is genuinely
 /// wanted it is written out explicitly and justified at the call site.
 pub(crate) fn interpolate(x: f64, table: &[(f64, f64)]) -> f64 {
-    let Some(first) = table.first() else { return 0.0 };
+    let Some(first) = table.first() else {
+        return 0.0;
+    };
     // A NaN compares false against everything, so without this guard it would
     // fall out of the loop below and silently return the table's last entry.
     // Degenerate geometry must produce the conservative end, not an arbitrary
@@ -366,7 +389,10 @@ mod tests {
         // total is good to 9%, which is nonsense.
         let parts: Vec<Band> = (0..8).map(|_| Band::relative(1.0, 0.25)).collect();
         let naive = Band::sum(parts.iter().copied());
-        assert!(naive.relative_sigma() < 0.10, "quadrature really does shrink like this");
+        assert!(
+            naive.relative_sigma() < 0.10,
+            "quadrature really does shrink like this"
+        );
         let honest = Band::sum_conservative(parts, 0.20);
         assert!((honest.mean - 8.0).abs() < 1e-12);
         assert!(honest.relative_sigma() >= 0.20 - 1e-12);
@@ -425,7 +451,10 @@ mod tests {
         let k_in = ReferenceVelocity::Inlet.pick(u_in, u_out);
         let k_out = ReferenceVelocity::Outlet.pick(u_in, u_out);
         let ratio = (k_out / k_in).powi(2);
-        assert!((ratio - 3.44).abs() < 0.05, "K changes by {ratio}x, expected ~3.4");
+        assert!(
+            (ratio - 3.44).abs() < 0.05,
+            "K changes by {ratio}x, expected ~3.4"
+        );
         assert!((ReferenceVelocity::Faster.pick(u_in, u_out) - u_out).abs() < 1e-12);
     }
 

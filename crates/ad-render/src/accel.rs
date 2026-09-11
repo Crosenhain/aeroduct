@@ -99,11 +99,8 @@ pub fn chebyshev_distance_transform(active: &[bool], dims: UVec3, cap: u32) -> V
                         for dz in -1i32..=1 {
                             for dy in -1i32..=1 {
                                 for dx in -1i32..=1 {
-                                    let (nx, ny, nz) = (
-                                        x as i32 + dx,
-                                        y as i32 + dy,
-                                        z as i32 + dz,
-                                    );
+                                    let (nx, ny, nz) =
+                                        (x as i32 + dx, y as i32 + dy, z as i32 + dz);
                                     if nx < 0
                                         || ny < 0
                                         || nz < 0
@@ -197,10 +194,20 @@ impl SupportKey {
         match support {
             Some(s) => {
                 let (ga, gb) = s.gap_or_empty();
-                Self([s.range.0.to_bits(), s.range.1.to_bits(), ga.to_bits(), gb.to_bits()])
+                Self([
+                    s.range.0.to_bits(),
+                    s.range.1.to_bits(),
+                    ga.to_bits(),
+                    gb.to_bits(),
+                ])
             }
             // An empty interval: nothing is active.
-            None => Self([1.0f32.to_bits(), 0.0f32.to_bits(), 1.0f32.to_bits(), 0.0f32.to_bits()]),
+            None => Self([
+                1.0f32.to_bits(),
+                0.0f32.to_bits(),
+                1.0f32.to_bits(),
+                0.0f32.to_bits(),
+            ]),
         }
     }
 }
@@ -274,7 +281,11 @@ impl BrickGrid {
         });
         let mk_dist = |i: usize| {
             device.create_texture(&wgpu::TextureDescriptor {
-                label: Some(if i == 0 { "brick distance A" } else { "brick distance B" }),
+                label: Some(if i == 0 {
+                    "brick distance A"
+                } else {
+                    "brick distance B"
+                }),
                 size,
                 mip_level_count: 1,
                 sample_count: 1,
@@ -297,8 +308,14 @@ impl BrickGrid {
         };
         let minmax_storage = view(&minmax, "brick min/max (storage)");
         let minmax_sampled = view(&minmax, "brick min/max (sampled)");
-        let dist_storage = [view(&dist[0], "brick dist A (storage)"), view(&dist[1], "brick dist B (storage)")];
-        let dist_sampled = [view(&dist[0], "brick dist A (sampled)"), view(&dist[1], "brick dist B (sampled)")];
+        let dist_storage = [
+            view(&dist[0], "brick dist A (storage)"),
+            view(&dist[1], "brick dist B (storage)"),
+        ];
+        let dist_sampled = [
+            view(&dist[0], "brick dist A (sampled)"),
+            view(&dist[1], "brick dist B (sampled)"),
+        ];
 
         let uniform = util::uniform_buffer::<BrickUniform>(device, "brick uniform");
         let cs = wgpu::ShaderStages::COMPUTE;
@@ -320,7 +337,10 @@ impl BrickGrid {
             label: Some("brick min/max"),
             layout: &minmax_layout,
             entries: &[
-                wgpu::BindGroupEntry { binding: 0, resource: uniform.as_entire_binding() },
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: uniform.as_entire_binding(),
+                },
                 wgpu::BindGroupEntry {
                     binding: 1,
                     resource: wgpu::BindingResource::TextureView(&minmax_storage),
@@ -351,7 +371,10 @@ impl BrickGrid {
             label: Some("brick seed"),
             layout: &seed_layout,
             entries: &[
-                wgpu::BindGroupEntry { binding: 0, resource: uniform.as_entire_binding() },
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: uniform.as_entire_binding(),
+                },
                 wgpu::BindGroupEntry {
                     binding: 1,
                     resource: wgpu::BindingResource::TextureView(&minmax_sampled),
@@ -387,7 +410,10 @@ impl BrickGrid {
                 label: Some("brick dilate"),
                 layout: &dilate_layout,
                 entries: &[
-                    wgpu::BindGroupEntry { binding: 0, resource: uniform.as_entire_binding() },
+                    wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: uniform.as_entire_binding(),
+                    },
                     wgpu::BindGroupEntry {
                         binding: 1,
                         resource: wgpu::BindingResource::TextureView(&dist_sampled[src]),
@@ -425,7 +451,10 @@ impl BrickGrid {
             label: Some("brick grid (read)"),
             layout: &read_layout,
             entries: &[
-                wgpu::BindGroupEntry { binding: 0, resource: uniform.as_entire_binding() },
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: uniform.as_entire_binding(),
+                },
                 // DILATE_PASSES is even, so the final result always lands back
                 // in slot 0 and this bind group never has to be rebuilt.
                 wgpu::BindGroupEntry {
@@ -477,7 +506,11 @@ impl BrickGrid {
             "brick dilate",
         )?;
 
-        debug_assert_eq!(DILATE_PASSES % 2, 0, "the read bind group assumes an even pass count");
+        debug_assert_eq!(
+            DILATE_PASSES % 2,
+            0,
+            "the read bind group assumes an even pass count"
+        );
 
         let [dist_a, dist_b] = dist;
         Ok(Self {
@@ -546,8 +579,8 @@ impl BrickGrid {
         let support = tf.support();
         let key = SupportKey::of(support);
 
-        let minmax_stale =
-            self.cached_generation != Some(fields.generation()) || self.cached_channel != Some(channel);
+        let minmax_stale = self.cached_generation != Some(fields.generation())
+            || self.cached_channel != Some(channel);
         let binary_stale = minmax_stale || self.cached_support != Some(key);
         if !binary_stale {
             return false;
@@ -621,7 +654,6 @@ impl BrickGrid {
         self.cached_support = Some(key);
         true
     }
-
 }
 
 #[cfg(test)]
@@ -632,7 +664,10 @@ mod tests {
     struct Lcg(u64);
     impl Lcg {
         fn next(&mut self) -> u32 {
-            self.0 = self.0.wrapping_mul(6_364_136_223_846_793_005).wrapping_add(1_442_695_040_888_963_407);
+            self.0 = self
+                .0
+                .wrapping_mul(6_364_136_223_846_793_005)
+                .wrapping_add(1_442_695_040_888_963_407);
             (self.0 >> 33) as u32
         }
     }
@@ -686,7 +721,10 @@ mod tests {
         let dims = UVec3::new(6, 6, 6);
         let active = vec![false; 216];
         let d = chebyshev_distance_transform(&active, dims, MAX_SKIP);
-        assert!(d.iter().all(|v| *v == MAX_SKIP), "empty grid must be all-cap");
+        assert!(
+            d.iter().all(|v| *v == MAX_SKIP),
+            "empty grid must be all-cap"
+        );
     }
 
     #[test]
@@ -759,17 +797,29 @@ mod tests {
         use crate::transfer::Support;
         // A diverging support: opaque below -10 and above 10, transparent in
         // between. This is the pressure case, and the whole reason `gap` exists.
-        let s = Support { range: (f32::NEG_INFINITY, f32::INFINITY), gap: Some((-10.0, 10.0)) };
-        assert!(!s.intersects(-3.0, 3.0), "a brick entirely in the gap must be skipped");
+        let s = Support {
+            range: (f32::NEG_INFINITY, f32::INFINITY),
+            gap: Some((-10.0, 10.0)),
+        };
+        assert!(
+            !s.intersects(-3.0, 3.0),
+            "a brick entirely in the gap must be skipped"
+        );
         assert!(!s.contains(0.0));
-        assert!(s.intersects(-3.0, 30.0), "a brick straddling the gap must not be");
+        assert!(
+            s.intersects(-3.0, 30.0),
+            "a brick straddling the gap must not be"
+        );
         assert!(s.intersects(-30.0, 30.0));
         assert!(s.contains(50.0) && s.contains(-50.0));
         // Exactly on the gap edge is active: the LUT filters across it.
         assert!(s.intersects(-10.0, 10.0));
 
         // A plain bracket with no gap behaves like a simple interval.
-        let t = Support { range: (1.0, 5.0), gap: None };
+        let t = Support {
+            range: (1.0, 5.0),
+            gap: None,
+        };
         assert!(t.intersects(0.0, 2.0));
         assert!(!t.intersects(6.0, 9.0));
         assert!(!t.intersects(-4.0, 0.5));
@@ -782,7 +832,10 @@ mod tests {
         assert_eq!(brick_dims(UVec3::new(8, 8, 8)), UVec3::new(1, 1, 1));
         assert_eq!(brick_dims(UVec3::new(9, 16, 1)), UVec3::new(2, 2, 1));
         // The interactive tier at half resolution.
-        assert_eq!(brick_dims(UVec3::new(174, 120, 120)), UVec3::new(22, 15, 15));
+        assert_eq!(
+            brick_dims(UVec3::new(174, 120, 120)),
+            UVec3::new(22, 15, 15)
+        );
     }
 
     #[test]

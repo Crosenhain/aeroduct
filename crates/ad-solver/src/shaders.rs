@@ -272,15 +272,26 @@ fn transport(set: VelocitySet) -> String {
         // Both members of the pair share one neighbour lookup.
         let even = probe(q, i, false, false);
         let odd = probe(q, i, true, false);
-        let nd = even.neighbour_dir.or(odd.neighbour_dir).expect("odd member must use a neighbour");
+        let nd = even
+            .neighbour_dir
+            .or(odd.neighbour_dir)
+            .expect("odd member must use a neighbour");
         let _ = writeln!(s, "    {{ // pair ({i}, {})", i + 1);
         let _ = writeln!(s, "        let nb = neighbour_index(c, {nd}u);");
         for k in 0..2 {
             let d = i + k;
             let e = probe(q, d, false, false);
             let o = probe(q, d, true, false);
-            let idx_e = if e.neighbour_dir.is_some() { "nb" } else { "cell" };
-            let idx_o = if o.neighbour_dir.is_some() { "nb" } else { "cell" };
+            let idx_e = if e.neighbour_dir.is_some() {
+                "nb"
+            } else {
+                "cell"
+            };
+            let idx_o = if o.neighbour_dir.is_some() {
+                "nb"
+            } else {
+                "cell"
+            };
             assert_eq!(idx_e, idx_o, "load address base must not depend on parity");
             let _ = writeln!(
                 s,
@@ -422,7 +433,11 @@ mod tests {
     #[test]
     fn generated_wgsl_declares_every_buffer_and_touches_every_direction() {
         for set in [VelocitySet::D3Q19, VelocitySet::D3Q27] {
-            for p in [DdfLayout::Fp32, DdfLayout::Fp16cPerCell, DdfLayout::Fp16cPacked] {
+            for p in [
+                DdfLayout::Fp32,
+                DdfLayout::Fp16cPerCell,
+                DdfLayout::Fp16cPacked,
+            ] {
                 let s = generated_prelude(set, p);
                 let q = set.q();
                 for i in 0..q {
@@ -478,7 +493,10 @@ mod tests {
             for i in 0..set.q() {
                 let gets = s.matches(&format!("ddf_get_{i}(")).count();
                 let puts = s.matches(&format!("ddf_put_{i}(")).count();
-                assert_eq!(gets, puts, "{set:?}: buffer {i} read {gets} times, written {puts}");
+                assert_eq!(
+                    gets, puts,
+                    "{set:?}: buffer {i} read {gets} times, written {puts}"
+                );
             }
         }
     }

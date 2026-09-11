@@ -73,7 +73,11 @@ impl StlLoad {
         format!(
             "{:?} STL{}: {} triangles, {} vertex refs welded to {}{}{}",
             self.format,
-            if self.header.is_empty() { String::new() } else { format!(" \"{}\"", self.header) },
+            if self.header.is_empty() {
+                String::new()
+            } else {
+                format!(" \"{}\"", self.header)
+            },
             self.mesh.triangle_count(),
             self.raw_vertex_count,
             self.mesh.vertex_count(),
@@ -82,7 +86,11 @@ impl StlLoad {
             } else {
                 String::new()
             },
-            if self.flipped { ", wound inside-out and corrected" } else { "" },
+            if self.flipped {
+                ", wound inside-out and corrected"
+            } else {
+                ""
+            },
         )
     }
 }
@@ -121,7 +129,11 @@ fn detect_format(bytes: &[u8]) -> Result<StlFormat> {
                  binary STL nor ASCII STL text.",
                 bytes.len(),
                 (expected as i64 - bytes.len() as i64).unsigned_abs(),
-                if expected > bytes.len() as u64 { "short" } else { "extra" },
+                if expected > bytes.len() as u64 {
+                    "short"
+                } else {
+                    "extra"
+                },
             );
         }
     }
@@ -212,8 +224,12 @@ fn parse_ascii(bytes: &[u8]) -> Result<StlLoad> {
 fn read_vec3<'a>(tokens: &mut impl Iterator<Item = &'a str>) -> Result<Vec3> {
     let mut v = [0.0f32; 3];
     for (i, slot) in v.iter_mut().enumerate() {
-        let t = tokens.next().with_context(|| format!("expected 3 numbers, ran out at {i}"))?;
-        *slot = t.parse::<f32>().with_context(|| format!("`{t}` is not a number"))?;
+        let t = tokens
+            .next()
+            .with_context(|| format!("expected 3 numbers, ran out at {i}"))?;
+        *slot = t
+            .parse::<f32>()
+            .with_context(|| format!("`{t}` is not a number"))?;
     }
     Ok(Vec3::from(v))
 }
@@ -291,7 +307,10 @@ struct Welder {
 
 impl Welder {
     fn with_capacity(n: usize) -> Self {
-        Self { map: HashMap::with_capacity(n / 2), positions: Vec::with_capacity(n / 2) }
+        Self {
+            map: HashMap::with_capacity(n / 2),
+            positions: Vec::with_capacity(n / 2),
+        }
     }
 
     #[inline]
@@ -319,8 +338,7 @@ impl Welder {
                         // Confirm it is genuinely within tolerance before
                         // merging; the neighbouring cell may hold a vertex up
                         // to two quanta away.
-                        if (self.positions[*i as usize] - p).abs().max_element()
-                            <= WELD_QUANTUM_MM
+                        if (self.positions[*i as usize] - p).abs().max_element() <= WELD_QUANTUM_MM
                         {
                             let i = *i;
                             self.map.insert(k, i);
@@ -353,7 +371,12 @@ pub fn write_binary_stl(mesh: &TriMesh, header: &str) -> Vec<u8> {
     out.extend_from_slice(&(n as u32).to_le_bytes());
     for t in 0..n {
         let normal = mesh.face_normal(t);
-        for v in [normal, mesh.triangle(t)[0], mesh.triangle(t)[1], mesh.triangle(t)[2]] {
+        for v in [
+            normal,
+            mesh.triangle(t)[0],
+            mesh.triangle(t)[1],
+            mesh.triangle(t)[2],
+        ] {
             out.extend_from_slice(&v.x.to_le_bytes());
             out.extend_from_slice(&v.y.to_le_bytes());
             out.extend_from_slice(&v.z.to_le_bytes());
@@ -369,7 +392,10 @@ pub fn write_ascii_stl(mesh: &TriMesh, name: &str) -> String {
     for t in 0..mesh.triangle_count() {
         let n = mesh.face_normal(t);
         let [a, b, c] = mesh.triangle(t);
-        s.push_str(&format!("  facet normal {} {} {}\n    outer loop\n", n.x, n.y, n.z));
+        s.push_str(&format!(
+            "  facet normal {} {} {}\n    outer loop\n",
+            n.x, n.y, n.z
+        ));
         for v in [a, b, c] {
             s.push_str(&format!("      vertex {} {} {}\n", v.x, v.y, v.z));
         }
@@ -471,14 +497,19 @@ mod tests {
                 let off = 84 + 50 * t + 12 + 12 * c;
                 for a in 0..3usize {
                     let o = off + 4 * a;
-                    let v = f32::from_le_bytes([bytes[o], bytes[o + 1], bytes[o + 2], bytes[o + 3]]);
+                    let v =
+                        f32::from_le_bytes([bytes[o], bytes[o + 1], bytes[o + 2], bytes[o + 3]]);
                     let jitter = ((t * 3 + c + a) as f32 * 0.037).sin() * WELD_QUANTUM_MM * 0.4;
                     bytes[o..o + 4].copy_from_slice(&(v + jitter).to_le_bytes());
                 }
             }
         }
         let load = parse_stl(&bytes).unwrap();
-        assert_eq!(load.mesh.vertex_count(), 8, "jittered corners failed to weld");
+        assert_eq!(
+            load.mesh.vertex_count(),
+            8,
+            "jittered corners failed to weld"
+        );
         assert!(load.mesh.topology().is_watertight_manifold());
     }
 
@@ -499,7 +530,10 @@ mod tests {
         let h = load.health();
         assert_eq!(h.normal_inversions, 12);
         assert_eq!(h.normal_disagreements, 12);
-        assert!(h.signed_volume_mm3 > 0.0, "the winding must win, not the file normal");
+        assert!(
+            h.signed_volume_mm3 > 0.0,
+            "the winding must win, not the file normal"
+        );
         assert!(h.report().contains("disagree"));
     }
 
@@ -509,7 +543,8 @@ mod tests {
         // A sliver whose two corners are closer together than the weld quantum.
         let a = m.positions.len() as u32;
         m.positions.push(Vec3::new(20.0, 0.0, 0.0));
-        m.positions.push(Vec3::new(20.0, 0.0, WELD_QUANTUM_MM * 0.1));
+        m.positions
+            .push(Vec3::new(20.0, 0.0, WELD_QUANTUM_MM * 0.1));
         m.positions.push(Vec3::new(21.0, 0.0, 0.0));
         m.indices.push([a, a + 1, a + 2]);
         let load = parse_stl(&write_binary_stl(&m, "x")).unwrap();

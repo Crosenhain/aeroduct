@@ -139,7 +139,11 @@ pub struct VolumeConfig {
 
 impl Default for VolumeConfig {
     fn default() -> Self {
-        Self { axis: Vec3::X, stagnation_threshold: 0.0025, residual_stride: 4 }
+        Self {
+            axis: Vec3::X,
+            stagnation_threshold: 0.0025,
+            residual_stride: 4,
+        }
     }
 }
 
@@ -248,9 +252,18 @@ impl VolumeMetrics {
                 label: Some(label),
                 layout: &group1_layout,
                 entries: &[
-                    wgpu::BindGroupEntry { binding: 0, resource: uniform.as_entire_binding() },
-                    wgpu::BindGroupEntry { binding: 1, resource: target.as_entire_binding() },
-                    wgpu::BindGroupEntry { binding: 2, resource: prev.as_entire_binding() },
+                    wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: uniform.as_entire_binding(),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 1,
+                        resource: target.as_entire_binding(),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 2,
+                        resource: prev.as_entire_binding(),
+                    },
                 ],
             })
         };
@@ -282,7 +295,10 @@ impl VolumeMetrics {
     /// stride needs a rebuild, because the stored previous field is sized to it,
     /// so that field is ignored here.
     pub fn set_config(&mut self, cfg: VolumeConfig) {
-        self.cfg = VolumeConfig { residual_stride: self.cfg.residual_stride, ..cfg };
+        self.cfg = VolumeConfig {
+            residual_stride: self.cfg.residual_stride,
+            ..cfg
+        };
     }
 
     /// Forget the stored previous field, so the next residual is skipped rather
@@ -401,7 +417,12 @@ pub struct VolumeReading {
 
 impl VolumeReading {
     /// `frame` is one readback: `[stats, residual]`.
-    pub fn from_accums(stats: &VolumeAccum, residual: &VolumeAccum, grid: Grid, lu: &LatticeUnits) -> Self {
+    pub fn from_accums(
+        stats: &VolumeAccum,
+        residual: &VolumeAccum,
+        grid: Grid,
+        lu: &LatticeUnits,
+    ) -> Self {
         let fluid = stats.fluid() as f64;
         let c_u = lu.c_u();
         let cell_mm3 = (grid.dx_mm as f64).powi(3);
@@ -416,23 +437,42 @@ impl VolumeReading {
         } else {
             (0.0, 0.0, 0.0)
         };
-        let peak = if stats.fluid() > 0 { stats.scalar(VS_MAX_SPEED) as f64 * c_u } else { 0.0 };
+        let peak = if stats.fluid() > 0 {
+            stats.scalar(VS_MAX_SPEED) as f64 * c_u
+        } else {
+            0.0
+        };
         let (min_rho, max_rho) = if stats.fluid() > 0 {
-            (stats.scalar(VS_MIN_RHO) as f64, stats.scalar(VS_MAX_RHO) as f64)
+            (
+                stats.scalar(VS_MIN_RHO) as f64,
+                stats.scalar(VS_MAX_RHO) as f64,
+            )
         } else {
             (1.0, 1.0)
         };
 
         let sum_u2 = residual.scalar(VS_SUM_U2) as f64;
         let sum_du2 = residual.scalar(VS_SUM_DU2) as f64;
-        let res = if sum_u2 > 0.0 { Some((sum_du2 / sum_u2).sqrt()) } else { None };
+        let res = if sum_u2 > 0.0 {
+            Some((sum_du2 / sum_u2).sqrt())
+        } else {
+            None
+        };
 
         Self {
             cells_visited: stats.visited() as u64,
             fluid_cells: stats.fluid() as u64,
             fluid_volume_mm3: fluid * cell_mm3,
-            reverse_fraction: if fluid > 0.0 { stats.reversed() as f64 / fluid } else { 0.0 },
-            stagnant_fraction: if fluid > 0.0 { stats.stagnant() as f64 / fluid } else { 0.0 },
+            reverse_fraction: if fluid > 0.0 {
+                stats.reversed() as f64 / fluid
+            } else {
+                0.0
+            },
+            stagnant_fraction: if fluid > 0.0 {
+                stats.stagnant() as f64 / fluid
+            } else {
+                0.0
+            },
             peak_speed_ms: peak,
             mean_speed_ms: mean_speed,
             rms_speed_ms: rms_speed,
@@ -448,8 +488,8 @@ impl VolumeReading {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::field::{field_layout, FieldTextures};
     use crate::field::FieldRefs;
+    use crate::field::{field_layout, FieldTextures};
     use ad_gpu::types::{flags, Bbox};
 
     fn units() -> LatticeUnits {
@@ -471,7 +511,12 @@ mod tests {
         let group = crate::field::field_bind_group(
             &gpu.device,
             &layout,
-            &FieldRefs { grid, velocity: &vv, density: &dv, flags: tex.flags_buffer() },
+            &FieldRefs {
+                grid,
+                velocity: &vv,
+                density: &dv,
+                flags: tex.flags_buffer(),
+            },
         );
         let mut vm = VolumeMetrics::new(&gpu.device, &layout, grid, cfg).unwrap();
         let mut last = None;
@@ -483,7 +528,12 @@ mod tests {
             assert!(vm.record(&gpu.queue, &mut enc, &group, f as u64, None));
             gpu.queue.submit([enc.finish()]);
             for fr in vm.drain_blocking(&gpu.device) {
-                last = Some(VolumeReading::from_accums(&fr.data[0], &fr.data[1], grid, &units()));
+                last = Some(VolumeReading::from_accums(
+                    &fr.data[0],
+                    &fr.data[1],
+                    grid,
+                    &units(),
+                ));
             }
         }
         last.expect("no volume readback arrived")
@@ -504,7 +554,13 @@ mod tests {
     #[test]
     fn the_volume_fractions_are_exact_cell_counts() {
         let Some(gpu) = crate::test_gpu() else { return };
-        let grid = Grid::covering(Bbox { min: Vec3::ZERO, max: Vec3::splat(20.0) }, 1.0);
+        let grid = Grid::covering(
+            Bbox {
+                min: Vec3::ZERO,
+                max: Vec3::splat(20.0),
+            },
+            1.0,
+        );
         let n = grid.cell_count();
         let cfg = VolumeConfig {
             axis: Vec3::X,
@@ -522,13 +578,29 @@ mod tests {
         });
         assert_eq!(r.cells_visited, n);
         assert_eq!(r.fluid_cells, n * 3 / 4, "a quarter of the grid is solid");
-        assert!((r.reverse_fraction - 1.0 / 3.0).abs() < 1e-9, "{}", r.reverse_fraction);
-        assert!((r.stagnant_fraction - 1.0 / 3.0).abs() < 1e-9, "{}", r.stagnant_fraction);
+        assert!(
+            (r.reverse_fraction - 1.0 / 3.0).abs() < 1e-9,
+            "{}",
+            r.reverse_fraction
+        );
+        assert!(
+            (r.stagnant_fraction - 1.0 / 3.0).abs() < 1e-9,
+            "{}",
+            r.stagnant_fraction
+        );
         // Fluid volume: 3/4 of a 20 mm cube.
-        assert!((r.fluid_volume_mm3 - 6000.0).abs() < 1.0, "{}", r.fluid_volume_mm3);
+        assert!(
+            (r.fluid_volume_mm3 - 6000.0).abs() < 1.0,
+            "{}",
+            r.fluid_volume_mm3
+        );
         // Peak speed comes from the fastest cell, not an average.
         let want = 0.05 * units().c_u();
-        assert!((r.peak_speed_ms / want - 1.0).abs() < 1e-3, "peak {}", r.peak_speed_ms);
+        assert!(
+            (r.peak_speed_ms / want - 1.0).abs() < 1e-3,
+            "peak {}",
+            r.peak_speed_ms
+        );
         // Reversed and forward halves cancel; the stagnant third is what is left.
         let want_axial = (-0.05 + 0.001 + 0.05) / 3.0 * units().c_u();
         assert!(
@@ -545,20 +617,35 @@ mod tests {
     #[test]
     fn the_residual_measures_the_relative_change_it_is_given() {
         let Some(gpu) = crate::test_gpu() else { return };
-        let grid = Grid::covering(Bbox { min: Vec3::ZERO, max: Vec3::splat(16.0) }, 1.0);
-        let cfg = VolumeConfig { residual_stride: 2, ..Default::default() };
+        let grid = Grid::covering(
+            Bbox {
+                min: Vec3::ZERO,
+                max: Vec3::splat(16.0),
+            },
+            1.0,
+        );
+        let cfg = VolumeConfig {
+            residual_stride: 2,
+            ..Default::default()
+        };
 
         let steady = measure(&gpu, grid, cfg, 2, |_, _, _| {
             (Vec3::new(0.05, 0.0, 0.0), 1.0, flags::FLUID)
         });
-        assert_eq!(steady.residual, Some(0.0), "a frozen field must have no residual");
+        assert_eq!(
+            steady.residual,
+            Some(0.0),
+            "a frozen field must have no residual"
+        );
 
         // Frame 1 is 1% faster than frame 0, uniformly, so R = 0.01 exactly.
         let moving = measure(&gpu, grid, cfg, 2, |f, _, _| {
             let s = if f == 0 { 0.05 } else { 0.05 * 1.01 };
             (Vec3::new(s, 0.0, 0.0), 1.0, flags::FLUID)
         });
-        let r = moving.residual.expect("second frame should produce a residual");
+        let r = moving
+            .residual
+            .expect("second frame should produce a residual");
         assert!((r - 0.01).abs() < 1e-4, "residual {r} should be 1%");
     }
 
@@ -568,11 +655,20 @@ mod tests {
     #[test]
     fn reverse_flow_is_measured_against_the_duct_axis() {
         let Some(gpu) = crate::test_gpu() else { return };
-        let grid = Grid::covering(Bbox { min: Vec3::ZERO, max: Vec3::splat(12.0) }, 1.0);
+        let grid = Grid::covering(
+            Bbox {
+                min: Vec3::ZERO,
+                max: Vec3::splat(12.0),
+            },
+            1.0,
+        );
         let fwd = measure(
             &gpu,
             grid,
-            VolumeConfig { axis: Vec3::X, ..Default::default() },
+            VolumeConfig {
+                axis: Vec3::X,
+                ..Default::default()
+            },
             1,
             |_, _, _| (Vec3::new(0.05, 0.0, 0.0), 1.0, flags::FLUID),
         );
@@ -580,7 +676,10 @@ mod tests {
         let back = measure(
             &gpu,
             grid,
-            VolumeConfig { axis: -Vec3::X, ..Default::default() },
+            VolumeConfig {
+                axis: -Vec3::X,
+                ..Default::default()
+            },
             1,
             |_, _, _| (Vec3::new(0.05, 0.0, 0.0), 1.0, flags::FLUID),
         );
@@ -592,10 +691,22 @@ mod tests {
     #[test]
     fn the_pressure_range_comes_from_the_density_extremes() {
         let Some(gpu) = crate::test_gpu() else { return };
-        let grid = Grid::covering(Bbox { min: Vec3::ZERO, max: Vec3::splat(16.0) }, 1.0);
+        let grid = Grid::covering(
+            Bbox {
+                min: Vec3::ZERO,
+                max: Vec3::splat(16.0),
+            },
+            1.0,
+        );
         let lu = units();
         let r = measure(&gpu, grid, VolumeConfig::default(), 1, |_, c, _| {
-            let rho = if c.x == 0 { 0.999 } else if c.x == 1 { 1.001 } else { 1.0 };
+            let rho = if c.x == 0 {
+                0.999
+            } else if c.x == 1 {
+                1.001
+            } else {
+                1.0
+            };
             (Vec3::new(0.05, 0.0, 0.0), rho, flags::FLUID)
         });
         let want_hi = lu.pressure_pa(0.001);

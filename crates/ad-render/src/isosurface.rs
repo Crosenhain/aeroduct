@@ -278,7 +278,11 @@ impl QHistogram {
     pub const BINS: usize = 128;
 
     pub fn new(bins: Vec<u32>, range: [f32; 2]) -> Self {
-        Self { bins, lo_bits: range[0].to_bits(), hi_bits: range[1].to_bits() }
+        Self {
+            bins,
+            lo_bits: range[0].to_bits(),
+            hi_bits: range[1].to_bits(),
+        }
     }
 
     pub fn range(&self) -> [f32; 2] {
@@ -460,7 +464,10 @@ impl IsosurfaceOverlay {
             label: Some("isosurface draw"),
             layout: &draw_layout,
             entries: &[
-                wgpu::BindGroupEntry { binding: 0, resource: uniform.as_entire_binding() },
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: uniform.as_entire_binding(),
+                },
                 wgpu::BindGroupEntry {
                     binding: 1,
                     resource: wgpu::BindingResource::TextureView(&lut_view),
@@ -559,14 +566,23 @@ impl IsosurfaceOverlay {
         let cs = wgpu::ShaderStages::COMPUTE;
         let hist_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("Q histogram"),
-            entries: &[util::uniform_entry(0, cs), util::storage_buffer_entry(1, cs, false)],
+            entries: &[
+                util::uniform_entry(0, cs),
+                util::storage_buffer_entry(1, cs, false),
+            ],
         });
         let hist_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("Q histogram"),
             layout: &hist_layout,
             entries: &[
-                wgpu::BindGroupEntry { binding: 0, resource: hist_uniform.as_entire_binding() },
-                wgpu::BindGroupEntry { binding: 1, resource: hist_bins.as_entire_binding() },
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: hist_uniform.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: hist_bins.as_entire_binding(),
+                },
             ],
         });
         let hist_pipeline = util::compute_pipeline(
@@ -767,7 +783,8 @@ impl OverlayPass for IsosurfaceOverlay {
             self.last_color_map = self.settings.color_map;
             self.lut_dirty = false;
         }
-        ctx.queue.write_buffer(&self.uniform, 0, bytemuck::bytes_of(&self.build_uniform()));
+        ctx.queue
+            .write_buffer(&self.uniform, 0, bytemuck::bytes_of(&self.build_uniform()));
 
         let ts = ctx.profiler.render_scope("isosurface");
         let mut pass = ctx.encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -776,7 +793,10 @@ impl OverlayPass for IsosurfaceOverlay {
                 view: ctx.hdr_view,
                 depth_slice: None,
                 resolve_target: None,
-                ops: wgpu::Operations { load: wgpu::LoadOp::Load, store: wgpu::StoreOp::Store },
+                ops: wgpu::Operations {
+                    load: wgpu::LoadOp::Load,
+                    store: wgpu::StoreOp::Store,
+                },
             })],
             depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
                 view: ctx.depth_view,
@@ -834,7 +854,10 @@ mod tests {
         // Four steps on a one-voxel bracket, stated in the units that matter.
         let voxel = 0.75f32;
         let err = (bisect_crossing(0.0, voxel, 4, |t| t - 0.31 * voxel) - 0.31 * voxel).abs();
-        assert!(err < voxel / 16.0, "four bisections left {err} mm of a {voxel} mm voxel");
+        assert!(
+            err < voxel / 16.0,
+            "four bisections left {err} mm of a {voxel} mm voxel"
+        );
     }
 
     #[test]
@@ -862,7 +885,10 @@ mod tests {
             }
         };
         let hit = first_crossing(0.0, 10.0, 0.1, 8, f).expect("a crossing exists");
-        assert!((hit - 2.0).abs() < 0.05, "found the crossing at {hit}, not at 2.0");
+        assert!(
+            (hit - 2.0).abs() < 0.05,
+            "found the crossing at {hit}, not at 2.0"
+        );
     }
 
     #[test]
@@ -914,8 +940,14 @@ mod tests {
         for i in 0..=100 {
             let p = i as f32 / 100.0;
             let v = h.percentile(p);
-            assert!(v >= last - 1e-4, "percentile {p} went backwards: {last} -> {v}");
-            assert!((0.0..=4.0).contains(&v), "percentile {p} = {v} is outside the range");
+            assert!(
+                v >= last - 1e-4,
+                "percentile {p} went backwards: {last} -> {v}"
+            );
+            assert!(
+                (0.0..=4.0).contains(&v),
+                "percentile {p} = {v} is outside the range"
+            );
             last = v;
         }
         // The median of a flat block over the low half sits in the middle of it.
@@ -930,7 +962,10 @@ mod tests {
         // the user sees a plug rather than vortices.
         let h = synthetic_histogram();
         let iso = h.suggested_isolevel();
-        assert!(iso > h.percentile(0.5), "suggestion {iso} is below the median");
+        assert!(
+            iso > h.percentile(0.5),
+            "suggestion {iso} is below the median"
+        );
         assert!(iso > 1.9, "suggestion {iso} is inside the low-Q bulk");
         assert!(iso <= 4.0);
 
@@ -990,7 +1025,11 @@ mod tests {
     // -- GPU -----------------------------------------------------------------
 
     fn test_grid() -> Grid {
-        Grid { dims: UVec3::new(48, 32, 32), dx_mm: 0.75, origin_mm: Vec3::splat(-12.0) }
+        Grid {
+            dims: UVec3::new(48, 32, 32),
+            dx_mm: 0.75,
+            origin_mm: Vec3::splat(-12.0),
+        }
     }
 
     /// A pair of counter-rotating blobs. Chosen because it has genuine rotation
@@ -1246,7 +1285,10 @@ mod tests {
             // pixel is a grazing hit -- which tests the accelerator against
             // sampling noise rather than against itself.
             let iso = hist.percentile(0.995);
-            assert!(iso > 0.05, "the synthetic field has no real Q structure: {iso}");
+            assert!(
+                iso > 0.05,
+                "the synthetic field has no real Q structure: {iso}"
+            );
             iso
         };
 
@@ -1262,7 +1304,10 @@ mod tests {
         let var = lum.iter().map(|x| (x - mean) * (x - mean)).sum::<f32>() / lum.len() as f32;
         assert!(var > 40.0, "nothing was drawn: red-channel variance {var}");
 
-        for (other, what) in [(&b, "turning the skip off"), (&c, "displaying another field")] {
+        for (other, what) in [
+            (&b, "turning the skip off"),
+            (&c, "displaying another field"),
+        ] {
             let mut worst = 0i32;
             let mut differing = 0usize;
             for (x, y) in a.iter().zip(other.iter()) {
@@ -1275,7 +1320,11 @@ mod tests {
                 worst <= 2,
                 "{what} moved a pixel by {worst}/255 -- the brick skip is jumping a crossing"
             );
-            assert!(frac < 0.005, "{what} changed {:.2}% of pixels", frac * 100.0);
+            assert!(
+                frac < 0.005,
+                "{what} changed {:.2}% of pixels",
+                frac * 100.0
+            );
         }
     }
 

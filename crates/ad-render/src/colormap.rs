@@ -104,8 +104,12 @@ impl ColorMap {
     /// colour ramp reinforces the opacity ramp instead of fighting it.
     pub const VOLUME: [ColorMap; 3] = [ColorMap::Inferno, ColorMap::Magma, ColorMap::Grey];
     /// Maps appropriate for surfaces and slices of a magnitude.
-    pub const MAGNITUDE: [ColorMap; 4] =
-        [ColorMap::Viridis, ColorMap::Batlow, ColorMap::Inferno, ColorMap::Turbo];
+    pub const MAGNITUDE: [ColorMap; 4] = [
+        ColorMap::Viridis,
+        ColorMap::Batlow,
+        ColorMap::Inferno,
+        ColorMap::Turbo,
+    ];
     /// Maps appropriate for signed data such as pressure.
     pub const SIGNED: [ColorMap; 2] = [ColorMap::CoolWarm, ColorMap::Vik];
 
@@ -270,7 +274,11 @@ impl ColorMap {
         }
         let (t0, c0) = stops[i];
         let (t1, c1) = stops[i + 1];
-        let u = if (t1 - t0).abs() < 1e-9 { 0.0 } else { (t - t0) / (t1 - t0) };
+        let u = if (t1 - t0).abs() < 1e-9 {
+            0.0
+        } else {
+            (t - t0) / (t1 - t0)
+        };
         blend(c0, c1, u.clamp(0.0, 1.0), interp)
     }
 
@@ -351,11 +359,19 @@ pub fn srgb8_to_linear(c: [u8; 3]) -> Vec3 {
 /// near black is exactly the part that matters for a map whose first entry is
 /// `#000004`.
 pub fn srgb_to_linear(c: Vec3) -> Vec3 {
-    Vec3::new(srgb_to_linear1(c.x), srgb_to_linear1(c.y), srgb_to_linear1(c.z))
+    Vec3::new(
+        srgb_to_linear1(c.x),
+        srgb_to_linear1(c.y),
+        srgb_to_linear1(c.z),
+    )
 }
 
 pub fn linear_to_srgb(c: Vec3) -> Vec3 {
-    Vec3::new(linear_to_srgb1(c.x), linear_to_srgb1(c.y), linear_to_srgb1(c.z))
+    Vec3::new(
+        linear_to_srgb1(c.x),
+        linear_to_srgb1(c.y),
+        linear_to_srgb1(c.z),
+    )
 }
 
 fn srgb_to_linear1(x: f32) -> f32 {
@@ -487,9 +503,18 @@ mod tests {
     #[test]
     fn no_default_colour_map_is_a_rainbow() {
         let defaults = [
-            ("volume transfer function", crate::transfer::TransferFunction::default().map),
-            ("streaklines", crate::particles::StreaklineSettings::default().color_map),
-            ("isosurface", crate::isosurface::IsosurfaceSettings::default().color_map),
+            (
+                "volume transfer function",
+                crate::transfer::TransferFunction::default().map,
+            ),
+            (
+                "streaklines",
+                crate::particles::StreaklineSettings::default().color_map,
+            ),
+            (
+                "isosurface",
+                crate::isosurface::IsosurfaceSettings::default().color_map,
+            ),
             ("slice", crate::slice::SliceSettings::default().color_map),
         ];
         for (what, map) in defaults {
@@ -510,9 +535,17 @@ mod tests {
             for i in 1..lut.len() {
                 let a = luminance(lut[i - 1]);
                 let b = luminance(lut[i]);
-                assert!(b >= a - 1e-6, "{} dips in luminance at {i}: {a} -> {b}", map.name());
+                assert!(
+                    b >= a - 1e-6,
+                    "{} dips in luminance at {i}: {a} -> {b}",
+                    map.name()
+                );
             }
-            assert!(luminance(lut[lut.len() - 1]) > luminance(lut[0]) + 0.3, "{} is flat", map.name());
+            assert!(
+                luminance(lut[lut.len() - 1]) > luminance(lut[0]) + 0.3,
+                "{} is flat",
+                map.name()
+            );
         }
     }
 
@@ -528,7 +561,11 @@ mod tests {
                 .map(|i| map.sample(i as f32 / (LUT_SIZE - 1) as f32, Interpolation::Oklab))
                 .collect();
             let worst = enforce_monotone_luminance(&mut raw);
-            assert!(worst < 0.02, "{} needed a {worst} luminance repair", map.name());
+            assert!(
+                worst < 0.02,
+                "{} needed a {worst} luminance repair",
+                map.name()
+            );
         }
     }
 
@@ -538,7 +575,11 @@ mod tests {
         // renders as milk.
         for map in ColorMap::VOLUME {
             let lut = map.lut(Interpolation::Oklab);
-            assert!(luminance(lut[0]) < 0.005, "{} does not start black", map.name());
+            assert!(
+                luminance(lut[0]) < 0.005,
+                "{} does not start black",
+                map.name()
+            );
         }
     }
 
@@ -549,7 +590,11 @@ mod tests {
             let mid = luminance(lut[LUT_SIZE / 2]);
             let lo = luminance(lut[0]);
             let hi = luminance(lut[LUT_SIZE - 1]);
-            assert!(mid > lo + 0.2 && mid > hi + 0.2, "{} is not diverging", map.name());
+            assert!(
+                mid > lo + 0.2 && mid > hi + 0.2,
+                "{} is not diverging",
+                map.name()
+            );
             // Equal-ish ends: an asymmetric diverging map makes one sign of the
             // pressure deviation look more important than the other.
             assert!(
@@ -584,7 +629,10 @@ mod tests {
             Vec3::new(0.94, 0.02, 0.31),
         ] {
             let back = oklab_to_linear(linear_to_oklab(c));
-            assert!((back - c).abs().max_element() < 1e-4, "{c} round-tripped to {back}");
+            assert!(
+                (back - c).abs().max_element() < 1e-4,
+                "{c} round-tripped to {back}"
+            );
         }
     }
 
@@ -604,7 +652,11 @@ mod tests {
             let stops = map.stops();
             let first = srgb8_to_linear(stops[0].1);
             let last = srgb8_to_linear(stops[stops.len() - 1].1);
-            assert!((lut[0] - first).abs().max_element() < 1e-3, "{} start", map.name());
+            assert!(
+                (lut[0] - first).abs().max_element() < 1e-3,
+                "{} start",
+                map.name()
+            );
             assert!(
                 (lut[LUT_SIZE - 1] - last).abs().max_element() < 2e-2,
                 "{} end: {} vs {}",
@@ -619,7 +671,11 @@ mod tests {
     fn accessibility_substitution_keeps_the_map_kind_and_is_a_fixed_point() {
         for map in ColorMap::ALL {
             let sub = map.accessible_substitute();
-            assert!(sub.cvd_safe(), "{} substituted to an unsafe map", map.name());
+            assert!(
+                sub.cvd_safe(),
+                "{} substituted to an unsafe map",
+                map.name()
+            );
             assert_eq!(sub.kind(), map.kind(), "{} changed kind", map.name());
             // Applying it twice must not keep changing the map.
             assert_eq!(sub.accessible_substitute(), sub);
@@ -642,7 +698,11 @@ mod tests {
                 for c in map.lut(Interpolation::Oklab) {
                     nearest = nearest.min((linear_to_oklab(c) - m).length());
                 }
-                assert!(nearest > 0.10, "{marker:?} is only {nearest} from {}", map.name());
+                assert!(
+                    nearest > 0.10,
+                    "{marker:?} is only {nearest} from {}",
+                    map.name()
+                );
             }
         }
     }
@@ -650,15 +710,24 @@ mod tests {
     #[test]
     fn half_float_round_trips_across_the_useful_range() {
         for x in [
-            0.0f32, 1.0, 0.5, -0.25, 65504.0, 6.1e-5, // smallest normal
+            0.0f32,
+            1.0,
+            0.5,
+            -0.25,
+            65504.0,
+            6.1e-5,  // smallest normal
             5.96e-8, // smallest subnormal
-            1.0 / 3.0, 1234.0,
+            1.0 / 3.0,
+            1234.0,
         ] {
             let back = f16_bits_to_f32(f32_to_f16_bits(x));
             let tol = (x.abs() * 1e-3).max(6e-8);
             assert!((back - x).abs() <= tol, "{x} round-tripped to {back}");
         }
-        assert_eq!(f16_bits_to_f32(f32_to_f16_bits(f32::INFINITY)), f32::INFINITY);
+        assert_eq!(
+            f16_bits_to_f32(f32_to_f16_bits(f32::INFINITY)),
+            f32::INFINITY
+        );
         assert!(f16_bits_to_f32(f32_to_f16_bits(f32::NAN)).is_nan());
         // The dark end of inferno must survive the trip to f16.
         let dark = srgb8_to_linear([0x00, 0x00, 0x04]);

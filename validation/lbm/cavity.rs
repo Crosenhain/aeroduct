@@ -68,7 +68,11 @@ fn reference() -> Vec<Row> {
             Row {
                 table: f[0].chars().next().unwrap(),
                 coord: f[1].parse().unwrap(),
-                values: [f[2].parse().unwrap(), f[3].parse().unwrap(), f[4].parse().unwrap()],
+                values: [
+                    f[2].parse().unwrap(),
+                    f[3].parse().unwrap(),
+                    f[4].parse().unwrap(),
+                ],
             }
         })
         .collect()
@@ -85,7 +89,12 @@ fn column(re: u32) -> usize {
 
 /// Run the cavity to steady state and return the two centreline profiles as
 /// `(normalised coordinate, velocity / lid speed)`.
-fn run_cavity(ctx: &ad_gpu::GpuContext, n: u32, re: f32, steps: u32) -> (Vec<(f32, f32)>, Vec<(f32, f32)>) {
+fn run_cavity(
+    ctx: &ad_gpu::GpuContext,
+    n: u32,
+    re: f32,
+    steps: u32,
+) -> (Vec<(f32, f32)>, Vec<(f32, f32)>) {
     // u_lid = 0.05 puts the lattice Mach number at 0.087, where the O(Ma^2)
     // compressibility error is well under a percent.
     let u_lid = 0.05f32;
@@ -101,7 +110,11 @@ fn run_cavity(ctx: &ad_gpu::GpuContext, n: u32, re: f32, steps: u32) -> (Vec<(f3
     cfg.periodic = [false, false, true];
     cfg.macroscopic_buffer = true;
     cfg.inlet_velocity = Vec3::new(u_lid, 0.0, 0.0);
-    let grid = Grid { dims: UVec3::new(n, n, 1), dx_mm: 1.0, origin_mm: Vec3::ZERO };
+    let grid = Grid {
+        dims: UVec3::new(n, n, 1),
+        dx_mm: 1.0,
+        origin_mm: Vec3::ZERO,
+    };
 
     let mut solver = Solver::new(ctx, grid, &mask, &[], cfg).expect("cavity solver");
     // Chunked so no single command buffer holds hundreds of thousands of
@@ -121,8 +134,12 @@ fn run_cavity(ctx: &ad_gpu::GpuContext, n: u32, re: f32, steps: u32) -> (Vec<(f3
     // row n-1. Height is therefore n - 0.5, width n.
     let height = n as f32 - 0.5;
     let (mid_x, mid_y) = (n / 2, n / 2);
-    let u_line = (0..n).map(|y| ((y as f32 + 0.5) / height, at(mid_x, y)[0] / u_lid)).collect();
-    let v_line = (0..n).map(|x| ((x as f32 + 0.5) / n as f32, at(x, mid_y)[1] / u_lid)).collect();
+    let u_line = (0..n)
+        .map(|y| ((y as f32 + 0.5) / height, at(mid_x, y)[0] / u_lid))
+        .collect();
+    let v_line = (0..n)
+        .map(|x| ((x as f32 + 0.5) / n as f32, at(x, mid_y)[1] / u_lid))
+        .collect();
     (u_line, v_line)
 }
 
@@ -164,9 +181,17 @@ fn cavity_centrelines_match_ghia_at_moderate_reynolds() {
     for (re, n, steps) in [(100u32, 128u32, 100_000u32), (400, 256, 300_000)] {
         let (u_line, v_line) = run_cavity(&ctx, n, re as f32, steps);
         let (worst, rms) = compare_to_ghia(re, &u_line, &v_line);
-        println!("cavity Re={re} at {n}^2: worst deviation {worst:.4}, RMS {rms:.4} (lid speed = 1)");
-        assert!(rms < 0.03, "cavity Re={re}: RMS deviation {rms:.4} from Ghia");
-        assert!(worst < 0.06, "cavity Re={re}: worst deviation {worst:.4} from Ghia");
+        println!(
+            "cavity Re={re} at {n}^2: worst deviation {worst:.4}, RMS {rms:.4} (lid speed = 1)"
+        );
+        assert!(
+            rms < 0.03,
+            "cavity Re={re}: RMS deviation {rms:.4} from Ghia"
+        );
+        assert!(
+            worst < 0.06,
+            "cavity Re={re}: worst deviation {worst:.4} from Ghia"
+        );
     }
 }
 
@@ -205,8 +230,14 @@ fn cavity_centrelines_match_ghia_at_re_1000() {
     let (u_line, v_line) = run_cavity(&ctx, 384, 1000.0, 900_000);
     let (worst, rms) = compare_to_ghia(1000, &u_line, &v_line);
     println!("cavity Re=1000 at 384^2: worst deviation {worst:.4}, RMS {rms:.4}");
-    assert!(rms < 0.02, "cavity Re=1000: RMS deviation {rms:.4} from Ghia");
-    assert!(worst < 0.05, "cavity Re=1000: worst deviation {worst:.4} from Ghia");
+    assert!(
+        rms < 0.02,
+        "cavity Re=1000: RMS deviation {rms:.4} from Ghia"
+    );
+    assert!(
+        worst < 0.05,
+        "cavity Re=1000: worst deviation {worst:.4} from Ghia"
+    );
 }
 
 /// The reference table itself must be well formed. Cheap, GPU-free, and it would
@@ -236,14 +267,27 @@ fn ghia_reference_table_is_well_formed() {
     }
     for r in &rows {
         for x in r.values {
-            assert!(x.abs() <= 1.0, "value {x} out of range in table {}", r.table);
+            assert!(
+                x.abs() <= 1.0,
+                "value {x} out of range in table {}",
+                r.table
+            );
         }
     }
     // The primary vortex reverses the flow below the lid, so u must change sign;
     // a table of magnitudes rather than velocities would not.
     for k in 0..3 {
-        assert!(u.iter().any(|r| r.values[k] < -0.05), "no reverse flow in u column {k}");
-        assert!(v.iter().any(|r| r.values[k] < -0.05), "no negative v in column {k}");
-        assert!(v.iter().any(|r| r.values[k] > 0.05), "no positive v in column {k}");
+        assert!(
+            u.iter().any(|r| r.values[k] < -0.05),
+            "no reverse flow in u column {k}"
+        );
+        assert!(
+            v.iter().any(|r| r.values[k] < -0.05),
+            "no negative v in column {k}"
+        );
+        assert!(
+            v.iter().any(|r| r.values[k] > 0.05),
+            "no positive v in column {k}"
+        );
     }
 }

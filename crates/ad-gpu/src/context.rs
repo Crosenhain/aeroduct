@@ -85,10 +85,11 @@ impl GpuContext {
         // and the next unmap of a live metrics buffer found it destroyed. As a
         // guard it would turn a possibly slow allocation into a dead device, so
         // it exists only to rehearse that failure on demand.
-        desc.memory_budget_thresholds.for_resource_creation = std::env::var("AERODUCT_MEMORY_BUDGET_PCT")
-            .ok()
-            .and_then(|v| v.trim().parse::<u8>().ok())
-            .filter(|p| (1..=100).contains(p));
+        desc.memory_budget_thresholds.for_resource_creation =
+            std::env::var("AERODUCT_MEMORY_BUDGET_PCT")
+                .ok()
+                .and_then(|v| v.trim().parse::<u8>().ok())
+                .filter(|p| (1..=100).contains(p));
         if let Some(p) = desc.memory_budget_thresholds.for_resource_creation {
             log::warn!(
                 "AERODUCT_MEMORY_BUDGET_PCT: allocations fail past {p}% of the driver's memory \
@@ -128,7 +129,10 @@ impl GpuContext {
         want(wgpu::Features::SUBGROUP, &mut caps.subgroups);
         want(wgpu::Features::TIMESTAMP_QUERY, &mut caps.timestamps);
         want(wgpu::Features::PIPELINE_CACHE, &mut caps.pipeline_cache);
-        want(wgpu::Features::FLOAT32_FILTERABLE, &mut caps.float32_filterable);
+        want(
+            wgpu::Features::FLOAT32_FILTERABLE,
+            &mut caps.float32_filterable,
+        );
         caps.peak_bandwidth = peak_bandwidth_for(&info.name);
         caps.vram_bytes = vram_override().or_else(|| vram_bytes_for(&info.name));
 
@@ -256,7 +260,12 @@ fn peak_bandwidth_for(name: &str) -> Option<f64> {
 }
 
 fn log_environment(info: &wgpu::AdapterInfo, limits: &wgpu::Limits, caps: &GpuCapabilities) {
-    log::info!("GPU: {} ({:?}, {:?})", info.name, info.device_type, info.backend);
+    log::info!(
+        "GPU: {} ({:?}, {:?})",
+        info.name,
+        info.device_type,
+        info.backend
+    );
     log::info!("driver: {} {}", info.driver, info.driver_info);
     log::info!(
         "limits: max_buffer_size={:.2} GiB, max_storage_buffer_binding_size={:.2} GiB",
@@ -270,7 +279,11 @@ fn log_environment(info: &wgpu::AdapterInfo, limits: &wgpu::Limits, caps: &GpuCa
     );
     log::info!(
         "features: f16={} i16={} subgroups={} timestamps={} pipeline_cache={} f32_filterable={}",
-        caps.shader_f16, caps.shader_i16, caps.subgroups, caps.timestamps, caps.pipeline_cache,
+        caps.shader_f16,
+        caps.shader_i16,
+        caps.subgroups,
+        caps.timestamps,
+        caps.pipeline_cache,
         caps.float32_filterable,
     );
     if let Some(bw) = caps.peak_bandwidth {
@@ -324,7 +337,10 @@ fn vram_bytes_for(name: &str) -> Option<u64> {
 /// not know — or a smaller figure than the real one, to exercise the resolution
 /// control's refusal path.
 fn vram_override() -> Option<u64> {
-    let gib = std::env::var("AERODUCT_VRAM_GB").ok()?.parse::<f64>().ok()?;
+    let gib = std::env::var("AERODUCT_VRAM_GB")
+        .ok()?
+        .parse::<f64>()
+        .ok()?;
     (gib.is_finite() && gib > 0.0).then(|| (gib * (1u64 << 30) as f64) as u64)
 }
 
@@ -337,7 +353,10 @@ mod tests {
         const GIB: u64 = 1 << 30;
         assert_eq!(vram_bytes_for("NVIDIA GeForce RTX 4090"), Some(24 * GIB));
         assert_eq!(vram_bytes_for("NVIDIA GeForce RTX 5090"), Some(32 * GIB));
-        assert_eq!(vram_bytes_for("NVIDIA GeForce RTX 4080 SUPER"), Some(16 * GIB));
+        assert_eq!(
+            vram_bytes_for("NVIDIA GeForce RTX 4080 SUPER"),
+            Some(16 * GIB)
+        );
         // Same model number, 16 GB rather than 24: guessing here would let the
         // resolution control plan for half as much again as the card has.
         assert_eq!(vram_bytes_for("NVIDIA GeForce RTX 4090 Laptop GPU"), None);

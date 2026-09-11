@@ -50,7 +50,8 @@
 //! against 3.05 with a peak of 5.5 at the same plane, which is a duct profile.
 
 use ad_geom::{
-    FlatGeometry, MeshAsset, MeshInstance, MeshRole, Mouth, MouthConfig, Scene, Transform, Voxelizer,
+    FlatGeometry, MeshAsset, MeshInstance, MeshRole, Mouth, MouthConfig, Scene, Transform,
+    Voxelizer,
 };
 use ad_gpu::{flags, Bbox, BoundaryLink, DdfPrecision, GpuContext, Grid, LatticeUnits};
 use ad_solver::{Solver, SolverConfig};
@@ -89,7 +90,9 @@ impl VentPatch {
     /// lie on and the normal the density closure is given.
     pub fn axis_normal(&self) -> Vec3 {
         let n = self.normal;
-        let axis = (0..3).max_by(|a, b| n[*a].abs().total_cmp(&n[*b].abs())).unwrap_or(2);
+        let axis = (0..3)
+            .max_by(|a, b| n[*a].abs().total_cmp(&n[*b].abs()))
+            .unwrap_or(2);
         let mut a = Vec3::ZERO;
         a[axis] = if n[axis] < 0.0 { -1.0 } else { 1.0 };
         a
@@ -215,7 +218,10 @@ impl Sim {
     ) -> Result<Self> {
         anyhow::ensure!(!scene.is_empty(), "the scene has no geometry");
         if vents.len() > MAX_VENTS {
-            log::warn!("{} vents asked for; the solver has slots for {MAX_VENTS}, the rest are ignored", vents.len());
+            log::warn!(
+                "{} vents asked for; the solver has slots for {MAX_VENTS}, the rest are ignored",
+                vents.len()
+            );
             vents.truncate(MAX_VENTS);
         }
         let triangle_count = scene.triangle_count();
@@ -262,12 +268,21 @@ impl Sim {
         if inlets.len() > 1 {
             log::info!(
                 "air comes in through mouths {}; outlet {}",
-                inlets.iter().map(|i| ((b'A' + *i as u8) as char).to_string()).collect::<Vec<_>>().join(", "),
+                inlets
+                    .iter()
+                    .map(|i| ((b'A' + *i as u8) as char).to_string())
+                    .collect::<Vec<_>>()
+                    .join(", "),
                 (b'A' + outlet as u8) as char
             );
         }
-        let (domain, grid) =
-            plan_lattice(scene.bbox_of_role(MeshRole::Duct), &mouths, inlet, outlet, params);
+        let (domain, grid) = plan_lattice(
+            scene.bbox_of_role(MeshRole::Duct),
+            &mouths,
+            inlet,
+            outlet,
+            params,
+        );
         log::info!(
             "domain {} -> grid {} x {} x {} at dx = {} mm ({:.1} M cells)",
             domain.describe(),
@@ -287,7 +302,11 @@ impl Sim {
                     d.upstream / d.d_h_in,
                     d.downstream,
                     d.downstream / d.d_h_out,
-                    if p.walls == crate::plenum::PlenumWalls::Solid { "walled" } else { "open" },
+                    if p.walls == crate::plenum::PlenumWalls::Solid {
+                        "walled"
+                    } else {
+                        "open"
+                    },
                 );
             }
         }
@@ -302,8 +321,12 @@ impl Sim {
         log::info!("{voxel_report}");
         scene.take_dirty();
 
-        let mut mask = voxelizer.read_flags().context("reading the flag field back")?;
-        let mut links = voxelizer.read_links().context("reading the boundary links back")?;
+        let mut mask = voxelizer
+            .read_flags()
+            .context("reading the flag field back")?;
+        let mut links = voxelizer
+            .read_links()
+            .context("reading the boundary links back")?;
         anyhow::ensure!(
             mask.len() as u64 == grid.cell_count(),
             "the voxeliser returned {} flags for {} cells",
@@ -383,8 +406,16 @@ impl Sim {
 
     /// Hot-apply everything that does not need a rebuild.
     pub fn hot_apply(&mut self, params: &SimParams) -> Result<()> {
-        self.units = lattice_units_for(params, &self.mouths, &self.inlets, self.outlet, &self.vents);
-        let cfg = solver_config(params, &self.units, &self.mouths, self.inlets[0], self.outlet, &self.vents);
+        self.units =
+            lattice_units_for(params, &self.mouths, &self.inlets, self.outlet, &self.vents);
+        let cfg = solver_config(
+            params,
+            &self.units,
+            &self.mouths,
+            self.inlets[0],
+            self.outlet,
+            &self.vents,
+        );
         self.solver.update(cfg)
     }
 
@@ -417,10 +448,16 @@ impl Sim {
 /// obstruction's own crossings, over the whole line, so it is right in both.
 pub(crate) fn fill_obstructions(mask: &mut [u8], grid: Grid, scene: &Scene) -> u64 {
     let mut changed = 0;
-    for (_, inst) in scene.visible().filter(|(_, i)| i.role == MeshRole::Obstruction) {
+    for (_, inst) in scene
+        .visible()
+        .filter(|(_, i)| i.role == MeshRole::Obstruction)
+    {
         let b = inst.world_bbox();
         let Some((lo, hi)) = grid.cell_range(b) else {
-            log::warn!("obstruction {:?} is entirely outside the domain and has no effect", inst.name);
+            log::warn!(
+                "obstruction {:?} is entirely outside the domain and has no effect",
+                inst.name
+            );
             continue;
         };
         let g = grid.bbox();
@@ -431,9 +468,15 @@ pub(crate) fn fill_obstructions(mask: &mut [u8], grid: Grid, scene: &Scene) -> u
             );
         }
         let dims = hi - lo + UVec3::ONE;
-        let window = Grid { dims, dx_mm: grid.dx_mm, origin_mm: grid.cell_center_mm(lo) };
+        let window = Grid {
+            dims,
+            dx_mm: grid.dx_mm,
+            origin_mm: grid.cell_center_mm(lo),
+        };
         let mesh = inst.world_mesh();
-        let tris: Vec<[Vec3; 3]> = (0..mesh.triangle_count()).map(|t| mesh.triangle(t)).collect();
+        let tris: Vec<[Vec3; 3]> = (0..mesh.triangle_count())
+            .map(|t| mesh.triangle(t))
+            .collect();
         let parity = ad_geom::ray_parity_voxelize(&tris, window);
         for (i, _) in parity.solid.iter().enumerate().filter(|(_, s)| **s) {
             let i = i as u32;
@@ -468,9 +511,15 @@ fn lattice_units_for(
     vents: &[VentPatch],
 ) -> LatticeUnits {
     let supply: f32 = if vents.is_empty() {
-        inlets.first().and_then(|i| mouths.get(*i)).map_or(0.0, |m| m.open_area_mm2)
+        inlets
+            .first()
+            .and_then(|i| mouths.get(*i))
+            .map_or(0.0, |m| m.open_area_mm2)
     } else {
-        vents.iter().map(|v| 4.0 * v.half_u.length() * v.half_v.length() * v.speed_scale.max(0.0)).sum()
+        vents
+            .iter()
+            .map(|v| 4.0 * v.half_u.length() * v.half_v.length() * v.speed_scale.max(0.0))
+            .sum()
     };
     let exit = mouths.get(outlet).map_or(1.0, |m| m.open_area_mm2).max(1.0);
     let ratio = (supply / exit).max(1.0) as f64;
@@ -481,7 +530,13 @@ fn lattice_units_for(
             params.u_lb
         );
     }
-    LatticeUnits::new(params.dx_mm as f64, params.inlet_velocity_ms as f64, u_lb, params.rho, params.nu)
+    LatticeUnits::new(
+        params.dx_mm as f64,
+        params.inlet_velocity_ms as f64,
+        u_lb,
+        params.rho,
+        params.nu,
+    )
 }
 
 /// The largest mouth not in `taken`. A duct's main outlet is not a drain
@@ -561,7 +616,11 @@ fn solver_config(
     // Using `u_lb` there would drive the inlet at 1 m/s with the slider on zero,
     // and "stop the fan" would quietly mean "run it slowly".
     let c_u = units.c_u();
-    let u_lb = if c_u.abs() > 1e-12 { (units.u_phys / c_u) as f32 } else { 0.0 };
+    let u_lb = if c_u.abs() > 1e-12 {
+        (units.u_phys / c_u) as f32
+    } else {
+        0.0
+    };
 
     // A vent blows at `speed_scale` times the operating point along its aim:
     // the speed is the speed, unlike the mouth inlet's louver, which holds the
@@ -624,14 +683,16 @@ pub(crate) fn plan_lattice(
     // for more cells than any card has. The room's margins already reach well
     // past the mouths; an obstruction that goes further is cut at the face,
     // and `fill_obstructions` keeps the cut part solid.
-    let domain = DomainMargins::from_env().with_explicit(params.domain_mm).plan(
-        duct,
-        mouths,
-        inlet,
-        outlet,
-        params.dx_mm,
-        params.sponge_cells,
-    );
+    let domain = DomainMargins::from_env()
+        .with_explicit(params.domain_mm)
+        .plan(
+            duct,
+            mouths,
+            inlet,
+            outlet,
+            params.dx_mm,
+            params.sponge_cells,
+        );
     let grid = Grid::covering(domain.bbox, params.dx_mm);
     (domain, grid)
 }
@@ -702,7 +763,10 @@ pub fn apply_boundaries(
     plan: BoundaryPlan,
     vents: &[VentPatch],
 ) {
-    let BoundaryPlan { inlet_plane_mm, sponge_cells } = plan;
+    let BoundaryPlan {
+        inlet_plane_mm,
+        sponge_cells,
+    } = plan;
     let dims = grid.dims;
     let at = |c: UVec3| grid.linear(c) as usize;
 
@@ -784,7 +848,10 @@ pub fn apply_boundaries(
                 v.normal
             );
             if marked == 0 {
-                log::warn!("vent {} lies outside the simulated box (or inside a solid) and blows nothing", i + 1);
+                log::warn!(
+                    "vent {} lies outside the simulated box (or inside a solid) and blows nothing",
+                    i + 1
+                );
             }
         }
     }
@@ -835,7 +902,9 @@ fn mark_vent(mask: &mut [u8], grid: Grid, v: &VentPatch, slot: u8) -> usize {
     let n = v.axis_normal();
     let turned = given.dot(n).clamp(-1.0, 1.0).acos().to_degrees();
     if turned > 5.0 {
-        log::info!("vent plane snapped to the {n:?} axis, {turned:.0} deg from the face it was given");
+        log::info!(
+            "vent plane snapped to the {n:?} axis, {turned:.0} deg from the face it was given"
+        );
     }
     // In-plane axes: the rectangle's own, flattened onto the axis plane.
     let flatten = |a: Vec3| (a - n * a.dot(n)).normalize_or_zero();
@@ -855,7 +924,10 @@ fn mark_vent(mask: &mut [u8], grid: Grid, v: &VentPatch, slot: u8) -> usize {
     // size is stated, so unlike the mouth there is no outermost row to keep.
     let slack = 1.0e-4 * dx;
     let reach = u_hat.abs() * (lu + slack) + v_hat.abs() * (lv + slack) + Vec3::splat(thick + dx);
-    let Some((lo, hi)) = grid.cell_range(Bbox { min: c - reach, max: c + reach }) else {
+    let Some((lo, hi)) = grid.cell_range(Bbox {
+        min: c - reach,
+        max: c + reach,
+    }) else {
         return 0;
     };
     let mut marked = 0;
@@ -909,7 +981,9 @@ fn mark_vent(mask: &mut [u8], grid: Grid, v: &VentPatch, slot: u8) -> usize {
 fn mark_inlet(mask: &mut [u8], grid: Grid, mouth: &Mouth, plane_mm: Option<f32>) {
     let axis = mouth.axis as usize % 3;
     let patch = &mouth.patch;
-    let plane_w = plane_mm.filter(|v| v.is_finite()).unwrap_or(patch.center_mm[axis]);
+    let plane_w = plane_mm
+        .filter(|v| v.is_finite())
+        .unwrap_or(patch.center_mm[axis]);
     let k = ((plane_w - grid.origin_mm[axis]) / grid.dx_mm).round();
     if !k.is_finite() || k < 0.0 || k as u32 >= grid.dims[axis] {
         log::warn!("the inlet mouth plane at {plane_w} mm falls outside the grid");
@@ -1045,29 +1119,54 @@ mod tests {
 
     #[test]
     fn an_obstruction_cut_by_the_domain_face_is_solid_not_a_shell() {
-        let grid = Grid { dims: UVec3::splat(20), dx_mm: 1.0, origin_mm: Vec3::splat(0.5) };
+        let grid = Grid {
+            dims: UVec3::splat(20),
+            dx_mm: 1.0,
+            origin_mm: Vec3::splat(0.5),
+        };
         let mut mask = vec![flags::FLUID; grid.cell_count() as usize];
         let mut scene = Scene::new();
         // Centred on the -x face, so half of it is outside the grid.
         let ball = ad_geom::primitives::uv_sphere(Vec3::new(0.0, 10.0, 10.0), 6.0, 48, 24);
-        scene.add("ball", MeshAsset::new(ball), Transform::IDENTITY, MeshRole::Obstruction);
+        scene.add(
+            "ball",
+            MeshAsset::new(ball),
+            Transform::IDENTITY,
+            MeshRole::Obstruction,
+        );
         let filled = fill_obstructions(&mut mask, grid, &scene);
         let half_ball = 2.0 / 3.0 * std::f32::consts::PI * 6f32.powi(3);
         assert!(
             (filled as f32 - half_ball).abs() / half_ball < 0.1,
             "{filled} cells for a {half_ball:.0} mm^3 half-ball"
         );
-        assert_eq!(mask[grid.linear(UVec3::new(0, 10, 10)) as usize], flags::SOLID, "solid at the cut");
-        assert_eq!(mask[grid.linear(UVec3::new(10, 10, 10)) as usize], flags::FLUID);
+        assert_eq!(
+            mask[grid.linear(UVec3::new(0, 10, 10)) as usize],
+            flags::SOLID,
+            "solid at the cut"
+        );
+        assert_eq!(
+            mask[grid.linear(UVec3::new(10, 10, 10)) as usize],
+            flags::FLUID
+        );
     }
 
     #[test]
     fn the_duct_is_left_to_the_voxeliser() {
-        let grid = Grid { dims: UVec3::splat(20), dx_mm: 1.0, origin_mm: Vec3::splat(0.5) };
+        let grid = Grid {
+            dims: UVec3::splat(20),
+            dx_mm: 1.0,
+            origin_mm: Vec3::splat(0.5),
+        };
         let mut mask = vec![flags::FLUID; grid.cell_count() as usize];
         let mut scene = Scene::new();
         let block = ad_geom::primitives::box_mesh(Vec3::splat(4.0), Vec3::splat(12.0));
-        scene.add("duct", MeshAsset::new(block), Transform::IDENTITY, MeshRole::Duct);
+        scene.add(
+            "duct",
+            MeshAsset::new(block),
+            Transform::IDENTITY,
+            MeshRole::Duct,
+        );
         assert_eq!(fill_obstructions(&mut mask, grid, &scene), 0);
     }
 
@@ -1098,9 +1197,17 @@ mod tests {
         let units = params.lattice_units();
         let cfg = solver_config(&params, &units, &two_x_mouths(), 0, 1, &[]);
         let u_lb = (units.u_phys / units.c_u()) as f32;
-        assert_eq!(cfg.inlet_normal, Vec3::X, "the density closure still needs the mouth's plane");
+        assert_eq!(
+            cfg.inlet_normal,
+            Vec3::X,
+            "the density closure still needs the mouth's plane"
+        );
         assert!((cfg.inlet_velocity.dot(cfg.inlet_normal) - u_lb).abs() < 1e-7);
-        assert!(cfg.inlet_velocity.y > 0.0 && cfg.inlet_velocity.z < 0.0, "{}", cfg.inlet_velocity);
+        assert!(
+            cfg.inlet_velocity.y > 0.0 && cfg.inlet_velocity.z < 0.0,
+            "{}",
+            cfg.inlet_velocity
+        );
     }
 
     /// A **6 x 2** bore through a solid block that stops two thirds of the way
@@ -1142,13 +1249,29 @@ mod tests {
     fn bore_mouth(on_min_side: bool) -> Mouth {
         let x = if on_min_side { 0.5 } else { 19.5 };
         let (half_y, half_z) = (Vec3::Y * 3.0, Vec3::Z * 1.0);
-        let (half_u, half_v) =
-            if on_min_side { (half_z, half_y) } else { (half_y, half_z) };
-        mouth(0, on_min_side, Vec3::new(x, 6.0, 6.0), (half_u, half_v), 12.0)
+        let (half_u, half_v) = if on_min_side {
+            (half_z, half_y)
+        } else {
+            (half_y, half_z)
+        };
+        mouth(
+            0,
+            on_min_side,
+            Vec3::new(x, 6.0, 6.0),
+            (half_u, half_v),
+            12.0,
+        )
     }
 
     fn vent(center: Vec3, normal: Vec3, half_u: Vec3, half_v: Vec3) -> VentPatch {
-        VentPatch { center_mm: center, normal, half_u, half_v, direction: normal, speed_scale: 1.0 }
+        VentPatch {
+            center_mm: center,
+            normal,
+            half_u,
+            half_v,
+            direction: normal,
+            speed_scale: 1.0,
+        }
     }
 
     /// With a vent, the mouth is an opening and the vent's cells carry its
@@ -1167,30 +1290,68 @@ mod tests {
         let vb = vent(Vec3::ZERO, Vec3::Z, Vec3::X * 71.5, Vec3::Y * 9.0);
         let u = lattice_units_for(&params, &[a, b, c], &[0, 1], 2, &[va, vb]);
         let ratio = (4.0 * 79.0 * 9.0 + 4.0 * 71.5 * 9.0) / 1390.0;
-        assert!((u.u_lb - 0.1 / ratio as f64).abs() < 1e-9, "u_lb {} for a {ratio:.2}x outlet", u.u_lb);
+        assert!(
+            (u.u_lb - 0.1 / ratio as f64).abs() < 1e-9,
+            "u_lb {} for a {ratio:.2}x outlet",
+            u.u_lb
+        );
         assert!(u.u_lb < 0.03);
     }
 
     #[test]
     fn vents_sealed_to_mouths_make_them_inlets_and_free_the_outlet() {
         // Three mouths: A (largest, +x face), B, C. Default roles: A in, B out.
-        let big = mouth(0, false, Vec3::new(19.5, 6.0, 6.0), (Vec3::Y * 4.0, Vec3::Z * 2.0), 32.0);
-        let mid = mouth(0, true, Vec3::new(0.5, 6.0, 6.0), (Vec3::Y * 3.0, Vec3::Z * 1.0), 12.0);
-        let small = mouth(1, true, Vec3::new(10.0, 0.5, 6.0), (Vec3::X * 2.0, Vec3::Z * 1.0), 8.0);
+        let big = mouth(
+            0,
+            false,
+            Vec3::new(19.5, 6.0, 6.0),
+            (Vec3::Y * 4.0, Vec3::Z * 2.0),
+            32.0,
+        );
+        let mid = mouth(
+            0,
+            true,
+            Vec3::new(0.5, 6.0, 6.0),
+            (Vec3::Y * 3.0, Vec3::Z * 1.0),
+            12.0,
+        );
+        let small = mouth(
+            1,
+            true,
+            Vec3::new(10.0, 0.5, 6.0),
+            (Vec3::X * 2.0, Vec3::Z * 1.0),
+            8.0,
+        );
         let mouths = [big, mid, small];
         let params = SimParams::default();
         assert_eq!(mouth_roles(&mouths, &[], &params, 1.0), (vec![0], 1));
 
         // A vent sealed on B: B supplies air too, so the outlet moves to C.
-        let on_b = vent(Vec3::new(0.5, 6.0, 6.0), Vec3::X, Vec3::Y * 3.0, Vec3::Z * 1.0);
+        let on_b = vent(
+            Vec3::new(0.5, 6.0, 6.0),
+            Vec3::X,
+            Vec3::Y * 3.0,
+            Vec3::Z * 1.0,
+        );
         assert_eq!(mouth_roles(&mouths, &[on_b], &params, 1.0), (vec![0, 1], 2));
         // A vent standing off the mouth is a free jet, not a mouth inlet.
-        let free = vent(Vec3::new(-5.0, 6.0, 6.0), Vec3::X, Vec3::Y * 3.0, Vec3::Z * 1.0);
+        let free = vent(
+            Vec3::new(-5.0, 6.0, 6.0),
+            Vec3::X,
+            Vec3::Y * 3.0,
+            Vec3::Z * 1.0,
+        );
         assert_eq!(mouth_roles(&mouths, &[free], &params, 1.0), (vec![0], 1));
         // The user's outlet choice holds unless that mouth is supplying air.
-        let chosen = SimParams { outlet_mouth: Some(2), ..params };
+        let chosen = SimParams {
+            outlet_mouth: Some(2),
+            ..params
+        };
         assert_eq!(mouth_roles(&mouths, &[], &chosen, 1.0), (vec![0], 2));
-        let taken = SimParams { outlet_mouth: Some(1), ..params };
+        let taken = SimParams {
+            outlet_mouth: Some(1),
+            ..params
+        };
         assert_eq!(mouth_roles(&mouths, &[on_b], &taken, 1.0), (vec![0, 1], 2));
     }
 
@@ -1200,25 +1361,54 @@ mod tests {
         let mut mask = duct_mask(grid);
         // Facing +x, 4 mm along y by 2 mm along z, standing in the open air
         // past the duct exit at x = 16.5.
-        let v = vent(Vec3::new(16.5, 6.0, 6.0), Vec3::X, Vec3::Y * 2.0, Vec3::Z * 1.0);
-        apply_boundaries(&mut mask, grid, &[bore_mouth(true), bore_mouth(false)], 0, 1, BoundaryPlan::default(), &[v]);
-        let inlets: Vec<usize> =
-            mask.iter().enumerate().filter(|(_, f)| **f & flags::INLET != 0).map(|(i, _)| i).collect();
-        assert_eq!(inlets.len(), 4 * 2, "{} cells for a 4 x 2 mm vent at 1 mm", inlets.len());
+        let v = vent(
+            Vec3::new(16.5, 6.0, 6.0),
+            Vec3::X,
+            Vec3::Y * 2.0,
+            Vec3::Z * 1.0,
+        );
+        apply_boundaries(
+            &mut mask,
+            grid,
+            &[bore_mouth(true), bore_mouth(false)],
+            0,
+            1,
+            BoundaryPlan::default(),
+            &[v],
+        );
+        let inlets: Vec<usize> = mask
+            .iter()
+            .enumerate()
+            .filter(|(_, f)| **f & flags::INLET != 0)
+            .map(|(i, _)| i)
+            .collect();
+        assert_eq!(
+            inlets.len(),
+            4 * 2,
+            "{} cells for a 4 x 2 mm vent at 1 mm",
+            inlets.len()
+        );
         for i in &inlets {
             assert_eq!(i % grid.dims.x as usize, 16, "a vent cell is off its plane");
             assert_eq!(flags::inlet_slot(mask[*i]), 1, "vent 1 drives slot 1");
         }
         // The mouth is an opening now: its cell on the x = 0 face is the open
         // box side every face gets, not an inlet.
-        assert_eq!(mask[grid.linear(UVec3::new(0, 6, 6)) as usize], flags::EQUILIBRIUM);
+        assert_eq!(
+            mask[grid.linear(UVec3::new(0, 6, 6)) as usize],
+            flags::EQUILIBRIUM
+        );
     }
 
     /// A vent turned away from the axes goes on the nearest axis plane, its
     /// rectangle flattened onto it, one cell thick.
     #[test]
     fn a_turned_vent_lands_on_the_nearest_axis_plane() {
-        let grid = Grid { dims: UVec3::splat(24), dx_mm: 1.0, origin_mm: Vec3::splat(0.5) };
+        let grid = Grid {
+            dims: UVec3::splat(24),
+            dx_mm: 1.0,
+            origin_mm: Vec3::splat(0.5),
+        };
         let mut mask = vec![flags::FLUID; grid.cell_count() as usize];
         // 30 degrees off +X toward +Y.
         let n = Vec3::new(30f32.to_radians().cos(), 30f32.to_radians().sin(), 0.0);
@@ -1231,10 +1421,15 @@ mod tests {
             .map(|i| UVec3::new(i % 24, (i / 24) % 24, i / 576))
             .collect();
         assert_eq!(cells.len(), marked);
-        assert!(cells.iter().all(|c| c.x == 12), "not all on the x = 12.5 plane: {cells:?}");
+        assert!(
+            cells.iter().all(|c| c.x == 12),
+            "not all on the x = 12.5 plane: {cells:?}"
+        );
         // 8 mm flattened onto the plane's y axis covers 8 cells, 6 mm along z 6.
         assert_eq!(marked, 8 * 6, "{marked} cells");
-        assert!(cells.iter().all(|c| flags::inlet_slot(mask[grid.linear(*c) as usize]) == 2));
+        assert!(cells
+            .iter()
+            .all(|c| flags::inlet_slot(mask[grid.linear(*c) as usize]) == 2));
     }
 
     #[test]
@@ -1247,11 +1442,21 @@ mod tests {
         let cfg = solver_config(&params, &units, &two_x_mouths(), 0, 1, &[v]);
         let u_lb = (units.u_phys / units.c_u()) as f32;
         let s = cfg.extra_inlets[0];
-        assert!(!s.local_density, "a vent is a source, with the plane closure");
+        assert!(
+            !s.local_density,
+            "a vent is a source, with the plane closure"
+        );
         assert_eq!(s.normal, Vec3::Z);
-        assert!((s.velocity.length() - 0.5 * u_lb).abs() < 1e-7, "the speed is the speed");
+        assert!(
+            (s.velocity.length() - 0.5 * u_lb).abs() < 1e-7,
+            "the speed is the speed"
+        );
         assert!(s.velocity.y > 0.0 && s.velocity.z > 0.0);
-        assert_eq!(cfg.extra_inlets[1], ad_solver::InletSpec::default(), "unused slots stay quiet");
+        assert_eq!(
+            cfg.extra_inlets[1],
+            ad_solver::InletSpec::default(),
+            "unused slots stay quiet"
+        );
     }
 
     #[test]
@@ -1264,7 +1469,15 @@ mod tests {
         // actually inside the bore.
         let grid = test_grid();
         let mut mask = duct_mask(grid);
-        apply_boundaries(&mut mask, grid, &[bore_mouth(true), bore_mouth(false)], 0, 1, BoundaryPlan::default(), &[]);
+        apply_boundaries(
+            &mut mask,
+            grid,
+            &[bore_mouth(true), bore_mouth(false)],
+            0,
+            1,
+            BoundaryPlan::default(),
+            &[],
+        );
 
         let inlet_cells = mask.iter().filter(|f| **f & flags::INLET != 0).count();
         let bore = (BORE_Y.len() * BORE_Z.len()) as usize;
@@ -1276,7 +1489,11 @@ mod tests {
         // Every inlet cell must be on the x = 0 plane.
         for (i, f) in mask.iter().enumerate() {
             if *f & flags::INLET != 0 {
-                assert_eq!(i % grid.dims.x as usize, 0, "an inlet cell escaped the plane");
+                assert_eq!(
+                    i % grid.dims.x as usize,
+                    0,
+                    "an inlet cell escaped the plane"
+                );
             }
         }
     }
@@ -1340,10 +1557,17 @@ mod tests {
             &[bore_mouth(true), bore_mouth(false)],
             0,
             1,
-            BoundaryPlan { inlet_plane_mm: None, sponge_cells: 5 },
+            BoundaryPlan {
+                inlet_plane_mm: None,
+                sponge_cells: 5,
+            },
             &[],
         );
-        assert_eq!(sponge(&deep), 5 * outlet, "the sponge layer is not five rows deep");
+        assert_eq!(
+            sponge(&deep),
+            5 * outlet,
+            "the sponge layer is not five rows deep"
+        );
         assert_eq!(
             deep.iter().filter(|f| **f & flags::OUTLET != 0).count(),
             outlet,
@@ -1359,7 +1583,10 @@ mod tests {
         let solid_before = mask.iter().filter(|f| **f & flags::SOLID != 0).count();
         apply_boundaries(&mut mask, grid, &[a, b], 0, 1, BoundaryPlan::default(), &[]);
         let solid_after = mask.iter().filter(|f| **f & flags::SOLID != 0).count();
-        assert_eq!(solid_before, solid_after, "a boundary flag overwrote solid geometry");
+        assert_eq!(
+            solid_before, solid_after,
+            "a boundary flag overwrote solid geometry"
+        );
 
         // Along the duct the y = 0 face is solid wall and must stay solid: an
         // equilibrium flag on a wall cell would open a hole through the side of
@@ -1395,14 +1622,27 @@ mod tests {
     fn a_zero_inlet_velocity_drives_nothing() {
         let mouths = [bore_mouth(true), bore_mouth(false)];
 
-        let stopped = SimParams { inlet_velocity_ms: 0.0, ..SimParams::default() };
+        let stopped = SimParams {
+            inlet_velocity_ms: 0.0,
+            ..SimParams::default()
+        };
         let cfg = solver_config(&stopped, &stopped.lattice_units(), &mouths, 0, 1, &[]);
-        assert_eq!(cfg.inlet_velocity, Vec3::ZERO, "a stopped fan must inject nothing");
-        assert_eq!(cfg.outflow_velocity, 0.0, "and the convective outflow has nothing to convect");
+        assert_eq!(
+            cfg.inlet_velocity,
+            Vec3::ZERO,
+            "a stopped fan must inject nothing"
+        );
+        assert_eq!(
+            cfg.outflow_velocity, 0.0,
+            "and the convective outflow has nothing to convect"
+        );
 
         // ...while a real operating point still lands exactly on `u_lb`, which is
         // what makes `c_u` the conversion the metrics layer relies on.
-        let running = SimParams { inlet_velocity_ms: 3.0, ..SimParams::default() };
+        let running = SimParams {
+            inlet_velocity_ms: 3.0,
+            ..SimParams::default()
+        };
         let units = running.lattice_units();
         let cfg = solver_config(&running, &units, &mouths, 0, 1, &[]);
         assert!(
@@ -1419,7 +1659,11 @@ mod tests {
     fn the_outlet_is_the_largest_of_the_remaining_mouths() {
         let m = |area: f32| mouth(0, true, Vec3::ZERO, (Vec3::Y, Vec3::Z), area);
         let mouths = [m(2116.0), m(30.0), m(1141.0)];
-        assert_eq!(outlet_excluding(&mouths, &[0]), 2, "a drain hole is not the outlet");
+        assert_eq!(
+            outlet_excluding(&mouths, &[0]),
+            2,
+            "a drain hole is not the outlet"
+        );
         assert_eq!(outlet_excluding(&mouths, &[2]), 0);
     }
 }

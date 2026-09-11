@@ -97,7 +97,8 @@ impl ReferenceLbm {
 
     #[inline]
     fn neighbour_index(&self, c: UVec3, d: usize) -> u64 {
-        self.domain.linear(self.domain.neighbour(c, self.def.directions[d])) as u64
+        self.domain
+            .linear(self.domain.neighbour(c, self.def.directions[d])) as u64
     }
 
     /// Storage round trip, so the CPU reference truncates exactly as the GPU
@@ -166,7 +167,9 @@ impl ReferenceLbm {
         out[0] = self.g[self.ep.load_slot(cell, 0, odd, |_| 0) as usize];
         for i in 1..self.def.q {
             let flip = mask & (1 << i) != 0;
-            let idx = self.ep.load_slot(cell, i, odd ^ flip, |k| self.neighbour_index(c, k));
+            let idx = self
+                .ep
+                .load_slot(cell, i, odd ^ flip, |k| self.neighbour_index(c, k));
             out[i] = self.g[idx as usize];
         }
     }
@@ -314,9 +317,9 @@ impl ReferenceLbm {
                 }
             }
 
-            let sigma = self
-                .domain
-                .sponge_sigma(c, cf, self.cfg.sponge_cells, self.cfg.sponge_strength);
+            let sigma =
+                self.domain
+                    .sponge_sigma(c, cf, self.cfg.sponge_cells, self.cfg.sponge_strength);
             if sigma > 0.0 {
                 // Absorb rather than reflect: relax toward equilibrium at the
                 // reference density but the *local* velocity, so the layer eats
@@ -329,7 +332,9 @@ impl ReferenceLbm {
             }
 
             for i in 0..q {
-                let idx = self.ep.store_slot(cell, i, odd, |k| self.neighbour_index(c, k));
+                let idx = self
+                    .ep
+                    .store_slot(cell, i, odd, |k| self.neighbour_index(c, k));
                 new[idx as usize] = self.quantise(g[i]);
             }
         }
@@ -424,7 +429,8 @@ impl ReferenceLbm {
     /// Which inlet drives this cell: the slot in the two high bits of its flag
     /// byte, looked up in the config. Twin of the shader's `inlet_slot`.
     fn inlet_spec(&self, cell: u64) -> crate::config::InletSpec {
-        self.cfg.inlet_slot(flags::inlet_slot(self.domain.flags[cell as usize]))
+        self.cfg
+            .inlet_slot(flags::inlet_slot(self.domain.flags[cell as usize]))
     }
 
     /// Is link `i` at padded cell `cc` a genuine outflow link?
@@ -490,7 +496,10 @@ impl ReferenceLbm {
     pub fn macroscopic_padded(&self, cell: u64) -> Macro {
         let cf = self.domain.flags[cell as usize];
         if !flags::is_fluid(cf) {
-            return Macro { rho: 1.0, u: Vec3::ZERO };
+            return Macro {
+                rho: 1.0,
+                u: Vec3::ZERO,
+            };
         }
         let c = self.domain.coords(cell as u32);
         let mut g = vec![0.0f32; self.def.q];
@@ -579,7 +588,11 @@ mod tests {
     /// the field will not stay uniform.
     #[test]
     fn uniform_flow_stays_exactly_uniform() {
-        for model in [CollisionModel::Trt, CollisionModel::Bgk, CollisionModel::RegularizedBgk] {
+        for model in [
+            CollisionModel::Trt,
+            CollisionModel::Bgk,
+            CollisionModel::RegularizedBgk,
+        ] {
             let cfg = SolverConfig {
                 collision: model,
                 tau0: 0.8,
@@ -624,11 +637,17 @@ mod tests {
         // collide, so instead we test the raw transport by disabling relaxation
         // via s_e = 1 and comparing against the reference's own equilibrium).
         // Simpler: use the streaming addresses directly.
-        let cfg = SolverConfig { set: VelocitySet::D3Q19, ..Default::default() };
+        let cfg = SolverConfig {
+            set: VelocitySet::D3Q19,
+            ..Default::default()
+        };
         let d = PaddedDomain::uniform_fluid(UVec3::splat(1), [false; 3], cfg.set);
         // One fluid cell, solid on all sides: every link is a wall link.
         let lbm = ReferenceLbm::new(d, cfg);
-        assert_eq!(lbm.domain.link_mask[lbm.domain.interior_linear(UVec3::ZERO) as usize] >> 1, (1u32 << 18) - 1);
+        assert_eq!(
+            lbm.domain.link_mask[lbm.domain.interior_linear(UVec3::ZERO) as usize] >> 1,
+            (1u32 << 18) - 1
+        );
 
         let cell = lbm.domain.interior_linear(UVec3::ZERO) as u64;
         let c = lbm.domain.coords(cell as u32);
@@ -656,7 +675,11 @@ mod tests {
     /// errors in bounce-back that a periodic test cannot see.
     #[test]
     fn a_closed_box_of_still_fluid_stays_still() {
-        let cfg = SolverConfig { tau0: 0.55, smagorinsky_c: 0.0, ..Default::default() };
+        let cfg = SolverConfig {
+            tau0: 0.55,
+            smagorinsky_c: 0.0,
+            ..Default::default()
+        };
         let d = PaddedDomain::uniform_fluid(UVec3::new(5, 5, 5), [false; 3], cfg.set);
         let mut lbm = ReferenceLbm::new(d, cfg);
         for _ in 0..300 {
@@ -667,7 +690,11 @@ mod tests {
             for y in 0..5u32 {
                 for x in 0..5u32 {
                     let m = lbm.macroscopic(UVec3::new(x, y, z));
-                    assert!((m.rho - 1.0).abs() < 1e-5, "density {} at ({x},{y},{z})", m.rho);
+                    assert!(
+                        (m.rho - 1.0).abs() < 1e-5,
+                        "density {} at ({x},{y},{z})",
+                        m.rho
+                    );
                     worst = worst.max(m.u.length());
                 }
             }
@@ -789,7 +816,8 @@ mod tests {
                 sponge_strength: 0.4,
                 ..Default::default()
             };
-            let mut lbm = ReferenceLbm::new(PaddedDomain::new(dims, [false; 3], &mask, cfg.set), cfg);
+            let mut lbm =
+                ReferenceLbm::new(PaddedDomain::new(dims, [false; 3], &mask, cfg.set), cfg);
             for _ in 0..3000 {
                 lbm.step();
             }
@@ -810,23 +838,34 @@ mod tests {
         let tilted = run(Vec3::new(0.05, 0.025, 0.0));
 
         for x in 0..duct_end {
-            let bad = sum_over_bore(&tilted, x, &|m| (!(m.rho.is_finite() && m.u.is_finite())) as u32 as f32);
+            let bad = sum_over_bore(&tilted, x, &|m| {
+                (!(m.rho.is_finite() && m.u.is_finite())) as u32 as f32
+            });
             assert_eq!(bad, 0.0, "non-finite cells at x = {x}");
         }
         let flux = |lbm: &ReferenceLbm| sum_over_bore(lbm, duct_end / 2, &|m| m.rho * m.u.x);
         let (q0, q1) = (flux(&straight), flux(&tilted));
         assert!(q0 > 0.0, "no flow through the straight duct");
-        assert!((q1 - q0).abs() / q0 < 0.01, "the tilt changed the flow rate: {q0} -> {q1}");
+        assert!(
+            (q1 - q0).abs() / q0 < 0.01,
+            "the tilt changed the flow rate: {q0} -> {q1}"
+        );
 
         let turned = sum_over_bore(&tilted, 1, &|m| m.u.y);
-        assert!(turned > 0.0, "the air was not turned toward +y (sum of u_y {turned})");
+        assert!(
+            turned > 0.0,
+            "the air was not turned toward +y (sum of u_y {turned})"
+        );
 
         let mut shift = 0.0f32;
         let mut worst = 0.0f32;
         for z in bore.clone() {
             for y in bore.clone() {
                 let c = UVec3::new(0, y, z);
-                let (s, t) = (straight.macroscopic(c).rho - 1.0, tilted.macroscopic(c).rho - 1.0);
+                let (s, t) = (
+                    straight.macroscopic(c).rho - 1.0,
+                    tilted.macroscopic(c).rho - 1.0,
+                );
                 shift = shift.max((t - s).abs());
                 worst = worst.max(t.abs());
             }
@@ -834,7 +873,10 @@ mod tests {
         println!(
             "tilted inlet: flow {q0:.5} -> {q1:.5}, inlet drho worst {worst:.4}, moved by up to {shift:.4}"
         );
-        assert!(worst < 0.1, "inlet density {worst} is heading for the ±0.2 clamp");
+        assert!(
+            worst < 0.1,
+            "inlet density {worst} is heading for the ±0.2 clamp"
+        );
         // With the rim cells pushing air through the wall beside them, this was
         // 0.063. What is left sits one row in, where the imposed tangential
         // velocity steps from zero at the rim to its full value: the closure
@@ -842,7 +884,10 @@ mod tests {
         // where the physics has it at second (~3 u_t^2 = 0.002). The cure is the
         // velocity bounce-back inlet `boundary.wgsl` already asks for, which
         // needs no density closure at all; until then this bound holds the line.
-        assert!(shift < 0.035, "the tilt moved the inlet density by {shift}: air is piling up on the rim");
+        assert!(
+            shift < 0.035,
+            "the tilt moved the inlet density by {shift}: air is piling up on the rim"
+        );
     }
 
     /// The two density rules for an inlet plane standing in open fluid, in a
@@ -878,7 +923,8 @@ mod tests {
                 normal: Vec3::X,
                 local_density,
             };
-            let mut lbm = ReferenceLbm::new(PaddedDomain::new(dims, cfg.periodic, &mask, cfg.set), cfg);
+            let mut lbm =
+                ReferenceLbm::new(PaddedDomain::new(dims, cfg.periodic, &mask, cfg.set), cfg);
             for _ in 0..3000 {
                 lbm.step();
             }
@@ -887,11 +933,17 @@ mod tests {
         };
         let (down, up) = column(false);
         println!("closure: {down:.3} U downstream, {up:.3} U upstream");
-        assert!((down - 1.0).abs() < 0.01, "the closure column is not at the inlet velocity: {down}");
+        assert!(
+            (down - 1.0).abs() < 0.01,
+            "the closure column is not at the inlet velocity: {down}"
+        );
         assert!(up.abs() < 0.01, "the closure draws from behind: {up}");
         let (down, up) = column(true);
         println!("local moment: {down:.3} U downstream, {up:.3} U upstream");
-        assert!((0.3..0.6).contains(&down), "the disc's jet changed strength: {down}");
+        assert!(
+            (0.3..0.6).contains(&down),
+            "the disc's jet changed strength: {down}"
+        );
         assert!(up > 0.3, "the disc stopped drawing from behind: {up}");
     }
 
@@ -919,7 +971,11 @@ mod tests {
                 mask[at(6, y, z)] = flags::inlet_in_slot(1);
             }
         }
-        let mut cfg = SolverConfig { tau0: 0.55, smagorinsky_c: 0.0, ..Default::default() };
+        let mut cfg = SolverConfig {
+            tau0: 0.55,
+            smagorinsky_c: 0.0,
+            ..Default::default()
+        };
         cfg.extra_inlets[0] = crate::config::InletSpec {
             velocity: Vec3::new(0.05, 0.0, 0.0),
             normal: Vec3::X,
@@ -934,10 +990,16 @@ mod tests {
             for y in 0..ny {
                 for x in 0..nx {
                     let m = lbm.macroscopic(UVec3::new(x, y, z));
-                    assert!(m.rho.is_finite() && m.u.is_finite(), "non-finite at ({x},{y},{z})");
+                    assert!(
+                        m.rho.is_finite() && m.u.is_finite(),
+                        "non-finite at ({x},{y},{z})"
+                    );
                     if x == 6 && (4..8).contains(&y) && (4..8).contains(&z) {
                         worst_drho = worst_drho.max((m.rho - 1.0).abs());
-                        assert!(m.u.abs_diff_eq(Vec3::new(0.05, 0.0, 0.0), 1e-6), "the vent reports its own velocity");
+                        assert!(
+                            m.u.abs_diff_eq(Vec3::new(0.05, 0.0, 0.0), 1e-6),
+                            "the vent reports its own velocity"
+                        );
                     }
                 }
             }
@@ -950,9 +1012,21 @@ mod tests {
         );
         // A four-cell disc at this viscosity (Re ~ 12) spreads at once, so the
         // jet is checked where it leaves and only for its existence further on.
-        assert!(leaving.x > 0.035, "the air leaving the disc is not at its speed: {leaving}");
-        assert!(downstream.x > 0.02, "the jet died within three cells: {downstream}");
-        assert!(upstream.x > 0.0, "a fan disc draws air in from behind: {upstream}");
-        assert!(worst_drho < 0.02, "density piled up on the disc: {worst_drho}");
+        assert!(
+            leaving.x > 0.035,
+            "the air leaving the disc is not at its speed: {leaving}"
+        );
+        assert!(
+            downstream.x > 0.02,
+            "the jet died within three cells: {downstream}"
+        );
+        assert!(
+            upstream.x > 0.0,
+            "a fan disc draws air in from behind: {upstream}"
+        );
+        assert!(
+            worst_drho < 0.02,
+            "density piled up on the disc: {worst_drho}"
+        );
     }
 }

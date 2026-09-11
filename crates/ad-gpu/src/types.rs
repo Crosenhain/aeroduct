@@ -32,15 +32,23 @@ impl Bbox {
     };
 
     pub fn from_points(points: impl IntoIterator<Item = Vec3>) -> Self {
-        points.into_iter().fold(Self::EMPTY, |b, p| b.union_point(p))
+        points
+            .into_iter()
+            .fold(Self::EMPTY, |b, p| b.union_point(p))
     }
 
     pub fn union_point(self, p: Vec3) -> Self {
-        Self { min: self.min.min(p), max: self.max.max(p) }
+        Self {
+            min: self.min.min(p),
+            max: self.max.max(p),
+        }
     }
 
     pub fn union(self, other: Self) -> Self {
-        Self { min: self.min.min(other.min), max: self.max.max(other.max) }
+        Self {
+            min: self.min.min(other.min),
+            max: self.max.max(other.max),
+        }
     }
 
     pub fn is_empty(&self) -> bool {
@@ -57,7 +65,10 @@ impl Bbox {
 
     /// Grow by a fixed margin on every side.
     pub fn expanded(self, margin: Vec3) -> Self {
-        Self { min: self.min - margin, max: self.max + margin }
+        Self {
+            min: self.min - margin,
+            max: self.max + margin,
+        }
     }
 
     /// Grow by a fraction of the current size on every side.
@@ -75,7 +86,10 @@ impl Bbox {
     }
 
     pub fn intersection(self, other: Self) -> Self {
-        Self { min: self.min.max(other.min), max: self.max.min(other.max) }
+        Self {
+            min: self.min.max(other.min),
+            max: self.max.min(other.max),
+        }
     }
 }
 
@@ -148,8 +162,12 @@ impl Grid {
             return None;
         }
         let last = (self.dims.as_ivec3() - glam::IVec3::ONE).max(glam::IVec3::ZERO);
-        let lo = self.cell_containing(bbox.min).clamp(glam::IVec3::ZERO, last);
-        let hi = self.cell_containing(bbox.max).clamp(glam::IVec3::ZERO, last);
+        let lo = self
+            .cell_containing(bbox.min)
+            .clamp(glam::IVec3::ZERO, last);
+        let hi = self
+            .cell_containing(bbox.max)
+            .clamp(glam::IVec3::ZERO, last);
         Some((lo.as_uvec3(), hi.as_uvec3()))
     }
 }
@@ -292,7 +310,11 @@ impl LatticeUnits {
         let dx_m = dx_mm * 1e-3;
         // Guard against a zero-velocity slider: fall back to a nominal 1 m/s so
         // dt stays finite. The solver then simply produces a quiescent field.
-        let u_ref = if u_phys.abs() < 1e-9 { 1.0 } else { u_phys.abs() };
+        let u_ref = if u_phys.abs() < 1e-9 {
+            1.0
+        } else {
+            u_phys.abs()
+        };
         let dt_s = dx_m * u_lb / u_ref;
         let nu_lb = nu_phys * dt_s / (dx_m * dx_m);
         Self {
@@ -352,7 +374,11 @@ impl LatticeUnits {
 
     /// Steps needed to advance one flow-through of a domain `length_mm` long.
     pub fn steps_per_flow_through(&self, length_mm: f64) -> f64 {
-        let u = if self.u_phys.abs() < 1e-9 { 1.0 } else { self.u_phys.abs() };
+        let u = if self.u_phys.abs() < 1e-9 {
+            1.0
+        } else {
+            self.u_phys.abs()
+        };
         (length_mm * 1e-3 / u) / self.dt_s
     }
 
@@ -524,7 +550,11 @@ mod tests {
         assert!((lu.dt_s - 5.0e-6).abs() < 1e-12, "dt was {}", lu.dt_s);
         assert!((lu.tau0 - 0.501453).abs() < 1e-5, "tau was {}", lu.tau0);
         assert!((lu.steps_per_physical_second() - 200_000.0).abs() < 1.0);
-        assert!((lu.re_cell() - 206.45).abs() < 0.1, "re_cell was {}", lu.re_cell());
+        assert!(
+            (lu.re_cell() - 206.45).abs() < 0.1,
+            "re_cell was {}",
+            lu.re_cell()
+        );
     }
 
     #[test]
@@ -549,7 +579,10 @@ mod tests {
         );
         // ...but going above it should.
         let hot = LatticeUnits::for_air(0.75, 3.0, 0.2);
-        assert!(hot.warnings().iter().any(|w| w.contains("lattice velocity")));
+        assert!(hot
+            .warnings()
+            .iter()
+            .any(|w| w.contains("lattice velocity")));
     }
 
     #[test]
@@ -562,7 +595,10 @@ mod tests {
 
     #[test]
     fn grid_covers_the_requested_box() {
-        let bbox = Bbox { min: Vec3::ZERO, max: Vec3::new(260.0, 180.0, 180.0) };
+        let bbox = Bbox {
+            min: Vec3::ZERO,
+            max: Vec3::new(260.0, 180.0, 180.0),
+        };
         let g = Grid::covering(bbox, 0.75);
         assert_eq!(g.dims, UVec3::new(347, 240, 240));
         assert_eq!(g.cell_count(), 347 * 240 * 240);
@@ -572,24 +608,39 @@ mod tests {
     #[test]
     fn cell_range_clamps_and_rejects_disjoint_boxes() {
         let g = Grid::covering(
-            Bbox { min: Vec3::ZERO, max: Vec3::splat(10.0) },
+            Bbox {
+                min: Vec3::ZERO,
+                max: Vec3::splat(10.0),
+            },
             1.0,
         );
         // A box hanging off the corner still yields the clamped overlap.
         let (lo, hi) = g
-            .cell_range(Bbox { min: Vec3::splat(-5.0), max: Vec3::splat(2.0) })
+            .cell_range(Bbox {
+                min: Vec3::splat(-5.0),
+                max: Vec3::splat(2.0),
+            })
             .expect("overlapping box should produce a range");
         assert_eq!(lo, UVec3::ZERO);
         assert!(hi.x >= 1 && hi.x < g.dims.x);
         // A box entirely outside is not an error, just no work.
         assert!(g
-            .cell_range(Bbox { min: Vec3::splat(100.0), max: Vec3::splat(110.0) })
+            .cell_range(Bbox {
+                min: Vec3::splat(100.0),
+                max: Vec3::splat(110.0)
+            })
             .is_none());
     }
 
     #[test]
     fn cell_containing_round_trips_through_cell_centres() {
-        let g = Grid::covering(Bbox { min: Vec3::ZERO, max: Vec3::splat(8.0) }, 0.5);
+        let g = Grid::covering(
+            Bbox {
+                min: Vec3::ZERO,
+                max: Vec3::splat(8.0),
+            },
+            0.5,
+        );
         for c in [UVec3::ZERO, UVec3::new(3, 5, 2), g.dims - UVec3::ONE] {
             assert_eq!(g.cell_containing(g.cell_center_mm(c)), c.as_ivec3());
         }
@@ -601,7 +652,10 @@ mod tests {
         // boundary cell, whatever else is set.
         for f in 0u8..=255 {
             if f & flags::SOLID != 0 {
-                assert!(!flags::is_fluid(f) && !flags::is_boundary(f), "flags {f:#04x}");
+                assert!(
+                    !flags::is_fluid(f) && !flags::is_boundary(f),
+                    "flags {f:#04x}"
+                );
             } else {
                 assert_eq!(flags::is_boundary(f), f & flags::SOLID_BOUNDARY != 0);
             }
@@ -610,9 +664,18 @@ mod tests {
 
     #[test]
     fn bbox_intersection_is_symmetric_and_matches_contains() {
-        let a = Bbox { min: Vec3::ZERO, max: Vec3::splat(2.0) };
-        let b = Bbox { min: Vec3::ONE, max: Vec3::splat(3.0) };
-        let c = Bbox { min: Vec3::splat(5.0), max: Vec3::splat(6.0) };
+        let a = Bbox {
+            min: Vec3::ZERO,
+            max: Vec3::splat(2.0),
+        };
+        let b = Bbox {
+            min: Vec3::ONE,
+            max: Vec3::splat(3.0),
+        };
+        let c = Bbox {
+            min: Vec3::splat(5.0),
+            max: Vec3::splat(6.0),
+        };
         assert!(a.intersects(b) && b.intersects(a));
         assert!(!a.intersects(c) && !c.intersects(a));
         assert!(a.intersection(b).contains(Vec3::splat(1.5)));
@@ -621,8 +684,17 @@ mod tests {
     #[test]
     fn boundary_link_q_round_trips() {
         for q in [0.05_f32, 0.25, 0.5, 0.75, 1.0] {
-            let back = BoundaryLink { cell: 0, direction: 1, q_quantised: BoundaryLink::quantise(q), _pad: [0; 2] }.q();
-            assert!((back - q).abs() < 1.0 / 255.0, "{q} round-tripped to {back}");
+            let back = BoundaryLink {
+                cell: 0,
+                direction: 1,
+                q_quantised: BoundaryLink::quantise(q),
+                _pad: [0; 2],
+            }
+            .q();
+            assert!(
+                (back - q).abs() < 1.0 / 255.0,
+                "{q} round-tripped to {back}"
+            );
         }
     }
 }

@@ -235,7 +235,9 @@ impl Camera {
     pub fn sanitise(&mut self) {
         self.pitch = self.pitch.clamp(-PITCH_LIMIT, PITCH_LIMIT);
         self.distance = self.distance.max(self.z_near * 2.0);
-        self.fov_y = self.fov_y.clamp(5.0_f32.to_radians(), 140.0_f32.to_radians());
+        self.fov_y = self
+            .fov_y
+            .clamp(5.0_f32.to_radians(), 140.0_f32.to_radians());
         if self.aspect <= 0.0 || !self.aspect.is_finite() {
             self.aspect = 1.0;
         }
@@ -336,14 +338,18 @@ impl Default for OrbitController {
 
 impl OrbitController {
     pub fn new(camera: Camera) -> Self {
-        Self { goal: camera, current: camera, ..Default::default() }
+        Self {
+            goal: camera,
+            current: camera,
+            ..Default::default()
+        }
     }
 
     /// Mouse drag, pixels.
     pub fn orbit(&mut self, dx: f32, dy: f32) {
         self.goal.yaw -= dx * self.orbit_speed;
-        self.goal.pitch = (self.goal.pitch + dy * self.orbit_speed)
-            .clamp(-PITCH_LIMIT, PITCH_LIMIT);
+        self.goal.pitch =
+            (self.goal.pitch + dy * self.orbit_speed).clamp(-PITCH_LIMIT, PITCH_LIMIT);
     }
 
     /// Mouse drag, pixels. `viewport_height` keeps the gain in screen units.
@@ -376,8 +382,10 @@ impl OrbitController {
 
     pub fn frame_bbox(&mut self, bbox: Bbox, margin: f32) {
         self.goal.frame_bbox(bbox, margin);
-        self.goal.distance =
-            self.goal.distance.clamp(self.distance_range.0, self.distance_range.1);
+        self.goal.distance = self
+            .goal
+            .distance
+            .clamp(self.distance_range.0, self.distance_range.1);
     }
 
     /// Snap the displayed camera onto the goal. Use after a preset change that
@@ -446,7 +454,13 @@ pub struct Keyframe {
 
 impl Keyframe {
     pub fn from_camera(time: f32, cam: &Camera) -> Self {
-        Self { time, eye: cam.eye(), target: cam.target, up: cam.up, fov_y: cam.fov_y }
+        Self {
+            time,
+            eye: cam.eye(),
+            target: cam.target,
+            up: cam.up,
+            fov_y: cam.fov_y,
+        }
     }
 }
 
@@ -468,7 +482,10 @@ pub struct Flythrough {
 
 impl Flythrough {
     pub fn new(keyframes: Vec<Keyframe>) -> Self {
-        let mut s = Self { keyframes, looping: false };
+        let mut s = Self {
+            keyframes,
+            looping: false,
+        };
         s.sort();
         s
     }
@@ -536,7 +553,9 @@ impl Flythrough {
     /// Write a sampled pose into a camera, converting eye/target back into the
     /// orbit parameters the rest of the app uses.
     pub fn apply(&self, t: f32, cam: &mut Camera) -> bool {
-        let Some(kf) = self.sample(t) else { return false };
+        let Some(kf) = self.sample(t) else {
+            return false;
+        };
         let d = kf.eye - kf.target;
         cam.target = kf.target;
         cam.distance = d.length().max(cam.z_near * 2.0);
@@ -605,7 +624,10 @@ pub fn taa_jitter(index: u32, width: u32, height: u32) -> Vec2 {
     // the un-jittered sample.
     let x = halton(index + 1, 2) - 0.5;
     let y = halton(index + 1, 3) - 0.5;
-    Vec2::new(2.0 * x / width.max(1) as f32, 2.0 * y / height.max(1) as f32)
+    Vec2::new(
+        2.0 * x / width.max(1) as f32,
+        2.0 * y / height.max(1) as f32,
+    )
 }
 
 /// GPU mirror of the camera. Bound by every pass in the crate at group 0.
@@ -719,7 +741,10 @@ mod tests {
             let expected = -(view * p.extend(1.0)).z; // positive distance along -Z
             let recovered = cam.linear_depth(depth);
             let err = (recovered - expected).abs() / expected;
-            assert!(err < 1e-4, "linear depth {recovered} vs {expected} (rel {err})");
+            assert!(
+                err < 1e-4,
+                "linear depth {recovered} vs {expected} (rel {err})"
+            );
             // And the forward map agrees.
             assert!((cam.depth_from_linear(expected) - depth).abs() < 1e-5);
         }
@@ -736,10 +761,17 @@ mod tests {
     fn ray_through_ndc_centre_is_the_forward_axis() {
         let cam = test_camera();
         let (origin, dir) = cam.ray(Vec2::ZERO);
-        assert!(dir.dot(cam.forward()) > 0.9999, "centre ray must look forward");
+        assert!(
+            dir.dot(cam.forward()) > 0.9999,
+            "centre ray must look forward"
+        );
         // The origin lies on the near plane, i.e. z_near in front of the eye.
         let along = (origin - cam.eye()).dot(cam.forward());
-        assert!((along - cam.z_near).abs() < 1e-3, "ray starts at {along}, want {}", cam.z_near);
+        assert!(
+            (along - cam.z_near).abs() < 1e-3,
+            "ray starts at {along}, want {}",
+            cam.z_near
+        );
     }
 
     #[test]
@@ -760,7 +792,10 @@ mod tests {
         // must be inside the frame (correctness) *and* at least one must be
         // close to an edge (tightness) — the second half is what a bounding
         // sphere fit fails, leaving the model tiny in the middle of the frame.
-        let bbox = Bbox { min: Vec3::new(0.0, 0.0, 0.0), max: Vec3::new(145.0, 72.2, 68.9) };
+        let bbox = Bbox {
+            min: Vec3::new(0.0, 0.0, 0.0),
+            max: Vec3::new(145.0, 72.2, 68.9),
+        };
         for (yaw, pitch) in [(0.0, 0.0), (0.9, 0.3), (2.4, -0.8), (-1.1, 1.2)] {
             let mut cam = test_camera();
             cam.yaw = yaw;
@@ -800,7 +835,11 @@ mod tests {
             let got = cam.forward();
             let want = preset.direction();
             // Top/bottom are clamped off the pole, so allow a milliradian.
-            assert!(got.dot(want) > 0.99999, "{}: got {got}, want {want}", preset.label());
+            assert!(
+                got.dot(want) > 0.99999,
+                "{}: got {got}, want {want}",
+                preset.label()
+            );
         }
     }
 
@@ -846,7 +885,11 @@ mod tests {
         c.current.yaw = 3.0;
         c.goal.yaw = -3.0; // 0.28 rad away going forwards, 6.0 rad going back
         c.update(0.02);
-        assert!(c.current.yaw > 3.0, "yaw went the long way: {}", c.current.yaw);
+        assert!(
+            c.current.yaw > 3.0,
+            "yaw went the long way: {}",
+            c.current.yaw
+        );
     }
 
     #[test]
@@ -864,7 +907,13 @@ mod tests {
         let path = Flythrough::new(kfs.clone());
         for kf in &kfs {
             let s = path.sample(kf.time).unwrap();
-            assert!((s.eye - kf.eye).length() < 1e-3, "at t={}: {} vs {}", kf.time, s.eye, kf.eye);
+            assert!(
+                (s.eye - kf.eye).length() < 1e-3,
+                "at t={}: {} vs {}",
+                kf.time,
+                s.eye,
+                kf.eye
+            );
             assert!((s.target - kf.target).length() < 1e-3);
         }
     }
@@ -872,11 +921,35 @@ mod tests {
     #[test]
     fn flythrough_is_continuous_and_does_not_overshoot_wildly() {
         let kfs = vec![
-            Keyframe { time: 0.0, eye: Vec3::new(0.0, 0.0, 100.0), target: Vec3::ZERO, up: Vec3::Y, fov_y: 0.8 },
-            Keyframe { time: 1.0, eye: Vec3::new(1.0, 0.0, 100.0), target: Vec3::ZERO, up: Vec3::Y, fov_y: 0.8 },
+            Keyframe {
+                time: 0.0,
+                eye: Vec3::new(0.0, 0.0, 100.0),
+                target: Vec3::ZERO,
+                up: Vec3::Y,
+                fov_y: 0.8,
+            },
+            Keyframe {
+                time: 1.0,
+                eye: Vec3::new(1.0, 0.0, 100.0),
+                target: Vec3::ZERO,
+                up: Vec3::Y,
+                fov_y: 0.8,
+            },
             // Deliberately close together: the case where uniform Catmull-Rom cusps.
-            Keyframe { time: 1.02, eye: Vec3::new(1.05, 0.0, 100.0), target: Vec3::ZERO, up: Vec3::Y, fov_y: 0.8 },
-            Keyframe { time: 3.0, eye: Vec3::new(60.0, 0.0, 100.0), target: Vec3::ZERO, up: Vec3::Y, fov_y: 0.8 },
+            Keyframe {
+                time: 1.02,
+                eye: Vec3::new(1.05, 0.0, 100.0),
+                target: Vec3::ZERO,
+                up: Vec3::Y,
+                fov_y: 0.8,
+            },
+            Keyframe {
+                time: 3.0,
+                eye: Vec3::new(60.0, 0.0, 100.0),
+                target: Vec3::ZERO,
+                up: Vec3::Y,
+                fov_y: 0.8,
+            },
         ];
         let path = Flythrough::new(kfs);
         let mut prev = path.sample(0.0).unwrap().eye;
@@ -889,18 +962,37 @@ mod tests {
         }
         // Whole path is 60 mm over 3 s sampled at 200 Hz: ~0.3 mm/step nominal.
         // Anything above a few mm means a cusp blew up.
-        assert!(max_step < 3.0, "path has a discontinuity: max step {max_step} mm");
+        assert!(
+            max_step < 3.0,
+            "path has a discontinuity: max step {max_step} mm"
+        );
     }
 
     #[test]
     fn flythrough_apply_round_trips_eye_and_target() {
         let mut cam = test_camera();
         let path = Flythrough::new(vec![
-            Keyframe { time: 0.0, eye: Vec3::new(30.0, 40.0, 50.0), target: Vec3::new(1.0, 2.0, 3.0), up: Vec3::Y, fov_y: 0.7 },
-            Keyframe { time: 1.0, eye: Vec3::new(-30.0, 10.0, 5.0), target: Vec3::new(1.0, 2.0, 3.0), up: Vec3::Y, fov_y: 0.7 },
+            Keyframe {
+                time: 0.0,
+                eye: Vec3::new(30.0, 40.0, 50.0),
+                target: Vec3::new(1.0, 2.0, 3.0),
+                up: Vec3::Y,
+                fov_y: 0.7,
+            },
+            Keyframe {
+                time: 1.0,
+                eye: Vec3::new(-30.0, 10.0, 5.0),
+                target: Vec3::new(1.0, 2.0, 3.0),
+                up: Vec3::Y,
+                fov_y: 0.7,
+            },
         ]);
         assert!(path.apply(0.0, &mut cam));
-        assert!((cam.eye() - Vec3::new(30.0, 40.0, 50.0)).length() < 1e-2, "eye was {}", cam.eye());
+        assert!(
+            (cam.eye() - Vec3::new(30.0, 40.0, 50.0)).length() < 1e-2,
+            "eye was {}",
+            cam.eye()
+        );
         assert!((cam.target - Vec3::new(1.0, 2.0, 3.0)).length() < 1e-4);
     }
 
@@ -913,12 +1005,19 @@ mod tests {
         const N: u32 = 64;
         for i in 0..N {
             let j = taa_jitter(i, w, h);
-            assert!(j.x.abs() <= 1.0 / w as f32 + 1e-6, "jitter x out of a pixel: {}", j.x);
+            assert!(
+                j.x.abs() <= 1.0 / w as f32 + 1e-6,
+                "jitter x out of a pixel: {}",
+                j.x
+            );
             assert!(j.y.abs() <= 1.0 / h as f32 + 1e-6);
             sum += j;
         }
         let mean = sum / N as f32;
-        assert!(mean.length() < 0.15 / w as f32, "jitter mean {mean} is not centred");
+        assert!(
+            mean.length() < 0.15 / w as f32,
+            "jitter mean {mean} is not centred"
+        );
     }
 
     #[test]

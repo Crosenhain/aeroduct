@@ -255,7 +255,12 @@ impl EstimateReport {
 
     /// Total `K` attributable to one kind of element.
     pub fn k_of(&self, kind: ElementKind) -> Band {
-        Band::sum(self.elements.iter().filter(|e| e.kind == kind).map(|e| e.k_ref))
+        Band::sum(
+            self.elements
+                .iter()
+                .filter(|e| e.kind == kind)
+                .map(|e| e.k_ref),
+        )
     }
 
     /// Every scalar as `(name, band, unit)`, in the order a report is read.
@@ -267,12 +272,32 @@ impl EstimateReport {
             ("total pressure drop", self.total_pressure_drop_pa, "Pa"),
             ("static pressure drop", self.static_pressure_drop_pa, "Pa"),
             ("loss coefficient", self.loss_coefficient.k, "-"),
-            ("reference velocity", Band::exact(self.loss_coefficient.v_ref_ms), "m/s"),
-            ("inlet bulk velocity", Band::exact(self.inlet_velocity_ms), "m/s"),
-            ("outlet bulk velocity", Band::exact(self.outlet_velocity_ms), "m/s"),
+            (
+                "reference velocity",
+                Band::exact(self.loss_coefficient.v_ref_ms),
+                "m/s",
+            ),
+            (
+                "inlet bulk velocity",
+                Band::exact(self.inlet_velocity_ms),
+                "m/s",
+            ),
+            (
+                "outlet bulk velocity",
+                Band::exact(self.outlet_velocity_ms),
+                "m/s",
+            ),
             ("Reynolds number", Band::exact(self.reynolds), "-"),
-            ("hydraulic diameter", Band::exact(self.hydraulic_diameter_mm), "mm"),
-            ("friction factor", Band::exact(self.mean_friction_factor), "-"),
+            (
+                "hydraulic diameter",
+                Band::exact(self.hydraulic_diameter_mm),
+                "mm",
+            ),
+            (
+                "friction factor",
+                Band::exact(self.mean_friction_factor),
+                "-",
+            ),
         ]
     }
 
@@ -406,7 +431,11 @@ fn solve(passage: &Passage, q_m3s: f64, cfg: &EstimateConfig) -> EstimateReport 
         span_total += st.span_mm;
         regime_span[regime_index(fr.regime)] += st.span_mm;
     }
-    let mean_f = if span_total > 0.0 { f_weighted / span_total } else { 0.0 };
+    let mean_f = if span_total > 0.0 {
+        f_weighted / span_total
+    } else {
+        0.0
+    };
     let regime = dominant_regime(&regime_span);
     if regime == Regime::Transitional {
         warnings.push(
@@ -418,7 +447,10 @@ fn solve(passage: &Passage, q_m3s: f64, cfg: &EstimateConfig) -> EstimateReport 
     }
     elements.push(LossElement {
         kind: ElementKind::Friction,
-        label: format!("friction L/D_h={:.1}", passage.length_mm / passage.mean_dh_mm.max(1e-9)),
+        label: format!(
+            "friction L/D_h={:.1}",
+            passage.length_mm / passage.mean_dh_mm.max(1e-9)
+        ),
         k_local: k_from_dp(Band::new(dp_fric, dp_fric_sigma), head(v_in)),
         v_local_ms: v_in,
         k_ref: Band::ZERO,
@@ -480,7 +512,11 @@ fn solve(passage: &Passage, q_m3s: f64, cfg: &EstimateConfig) -> EstimateReport 
             kind,
             label: format!(
                 "{} {:.2}:1 @{:.0} deg",
-                if t.is_contraction { "contraction" } else { "expansion" },
+                if t.is_contraction {
+                    "contraction"
+                } else {
+                    "expansion"
+                },
                 1.0 / t.area_ratio().max(1e-9),
                 t.included_angle_deg
             ),
@@ -543,18 +579,26 @@ fn solve(passage: &Passage, q_m3s: f64, cfg: &EstimateConfig) -> EstimateReport 
     // it exists to protect - and the user has no way to tell that the number
     // came off a duct three cells wide.
     let geom = passage.confidence.geometry_sigma();
-    let correlation =
-        dp_correlation.sigma.max((dp_correlation.mean * cfg.uncertainty_floor).abs());
+    let correlation = dp_correlation
+        .sigma
+        .max((dp_correlation.mean * cfg.uncertainty_floor).abs());
     let sigma = (correlation.powi(2) + (dp_correlation.mean * geom).powi(2)).sqrt();
     let dp_total = Band::new(dp_correlation.mean, sigma);
 
     for e in elements.iter_mut() {
         // K on the report's reference velocity: K_ref = K_local (V_local/V_ref)^2.
         e.k_ref = k_from_dp(e.dp_pa, head_ref);
-        e.share = if dp_total.mean.abs() > 0.0 { e.dp_pa.mean / dp_total.mean } else { 0.0 };
+        e.share = if dp_total.mean.abs() > 0.0 {
+            e.dp_pa.mean / dp_total.mean
+        } else {
+            0.0
+        };
     }
     elements.sort_by(|a, b| {
-        b.dp_pa.mean.partial_cmp(&a.dp_pa.mean).unwrap_or(std::cmp::Ordering::Equal)
+        b.dp_pa
+            .mean
+            .partial_cmp(&a.dp_pa.mean)
+            .unwrap_or(std::cmp::Ordering::Equal)
     });
 
     let k_total = k_from_dp(dp_total, head_ref);
@@ -763,7 +807,10 @@ mod tests {
         let installed = estimate(
             &p,
             Drive::InletVelocity(5.0),
-            &EstimateConfig { exit: ExitCondition::Discharge, ..Default::default() },
+            &EstimateConfig {
+                exit: ExitCondition::Discharge,
+                ..Default::default()
+            },
         );
         // K = 1 exactly is added, on the same velocity.
         assert!(
@@ -772,7 +819,10 @@ mod tests {
         assert!(installed.k_of(ElementKind::Exit).mean > 0.99);
         assert!(bare.k_of(ElementKind::Exit).mean == 0.0);
         // ...and on a short duct it is the biggest term by a mile.
-        assert_eq!(installed.dominant_element().map(|e| e.kind), Some(ElementKind::Exit));
+        assert_eq!(
+            installed.dominant_element().map(|e| e.kind),
+            Some(ElementKind::Exit)
+        );
         assert!(installed.dominant_element().is_some_and(|e| e.share > 0.8));
     }
 
@@ -798,14 +848,20 @@ mod tests {
             estimate(
                 &p,
                 Drive::InletVelocity(2.0),
-                &EstimateConfig { reference, ..Default::default() },
+                &EstimateConfig {
+                    reference,
+                    ..Default::default()
+                },
             )
             .loss_coefficient
             .k
             .mean
         };
         let ratio = at(ReferenceVelocity::Inlet) / at(ReferenceVelocity::Outlet);
-        assert!((ratio - 1.85 * 1.85).abs() < 0.01, "K moved by {ratio}x, expected 3.42");
+        assert!(
+            (ratio - 1.85 * 1.85).abs() < 0.01,
+            "K moved by {ratio}x, expected 3.42"
+        );
         // `Faster` picks the outlet here, which gives the flattering answer.
         assert!((at(ReferenceVelocity::Faster) - at(ReferenceVelocity::Outlet)).abs() < 1e-12);
     }
@@ -839,7 +895,11 @@ mod tests {
         let dp_sum: f64 = r.elements.iter().map(|e| e.dp_pa.mean).sum();
         assert!((dp_sum - r.total_pressure_drop_pa.mean).abs() < 1e-9);
         let k_sum: f64 = r.elements.iter().map(|e| e.k_ref.mean).sum();
-        assert!((k_sum - r.loss_coefficient.k.mean).abs() < 1e-9, "{k_sum} vs {}", r.loss_coefficient.k.mean);
+        assert!(
+            (k_sum - r.loss_coefficient.k.mean).abs() < 1e-9,
+            "{k_sum} vs {}",
+            r.loss_coefficient.k.mean
+        );
         let share: f64 = r.elements.iter().map(|e| e.share).sum();
         assert!((share - 1.0).abs() < 1e-9);
         // Every kind is present and accounted for.
@@ -882,7 +942,11 @@ mod tests {
             .iter()
             .find(|e| e.kind == ElementKind::Contraction)
             .expect("the contraction should appear");
-        assert!((e.v_local_ms - 4.0).abs() < 1e-9, "local V = {}", e.v_local_ms);
+        assert!(
+            (e.v_local_ms - 4.0).abs() < 1e-9,
+            "local V = {}",
+            e.v_local_ms
+        );
         let scale = (e.v_local_ms / r.loss_coefficient.v_ref_ms).powi(2);
         assert!((e.k_ref.mean / e.k_local.mean - scale).abs() < 1e-9);
         assert!(e.k_ref.mean > e.k_local.mean);
@@ -909,7 +973,11 @@ mod tests {
     #[test]
     fn zero_flow_produces_zeros_rather_than_nan() {
         let p = straight(100.0, 20.0, 20.0, 32);
-        let r = estimate(&p, Drive::InletVelocity(0.0), &EstimateConfig::as_installed());
+        let r = estimate(
+            &p,
+            Drive::InletVelocity(0.0),
+            &EstimateConfig::as_installed(),
+        );
         assert_eq!(r.flow_m3s, 0.0);
         assert!(r.total_pressure_drop_pa.mean.abs() < 1e-15);
         assert!(r.loss_coefficient.k.mean.is_finite());
@@ -942,10 +1010,20 @@ mod tests {
         let printed = estimate(
             &p,
             Drive::InletVelocity(20.0),
-            &EstimateConfig { roughness_mm: crate::PRINTED_ROUGHNESS_MM, ..Default::default() },
+            &EstimateConfig {
+                roughness_mm: crate::PRINTED_ROUGHNESS_MM,
+                ..Default::default()
+            },
         );
-        assert_eq!(smooth.regime, Regime::Turbulent, "the check needs a turbulent duct");
-        assert!(printed.k_of(ElementKind::Friction).mean > 1.15 * smooth.k_of(ElementKind::Friction).mean);
+        assert_eq!(
+            smooth.regime,
+            Regime::Turbulent,
+            "the check needs a turbulent duct"
+        );
+        assert!(
+            printed.k_of(ElementKind::Friction).mean
+                > 1.15 * smooth.k_of(ElementKind::Friction).mean
+        );
         assert!(
             (printed.k_of(ElementKind::Bend).mean - smooth.k_of(ElementKind::Bend).mean).abs()
                 < 1e-12
@@ -974,7 +1052,12 @@ mod tests {
                 .k_of(ElementKind::Bend)
                 .mean
         };
-        assert!(mk(0.33) > 1.4 * mk(3.0), "hard way {} vs easy way {}", mk(0.33), mk(3.0));
+        assert!(
+            mk(0.33) > 1.4 * mk(3.0),
+            "hard way {} vs easy way {}",
+            mk(0.33),
+            mk(3.0)
+        );
     }
 
     #[test]
@@ -1005,7 +1088,9 @@ mod tests {
         let mut sink = 0.0;
         for i in 0..n {
             let v = 1.0 + (i % 8) as f64;
-            sink += estimate(&p, Drive::InletVelocity(v), &cfg).total_pressure_drop_pa.mean;
+            sink += estimate(&p, Drive::InletVelocity(v), &cfg)
+                .total_pressure_drop_pa
+                .mean;
         }
         let per = t0.elapsed().as_secs_f64() * 1e6 / n as f64;
         assert!(sink > 0.0);

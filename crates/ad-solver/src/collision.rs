@@ -141,7 +141,14 @@ pub fn pi_norm(def: &LatticeDef, neq: &[f32]) -> f32 {
 /// relaxation time. This is the reference implementation that
 /// `shaders/lbm/collision.wgsl` mirrors; the GPU-vs-CPU test in
 /// `validation/lbm/gpu.rs` is what keeps the two honest.
-pub fn collide(model: CollisionModel, def: &LatticeDef, g: &mut [f32], geq: &[f32], s_e: f32, s_o: f32) {
+pub fn collide(
+    model: CollisionModel,
+    def: &LatticeDef,
+    g: &mut [f32],
+    geq: &[f32],
+    s_e: f32,
+    s_o: f32,
+) {
     let q = def.q;
     match model {
         CollisionModel::Bgk => {
@@ -209,7 +216,14 @@ pub fn collide(model: CollisionModel, def: &LatticeDef, g: &mut [f32], geq: &[f3
 /// The velocity passed in must already include the `F/(2 rho)` half-step
 /// correction; see `ReferenceLbm::macroscopic`. Getting that wrong shows
 /// up immediately as a first-order-in-`dx` Poiseuille profile.
-pub fn apply_force(def: &LatticeDef, g: &mut [f32], u: [f32; 3], force: [f32; 3], s_e: f32, s_o: f32) {
+pub fn apply_force(
+    def: &LatticeDef,
+    g: &mut [f32],
+    u: [f32; 3],
+    force: [f32; 3],
+    s_e: f32,
+    s_o: f32,
+) {
     if force == [0.0; 3] {
         return;
     }
@@ -280,7 +294,10 @@ mod tests {
                     (got - lambda).abs() < 1e-5,
                     "tau {tau} lambda {lambda}: recovered {got}"
                 );
-                assert!(s_o > 0.0 && s_o < 2.0, "s_o = {s_o} is outside the stable range");
+                assert!(
+                    s_o > 0.0 && s_o < 2.0,
+                    "s_o = {s_o} is outside the stable range"
+                );
             }
         }
     }
@@ -295,12 +312,21 @@ mod tests {
         assert!((s_e - s_o).abs() < 1e-6);
 
         let geq = equilibrium_state(1.002, [0.05, -0.03, 0.02]);
-        let mut a: Vec<f32> = geq.iter().enumerate().map(|(i, v)| v + 0.001 * (i as f32 - 9.0)).collect();
+        let mut a: Vec<f32> = geq
+            .iter()
+            .enumerate()
+            .map(|(i, v)| v + 0.001 * (i as f32 - 9.0))
+            .collect();
         let mut b = a.clone();
         collide(CollisionModel::Trt, &D3Q19, &mut a, &geq, s_e, s_o);
         collide(CollisionModel::Bgk, &D3Q19, &mut b, &geq, s_e, s_e);
         for i in 0..19 {
-            assert!((a[i] - b[i]).abs() < 1e-6, "direction {i}: TRT {} vs BGK {}", a[i], b[i]);
+            assert!(
+                (a[i] - b[i]).abs() < 1e-6,
+                "direction {i}: TRT {} vs BGK {}",
+                a[i],
+                b[i]
+            );
         }
     }
 
@@ -325,15 +351,24 @@ mod tests {
     #[test]
     fn every_operator_conserves_mass_and_momentum() {
         let geq = equilibrium_state(1.004, [0.06, 0.01, -0.04]);
-        let raw: Vec<f32> = (0..19).map(|i| 0.002 * ((i * 7 % 11) as f32 - 5.0)).collect();
+        let raw: Vec<f32> = (0..19)
+            .map(|i| 0.002 * ((i * 7 % 11) as f32 - 5.0))
+            .collect();
         let neq0 = project_out_conserved_moments(&raw);
         // Sanity: the projection really did produce a valid non-equilibrium, or
         // the rest of this test would be vacuous.
         let (r, m) = moments(&neq0);
-        assert!((r - 1.0).abs() < 1e-6 && m.iter().all(|v| v.abs() < 1e-6), "projection failed");
+        assert!(
+            (r - 1.0).abs() < 1e-6 && m.iter().all(|v| v.abs() < 1e-6),
+            "projection failed"
+        );
         let start: Vec<f32> = geq.iter().zip(&neq0).map(|(a, b)| a + b).collect();
 
-        for model in [CollisionModel::Trt, CollisionModel::Bgk, CollisionModel::RegularizedBgk] {
+        for model in [
+            CollisionModel::Trt,
+            CollisionModel::Bgk,
+            CollisionModel::RegularizedBgk,
+        ] {
             let (s_e, s_o) = trt_rates(0.55, 3.0 / 16.0);
             let mut g = start.clone();
             let (rho_before, m_before) = moments(&g);
@@ -359,7 +394,11 @@ mod tests {
     #[test]
     fn equilibrium_is_a_fixed_point_of_every_operator() {
         let geq = equilibrium_state(1.001, [0.04, -0.02, 0.03]);
-        for model in [CollisionModel::Trt, CollisionModel::Bgk, CollisionModel::RegularizedBgk] {
+        for model in [
+            CollisionModel::Trt,
+            CollisionModel::Bgk,
+            CollisionModel::RegularizedBgk,
+        ] {
             let mut g = geq.clone();
             let (s_e, s_o) = trt_rates(0.7, 3.0 / 16.0);
             collide(model, &D3Q19, &mut g, &geq, s_e, s_o);
@@ -378,12 +417,23 @@ mod tests {
         // A regularized f^neq must reproduce the same Pi_ab it was built from,
         // which is the defining property of the Hermite projection.
         let geq = equilibrium_state(1.0, [0.03, 0.0, 0.0]);
-        let mut g: Vec<f32> = geq.iter().enumerate().map(|(i, v)| v + 0.0005 * (i as f32 % 5.0 - 2.0)).collect();
+        let mut g: Vec<f32> = geq
+            .iter()
+            .enumerate()
+            .map(|(i, v)| v + 0.0005 * (i as f32 % 5.0 - 2.0))
+            .collect();
         let neq_before: Vec<f32> = g.iter().zip(&geq).map(|(a, b)| a - b).collect();
         let pi_before = pi_norm(&D3Q19, &neq_before);
 
         // s_e = 0 leaves f^neq untouched apart from the projection itself.
-        collide(CollisionModel::RegularizedBgk, &D3Q19, &mut g, &geq, 0.0, 0.0);
+        collide(
+            CollisionModel::RegularizedBgk,
+            &D3Q19,
+            &mut g,
+            &geq,
+            0.0,
+            0.0,
+        );
         let neq_after: Vec<f32> = g.iter().zip(&geq).map(|(a, b)| a - b).collect();
         let pi_after = pi_norm(&D3Q19, &neq_after);
         assert!(
@@ -404,7 +454,10 @@ mod tests {
         // Monotone in |Pi|: more strain, more eddy viscosity.
         let a = smagorinsky_tau(tau0, 1.0, 0.11, 1.0, 1e-4);
         let b = smagorinsky_tau(tau0, 1.0, 0.11, 1.0, 1e-2);
-        assert!(b > a, "eddy viscosity did not increase with strain: {a} then {b}");
+        assert!(
+            b > a,
+            "eddy viscosity did not increase with strain: {a} then {b}"
+        );
     }
 
     #[test]

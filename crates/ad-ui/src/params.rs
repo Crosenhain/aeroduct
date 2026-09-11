@@ -141,7 +141,11 @@ fn hash_margins<H: Hasher>(m: Option<[f32; 6]>, h: &mut H) {
 /// on every single frame — a livelock that looks like the app refusing to
 /// average.
 fn hash_f64<H: Hasher>(v: f64, h: &mut H) {
-    if v.is_nan() { u64::MAX.hash(h) } else { v.to_bits().hash(h) }
+    if v.is_nan() {
+        u64::MAX.hash(h)
+    } else {
+        v.to_bits().hash(h)
+    }
 }
 
 fn hash_f32<H: Hasher>(v: f32, h: &mut H) {
@@ -204,14 +208,17 @@ impl SimParams {
         if self.shader_generation != prev.shader_generation {
             return Some(ResetCause::SolverRestarted);
         }
-        if self.dx_mm.to_bits() != prev.dx_mm.to_bits() || self.u_lb.to_bits() != prev.u_lb.to_bits()
+        if self.dx_mm.to_bits() != prev.dx_mm.to_bits()
+            || self.u_lb.to_bits() != prev.u_lb.to_bits()
         {
             return Some(ResetCause::ResolutionChanged);
         }
         if self.geometry_generation != prev.geometry_generation {
             return Some(ResetCause::GeometryChanged);
         }
-        if self.domain_mm.map(|m| m.map(f32::to_bits)) != prev.domain_mm.map(|m| m.map(f32::to_bits)) {
+        if self.domain_mm.map(|m| m.map(f32::to_bits))
+            != prev.domain_mm.map(|m| m.map(f32::to_bits))
+        {
             return Some(ResetCause::DomainChanged);
         }
         if self.inlet_mouth != prev.inlet_mouth || self.outlet_mouth != prev.outlet_mouth {
@@ -296,8 +303,12 @@ pub struct ParamChange {
 }
 
 impl ParamChange {
-    pub const NONE: Self =
-        Self { hot_apply: false, rebuild: false, reset_statistics: false, cause: None };
+    pub const NONE: Self = Self {
+        hot_apply: false,
+        rebuild: false,
+        reset_statistics: false,
+        cause: None,
+    };
 
     pub fn is_none(&self) -> bool {
         !self.hot_apply && !self.rebuild && !self.reset_statistics
@@ -414,16 +425,29 @@ mod tests {
         let mut p = SimParams::default();
         for n in [Vec3::Z, Vec3::NEG_Z] {
             p.inlet_tilt_deg = [0.0, 0.0];
-            assert_eq!(p.inlet_direction(n, 2), n, "zero tilt is the normal, exactly");
+            assert_eq!(
+                p.inlet_direction(n, 2),
+                n,
+                "zero tilt is the normal, exactly"
+            );
             p.inlet_tilt_deg = [30.0, -10.0];
             let d = p.inlet_direction(n, 2);
             assert_eq!(d.dot(n), 1.0, "the flow rate is the untilted one");
-            assert!((d.x - 30f32.to_radians().tan()).abs() < 1e-6, "e1 of axis 2 is x");
-            assert!((d.y - (-10f32).to_radians().tan()).abs() < 1e-6, "e2 of axis 2 is y");
+            assert!(
+                (d.x - 30f32.to_radians().tan()).abs() < 1e-6,
+                "e1 of axis 2 is x"
+            );
+            assert!(
+                (d.y - (-10f32).to_radians().tan()).abs() < 1e-6,
+                "e2 of axis 2 is y"
+            );
         }
         p.inlet_tilt_deg = [89.0, 89.0];
         let d = p.inlet_direction(Vec3::Z, 2);
-        assert!(d.length() <= 2.0 + 1e-5, "capped at 60 degrees off-normal: {d}");
+        assert!(
+            d.length() <= 2.0 + 1e-5,
+            "capped at 60 degrees off-normal: {d}"
+        );
         p.inlet_tilt_deg = [f32::NAN, 0.0];
         assert_eq!(p.inlet_direction(Vec3::Z, 2), Vec3::Z);
     }
@@ -433,7 +457,10 @@ mod tests {
         let p = SimParams::default();
         let mut w = ParamWatcher::new(p);
         assert!(w.observe(p).is_none());
-        assert!(w.observe(p).is_none(), "repeated identical frames must stay quiet");
+        assert!(
+            w.observe(p).is_none(),
+            "repeated identical frames must stay quiet"
+        );
     }
 
     #[test]
@@ -449,7 +476,11 @@ mod tests {
         assert!(preview.rebuild, "a resolution change must rebuild");
         assert!(preview.reset_statistics);
         assert_eq!(preview.cause, Some(ResetCause::ResolutionChanged));
-        assert_eq!(w.classify(&finer), preview, "asking twice must see the same change");
+        assert_eq!(
+            w.classify(&finer),
+            preview,
+            "asking twice must see the same change"
+        );
         assert_eq!(*w.current(), p, "asking must not adopt");
 
         // Backing out costs nothing: the original parameters are still the
@@ -468,7 +499,10 @@ mod tests {
         // problem and must be thrown away visibly.
         let p = SimParams::default();
         let mut w = ParamWatcher::new(p);
-        let c = w.observe(SimParams { inlet_velocity_ms: 5.0, ..p });
+        let c = w.observe(SimParams {
+            inlet_velocity_ms: 5.0,
+            ..p
+        });
         assert!(c.hot_apply);
         assert!(!c.rebuild, "the velocity must never trigger a rebuild");
         assert!(c.reset_statistics);
@@ -479,8 +513,14 @@ mod tests {
     fn swapping_the_inlet_rebuilds_and_says_so() {
         let p = SimParams::default();
         let mut w = ParamWatcher::new(p);
-        let c = w.observe(SimParams { inlet_mouth: 1, ..p });
-        assert!(c.rebuild, "the flag field changes, so the solver is rebuilt");
+        let c = w.observe(SimParams {
+            inlet_mouth: 1,
+            ..p
+        });
+        assert!(
+            c.rebuild,
+            "the flag field changes, so the solver is rebuilt"
+        );
         assert!(!c.hot_apply, "a rebuild subsumes the uniform write");
         assert!(c.reset_statistics);
         assert_eq!(c.cause, Some(ResetCause::InletOutletSwapped));
@@ -491,7 +531,11 @@ mod tests {
         // Both moved; the user needs to be told about the expensive one.
         let p = SimParams::default();
         let mut w = ParamWatcher::new(p);
-        let c = w.observe(SimParams { dx_mm: 0.4, inlet_velocity_ms: 8.0, ..p });
+        let c = w.observe(SimParams {
+            dx_mm: 0.4,
+            inlet_velocity_ms: 8.0,
+            ..p
+        });
         assert_eq!(c.cause, Some(ResetCause::ResolutionChanged));
         assert!(c.rebuild && c.reset_statistics);
     }
@@ -501,12 +545,20 @@ mod tests {
         let p = SimParams::default();
         let mut w = ParamWatcher::new(p);
         assert_eq!(
-            w.observe(SimParams { geometry_generation: 1, ..p }).cause,
+            w.observe(SimParams {
+                geometry_generation: 1,
+                ..p
+            })
+            .cause,
             Some(ResetCause::GeometryChanged)
         );
         let p = *w.current();
         assert_eq!(
-            w.observe(SimParams { shader_generation: 1, ..p }).cause,
+            w.observe(SimParams {
+                shader_generation: 1,
+                ..p
+            })
+            .cause,
             Some(ResetCause::SolverRestarted)
         );
     }
@@ -516,7 +568,10 @@ mod tests {
         // This is the whole point of having two hashes; if it ever collapses to
         // one, dragging the velocity slider would stall on a solver rebuild.
         let a = SimParams::default();
-        let b = SimParams { inlet_velocity_ms: 7.5, ..a };
+        let b = SimParams {
+            inlet_velocity_ms: 7.5,
+            ..a
+        };
         assert_eq!(a.rebuild_hash(), b.rebuild_hash());
         assert_ne!(a.statistics_hash(), b.statistics_hash());
     }
@@ -531,13 +586,29 @@ mod tests {
             SimParams { u_lb: 0.1, ..base },
             SimParams { rho: 1.0, ..base },
             SimParams { nu: 1.0e-5, ..base },
-            SimParams { inlet_mouth: 1, ..base },
-            SimParams { sponge_cells: 4, ..base },
-            SimParams { geometry_generation: 9, ..base },
-            SimParams { shader_generation: 9, ..base },
+            SimParams {
+                inlet_mouth: 1,
+                ..base
+            },
+            SimParams {
+                sponge_cells: 4,
+                ..base
+            },
+            SimParams {
+                geometry_generation: 9,
+                ..base
+            },
+            SimParams {
+                shader_generation: 9,
+                ..base
+            },
         ];
         for v in variants {
-            assert_ne!(v.rebuild_hash(), base.rebuild_hash(), "{v:?} should rebuild");
+            assert_ne!(
+                v.rebuild_hash(),
+                base.rebuild_hash(),
+                "{v:?} should rebuild"
+            );
             assert_ne!(
                 v.statistics_hash(),
                 base.statistics_hash(),
@@ -550,7 +621,10 @@ mod tests {
     fn a_nan_parameter_does_not_reset_the_statistics_on_every_frame() {
         // A NaN never equals itself, so a naive comparison would livelock the
         // averaging. Bit-pattern hashing with folded NaNs fixes it.
-        let p = SimParams { inlet_velocity_ms: f32::NAN, ..SimParams::default() };
+        let p = SimParams {
+            inlet_velocity_ms: f32::NAN,
+            ..SimParams::default()
+        };
         let mut w = ParamWatcher::new(p);
         assert!(w.observe(p).is_none());
         assert_eq!(p.statistics_hash(), p.statistics_hash());
@@ -570,7 +644,12 @@ mod tests {
     fn lattice_units_reproduce_the_contract_numbers() {
         // dx = 0.4 mm at 8 m/s with u_lb = 0.1: dt = 5 us, 200,000 steps per
         // physical second. The number the status bar has to be honest about.
-        let p = SimParams { dx_mm: 0.4, inlet_velocity_ms: 8.0, u_lb: 0.1, ..SimParams::default() };
+        let p = SimParams {
+            dx_mm: 0.4,
+            inlet_velocity_ms: 8.0,
+            u_lb: 0.1,
+            ..SimParams::default()
+        };
         let u = p.lattice_units();
         assert!((u.dt_s - 5.0e-6).abs() < 1e-12, "dt was {}", u.dt_s);
         assert!((u.steps_per_physical_second() - 200_000.0).abs() < 1.0);

@@ -416,7 +416,11 @@ impl DerivedFields {
 
         let fallback = device.create_texture(&wgpu::TextureDescriptor {
             label: Some("all-fluid flag stand-in"),
-            size: wgpu::Extent3d { width: 1, height: 1, depth_or_array_layers: 1 },
+            size: wgpu::Extent3d {
+                width: 1,
+                height: 1,
+                depth_or_array_layers: 1,
+            },
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D3,
@@ -436,8 +440,16 @@ impl DerivedFields {
                 aspect: wgpu::TextureAspect::All,
             },
             &[flags::FLUID],
-            wgpu::TexelCopyBufferLayout { offset: 0, bytes_per_row: Some(1), rows_per_image: Some(1) },
-            wgpu::Extent3d { width: 1, height: 1, depth_or_array_layers: 1 },
+            wgpu::TexelCopyBufferLayout {
+                offset: 0,
+                bytes_per_row: Some(1),
+                rows_per_image: Some(1),
+            },
+            wgpu::Extent3d {
+                width: 1,
+                height: 1,
+                depth_or_array_layers: 1,
+            },
         );
         let fallback_flags = fallback.create_view(&wgpu::TextureViewDescriptor {
             label: Some("all-fluid flag stand-in"),
@@ -465,9 +477,8 @@ impl DerivedFields {
             ],
         });
 
-        let all = wgpu::ShaderStages::COMPUTE
-            | wgpu::ShaderStages::FRAGMENT
-            | wgpu::ShaderStages::VERTEX;
+        let all =
+            wgpu::ShaderStages::COMPUTE | wgpu::ShaderStages::FRAGMENT | wgpu::ShaderStages::VERTEX;
         let read_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("derived fields (read)"),
             entries: &[
@@ -481,8 +492,14 @@ impl DerivedFields {
             label: Some("derived fields (read)"),
             layout: &read_layout,
             entries: &[
-                wgpu::BindGroupEntry { binding: 0, resource: fields_uniform.as_entire_binding() },
-                wgpu::BindGroupEntry { binding: 1, resource: wgpu::BindingResource::Sampler(&sampler) },
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: fields_uniform.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Sampler(&sampler),
+                },
                 wgpu::BindGroupEntry {
                     binding: 2,
                     resource: wgpu::BindingResource::TextureView(&scalars_sampled),
@@ -556,7 +573,10 @@ impl DerivedFields {
         self.dims.as_vec3() * self.voxel_mm
     }
     pub fn bbox(&self) -> ad_gpu::Bbox {
-        ad_gpu::Bbox { min: self.volume_min_mm, max: self.volume_min_mm + self.volume_size_mm() }
+        ad_gpu::Bbox {
+            min: self.volume_min_mm,
+            max: self.volume_min_mm + self.volume_size_mm(),
+        }
     }
     pub fn field(&self) -> DerivedField {
         self.field
@@ -654,12 +674,18 @@ impl DerivedFields {
             label: Some("derive"),
             layout: &self.derive_layout,
             entries: &[
-                wgpu::BindGroupEntry { binding: 0, resource: self.derive_uniform.as_entire_binding() },
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: self.derive_uniform.as_entire_binding(),
+                },
                 wgpu::BindGroupEntry {
                     binding: 1,
                     resource: wgpu::BindingResource::TextureView(sources.macro_view),
                 },
-                wgpu::BindGroupEntry { binding: 2, resource: wgpu::BindingResource::TextureView(flags) },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: wgpu::BindingResource::TextureView(flags),
+                },
                 wgpu::BindGroupEntry {
                     binding: 3,
                     resource: wgpu::BindingResource::TextureView(&self.scalars_storage),
@@ -718,7 +744,11 @@ mod tests {
         // is the whole reason Q exists: it separates a vortex from a shear
         // layer, and a shear layer must not light up.
         let j = gradient([[0.0, 1.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]]);
-        assert!(q_criterion(j).abs() < 1e-6, "pure shear gave Q = {}", q_criterion(j));
+        assert!(
+            q_criterion(j).abs() < 1e-6,
+            "pure shear gave Q = {}",
+            q_criterion(j)
+        );
         // ...but its vorticity is emphatically not zero, which is exactly why
         // vorticity magnitude alone is a bad vortex detector.
         assert!((vorticity(j).length() - 1.0).abs() < 1e-6);
@@ -729,7 +759,11 @@ mod tests {
         // u = omega x r with omega = (0, 0, 1): u = (-y, x, 0). Pure rotation,
         // no strain, so Q = 0.5 |Omega|^2 = 1 and |curl u| = 2.
         let j = gradient([[0.0, -1.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, 0.0]]);
-        assert!((q_criterion(j) - 1.0).abs() < 1e-6, "got Q = {}", q_criterion(j));
+        assert!(
+            (q_criterion(j) - 1.0).abs() < 1e-6,
+            "got Q = {}",
+            q_criterion(j)
+        );
         assert!((vorticity(j) - Vec3::new(0.0, 0.0, 2.0)).length() < 1e-6);
     }
 
@@ -771,7 +805,10 @@ mod tests {
         let t = j.transpose();
         assert!((q_criterion(j) - q_criterion(t)).abs() < 1e-5);
         assert!((vorticity(j).length() - vorticity(t).length()).abs() < 1e-5);
-        assert!((vorticity(j) + vorticity(t)).length() < 1e-5, "the vector must flip");
+        assert!(
+            (vorticity(j) + vorticity(t)).length() < 1e-5,
+            "the vector must flip"
+        );
         // And the case itself is rotation-dominated, so Q is genuinely positive
         // rather than accidentally zero on both sides.
         assert!(q_criterion(j) > 0.1, "got Q = {}", q_criterion(j));
@@ -849,10 +886,14 @@ mod tests {
         for f in [DERIVED_FORMAT] {
             let feats = f.guaranteed_format_features(base);
             assert!(
-                feats.allowed_usages.contains(wgpu::TextureUsages::STORAGE_BINDING),
+                feats
+                    .allowed_usages
+                    .contains(wgpu::TextureUsages::STORAGE_BINDING),
                 "{f:?} is not storage-capable in the base feature set"
             );
-            assert!(feats.allowed_usages.contains(wgpu::TextureUsages::TEXTURE_BINDING));
+            assert!(feats
+                .allowed_usages
+                .contains(wgpu::TextureUsages::TEXTURE_BINDING));
         }
         // ...and the trap we avoided.
         assert!(!wgpu::TextureFormat::Rg16Float
@@ -861,7 +902,9 @@ mod tests {
             .contains(wgpu::TextureUsages::STORAGE_BINDING));
         // Flags only ever need to be sampled and copied into.
         let ff = FLAGS_FORMAT.guaranteed_format_features(base);
-        assert!(ff.allowed_usages.contains(wgpu::TextureUsages::TEXTURE_BINDING));
+        assert!(ff
+            .allowed_usages
+            .contains(wgpu::TextureUsages::TEXTURE_BINDING));
         assert!(ff.allowed_usages.contains(wgpu::TextureUsages::COPY_DST));
     }
 

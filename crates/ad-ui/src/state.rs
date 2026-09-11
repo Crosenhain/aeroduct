@@ -98,8 +98,14 @@ pub enum UiAction {
 
     /// Drop a probe where a viewport ray hits the flow. The app does the
     /// picking, because it owns the depth buffer and the geometry.
-    ProbeFromRay { origin_mm: Vec3, direction: Vec3 },
-    MoveProbe { id: u32, position_mm: Vec3 },
+    ProbeFromRay {
+        origin_mm: Vec3,
+        direction: Vec3,
+    },
+    MoveProbe {
+        id: u32,
+        position_mm: Vec3,
+    },
     RemoveProbe(u32),
 
     AddSlice,
@@ -351,7 +357,8 @@ impl UiState {
         let change = self.watcher.observe(self.params);
         if let Some(cause) = change.cause {
             if change.reset_statistics {
-                self.toasts.push(crate::toast::Toast::statistics_reset(cause));
+                self.toasts
+                    .push(crate::toast::Toast::statistics_reset(cause));
                 // A probe trace spanning a boundary-condition change shows a
                 // step the flow never took, so it goes with the averages.
                 self.probes.clear_history();
@@ -442,7 +449,11 @@ impl UiState {
                 return Some(o);
             }
         }
-        if let Some(o) = self.params.outlet_mouth.filter(|o| *o < self.mouths.len() && *o != inlet) {
+        if let Some(o) = self
+            .params
+            .outlet_mouth
+            .filter(|o| *o < self.mouths.len() && *o != inlet)
+        {
             return Some(o);
         }
         if self.mouths.len() == 2 {
@@ -501,7 +512,11 @@ impl UiState {
 
     /// The viewport rectangle in ImGui's logical pixels.
     pub fn viewport_rect_logical(&self) -> [f32; 4] {
-        let s = if self.ui_scale.is_finite() && self.ui_scale > 0.0 { self.ui_scale } else { 1.0 };
+        let s = if self.ui_scale.is_finite() && self.ui_scale > 0.0 {
+            self.ui_scale
+        } else {
+            1.0
+        };
         self.viewport_rect.map(|v| v / s)
     }
 
@@ -528,10 +543,16 @@ impl UiState {
     /// changes the tilt relative to the part, and that change then goes
     /// through [`Self::sync_params`] like any other — toast and all.
     pub fn sync_inlet_tilt(&mut self) {
-        let Some(m) = self.mouths.get(self.params.inlet_mouth) else { return };
+        let Some(m) = self.mouths.get(self.params.inlet_mouth) else {
+            return;
+        };
         let axis = crate::pose::lattice_axis(m.normal);
-        self.params.inlet_tilt_deg =
-            crate::pose::louver_to_tilt(self.inlet_louver_deg, m.normal, axis, self.install.rotation);
+        self.params.inlet_tilt_deg = crate::pose::louver_to_tilt(
+            self.inlet_louver_deg,
+            m.normal,
+            axis,
+            self.install.rotation,
+        );
     }
 }
 
@@ -548,7 +569,10 @@ mod tests {
         assert_eq!(s.pending_actions().len(), 2);
         let drained = s.drain_actions();
         assert_eq!(drained.len(), 2);
-        assert!(s.drain_actions().is_empty(), "actions must not be delivered twice");
+        assert!(
+            s.drain_actions().is_empty(),
+            "actions must not be delivered twice"
+        );
     }
 
     #[test]
@@ -563,7 +587,12 @@ mod tests {
         assert!(change.reset_statistics && change.hot_apply && !change.rebuild);
         assert_eq!(s.toasts.len(), 1);
         assert!(
-            s.toasts.iter().next().unwrap().detail.contains("inlet velocity"),
+            s.toasts
+                .iter()
+                .next()
+                .unwrap()
+                .detail
+                .contains("inlet velocity"),
             "the toast must name the cause"
         );
         // A quiet frame afterwards must not raise another.
@@ -588,7 +617,10 @@ mod tests {
         s.revert_params();
         assert_eq!(s.params, running);
         assert!(s.sync_params().is_none());
-        assert!(s.toasts.is_empty(), "a change that never took effect must not be announced");
+        assert!(
+            s.toasts.is_empty(),
+            "a change that never took effect must not be announced"
+        );
     }
 
     #[test]
@@ -629,7 +661,10 @@ mod tests {
     #[test]
     fn with_more_than_two_mouths_the_outlet_is_the_largest_of_the_rest() {
         let mut s = UiState::default();
-        let mouth = |a: f32| PatchView { open_area_mm2: a, ..Default::default() };
+        let mouth = |a: f32| PatchView {
+            open_area_mm2: a,
+            ..Default::default()
+        };
         s.mouths = vec![mouth(2116.0), mouth(30.0), mouth(1141.0)];
         assert_eq!(s.outlet_mouth(), Some(2), "a drain hole is not the outlet");
         s.params.inlet_mouth = 2;
@@ -650,11 +685,17 @@ mod tests {
         let mut s = UiState::default();
         s.viewport_rect = [100.0, 50.0, 800.0, 400.0];
         let c = s.viewport_ndc([500.0, 250.0]).unwrap();
-        assert!(c.x.abs() < 1e-6 && c.y.abs() < 1e-6, "centre should be NDC origin: {c:?}");
+        assert!(
+            c.x.abs() < 1e-6 && c.y.abs() < 1e-6,
+            "centre should be NDC origin: {c:?}"
+        );
         // Top of the viewport is NDC +1.
         assert!(s.viewport_ndc([500.0, 50.0]).unwrap().y > 0.99);
         assert!(s.viewport_ndc([500.0, 450.0]).unwrap().y < -0.99);
-        assert!(s.viewport_ndc([50.0, 250.0]).is_none(), "a click on the layer panel is not a pick");
+        assert!(
+            s.viewport_ndc([50.0, 250.0]).is_none(),
+            "a click on the layer panel is not a pick"
+        );
         assert!(s.viewport_ndc([500.0, 500.0]).is_none());
     }
 
@@ -694,14 +735,20 @@ mod tests {
         let mut s = UiState::default();
         let volume = s.layers.find(LayerKind::Volume).unwrap();
         s.layers.select(Some(volume));
-        assert!(s.gizmo_target().is_none(), "the volume is not a placeable object");
+        assert!(
+            s.gizmo_target().is_none(),
+            "the volume is not a placeable object"
+        );
 
         let obstruction = s.layers.push(LayerKind::Obstruction(0), "Vane");
         s.layers.select(Some(obstruction));
         assert_eq!(s.gizmo_target(), Some(obstruction));
 
         s.gizmo_mode = GizmoMode::Off;
-        assert!(s.gizmo_target().is_none(), "'off' must actually suppress the gizmo");
+        assert!(
+            s.gizmo_target().is_none(),
+            "'off' must actually suppress the gizmo"
+        );
     }
 
     #[test]

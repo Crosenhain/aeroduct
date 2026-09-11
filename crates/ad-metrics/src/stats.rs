@@ -131,7 +131,14 @@ pub struct Estimate {
 }
 
 impl Estimate {
-    pub const ZERO: Self = Self { mean: 0.0, sem: 0.0, std_dev: 0.0, n: 0, n_eff: 0.0, tau_int: 0.5 };
+    pub const ZERO: Self = Self {
+        mean: 0.0,
+        sem: 0.0,
+        std_dev: 0.0,
+        n: 0,
+        n_eff: 0.0,
+        tau_int: 0.5,
+    };
 
     /// Relative error, `SEM / |mean|`. Infinite for a mean of zero, which is the
     /// honest answer: a relative error on nothing is not defined.
@@ -302,7 +309,11 @@ impl Series {
         let sd = self.welford.std_dev();
         Estimate {
             mean: self.welford.mean(),
-            sem: if n_eff > 0.0 { sd / n_eff.sqrt() } else { f64::INFINITY },
+            sem: if n_eff > 0.0 {
+                sd / n_eff.sqrt()
+            } else {
+                f64::INFINITY
+            },
             std_dev: sd,
             n,
             n_eff,
@@ -521,7 +532,9 @@ impl Monitor {
         if self.diverged {
             return Health::Diverged;
         }
-        let Some(s) = self.series(name) else { return Health::Unknown };
+        let Some(s) = self.series(name) else {
+            return Health::Unknown;
+        };
         if s.count() < 8 {
             return Health::Unknown;
         }
@@ -616,7 +629,9 @@ impl Monitor {
             return false;
         }
         self.entries.iter().all(|(name, _)| {
-            let Some(s) = self.series(name) else { return false };
+            let Some(s) = self.series(name) else {
+                return false;
+            };
             if s.count() < 8 || self.flow_throughs < self.config.discard_flow_throughs {
                 return false;
             }
@@ -653,8 +668,7 @@ impl Monitor {
 
     /// Have we averaged long enough to publish, by the flow-through rule?
     pub fn averaged_long_enough(&self) -> bool {
-        self.flow_throughs
-            >= self.config.discard_flow_throughs + self.config.average_flow_throughs
+        self.flow_throughs >= self.config.discard_flow_throughs + self.config.average_flow_throughs
     }
 
     /// Throw every average away. Call this whenever the physics changes.
@@ -892,17 +906,27 @@ mod tests {
 
     #[test]
     fn a_drifting_series_is_never_reported_converged() {
-        let mut m = Monitor::new(MonitorConfig { window: 32, ..Default::default() });
+        let mut m = Monitor::new(MonitorConfig {
+            window: 32,
+            ..Default::default()
+        });
         m.set_flow_throughs(10.0);
         // A slow ramp: the error bar can be small while the mean is still moving.
         for i in 0..2000 {
             m.observe("dp", 40.0 + i as f64 * 0.01);
         }
-        assert_eq!(m.health("dp"), Health::Converging, "a ramp is not converged");
+        assert_eq!(
+            m.health("dp"),
+            Health::Converging,
+            "a ramp is not converged"
+        );
 
         // Now hold it steady with a little noise and it must go green.
         let mut rng = Rng(99);
-        let mut m2 = Monitor::new(MonitorConfig { window: 32, ..Default::default() });
+        let mut m2 = Monitor::new(MonitorConfig {
+            window: 32,
+            ..Default::default()
+        });
         m2.set_flow_throughs(10.0);
         m2.set_mass_imbalance(0.001);
         for _ in 0..4000 {
@@ -931,14 +955,21 @@ mod tests {
         assert_ne!(a, b);
 
         let mut m = Monitor::default();
-        assert!(!m.set_parameters(a), "the first hash must not count as a change");
+        assert!(
+            !m.set_parameters(a),
+            "the first hash must not count as a change"
+        );
         for _ in 0..500 {
             m.observe("q", 10.0);
         }
         assert_eq!(m.series("q").unwrap().count(), 500);
 
         assert!(m.set_parameters(b), "a different hash must reset");
-        assert_eq!(m.series("q").unwrap().count(), 0, "the average survived a parameter change");
+        assert_eq!(
+            m.series("q").unwrap().count(),
+            0,
+            "the average survived a parameter change"
+        );
         assert!(m.take_reset_notice());
         assert!(!m.take_reset_notice(), "the notice must be one-shot");
 
@@ -1006,7 +1037,11 @@ mod tests {
         // by 2% of itself, so a 64-sample window would compare two means with
         // 0.35% of scatter each and report drift that is nothing but noise.
         // Widening the window is what a real run does too.
-        let mut m = Monitor::new(MonitorConfig { window: 512, history: 8192, ..Default::default() });
+        let mut m = Monitor::new(MonitorConfig {
+            window: 512,
+            history: 8192,
+            ..Default::default()
+        });
         m.set_flow_throughs(20.0);
         m.set_mass_imbalance(0.002);
         for _ in 0..10_000 {
@@ -1018,9 +1053,23 @@ mod tests {
 
     #[test]
     fn estimate_display_shows_no_more_digits_than_the_error_bar_supports() {
-        let e = Estimate { mean: 47.312_9, sem: 0.61, std_dev: 5.0, n: 100, n_eff: 20.0, tau_int: 2.5 };
+        let e = Estimate {
+            mean: 47.312_9,
+            sem: 0.61,
+            std_dev: 5.0,
+            n: 100,
+            n_eff: 20.0,
+            tau_int: 2.5,
+        };
         assert_eq!(format!("{e}"), "47.3 +/- 0.6");
-        let e = Estimate { mean: 0.004_213, sem: 0.000_08, std_dev: 1.0, n: 10, n_eff: 5.0, tau_int: 1.0 };
+        let e = Estimate {
+            mean: 0.004_213,
+            sem: 0.000_08,
+            std_dev: 1.0,
+            n: 10,
+            n_eff: 5.0,
+            tau_int: 1.0,
+        };
         assert_eq!(format!("{e}"), "0.00421 +/- 0.00008");
     }
 
@@ -1061,7 +1110,10 @@ mod tests {
         assert_eq!(m.health("dp"), Health::Converging);
         let why = m.explain("dp").expect("amber must explain itself");
         assert!(why.contains("mass imbalance"), "got {why:?}");
-        assert!(why.contains("NOT fix this"), "the dead end must be explicit: {why:?}");
+        assert!(
+            why.contains("NOT fix this"),
+            "the dead end must be explicit: {why:?}"
+        );
         assert!(
             m.statistically_converged_but_unbalanced(),
             "this is the stop-and-fix-the-domain signal"
@@ -1084,8 +1136,10 @@ mod tests {
         }
         assert_ne!(m.health("dp"), Health::Converged);
         let why = m.explain("dp").expect("amber must explain itself");
-        assert!(!why.contains("mass imbalance"), "the domain is fine here: {why:?}");
+        assert!(
+            !why.contains("mass imbalance"),
+            "the domain is fine here: {why:?}"
+        );
         assert!(!m.statistically_converged_but_unbalanced());
     }
 }
-

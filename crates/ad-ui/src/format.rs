@@ -157,7 +157,11 @@ pub fn decimals_for(sem: f64) -> Option<usize> {
 /// looks like a rendering bug rather than a plus-minus sign.
 pub fn uncertain(r: Reading, q: Quantity) -> String {
     let r = q.convert(r);
-    let unit = if q.unit.is_empty() { String::new() } else { format!(" {}", q.unit) };
+    let unit = if q.unit.is_empty() {
+        String::new()
+    } else {
+        format!(" {}", q.unit)
+    };
 
     if !r.is_known() {
         return format!("--{unit}");
@@ -244,7 +248,11 @@ pub fn duration(seconds: f64) -> String {
         // Floor the remainder rather than letting `{:.0}` round it: 119.6 s must
         // read "1m 59s", not "1m 60s", and 7,300 s must read "2h 01m" rather
         // than rounding 1m40s up to "2h 02m".
-        format!("{:.0}m {:02.0}s", (seconds / 60.0).floor(), (seconds % 60.0).floor())
+        format!(
+            "{:.0}m {:02.0}s",
+            (seconds / 60.0).floor(),
+            (seconds % 60.0).floor()
+        )
     } else {
         format!(
             "{:.0}h {:02.0}m",
@@ -275,13 +283,25 @@ mod tests {
     #[test]
     fn uncertainty_sets_the_precision_of_the_value() {
         // The headline example from the brief.
-        assert_eq!(uncertain(r(47.31843, 0.6), Quantity::pressure(UnitSystem::Metric)), "47.3 +/- 0.6 Pa");
+        assert_eq!(
+            uncertain(r(47.31843, 0.6), Quantity::pressure(UnitSystem::Metric)),
+            "47.3 +/- 0.6 Pa"
+        );
         // Leading digit 1 keeps a second figure, so +/-0.14 is not flattened
         // to +/-0.1.
-        assert_eq!(uncertain(r(47.31843, 0.14), Quantity::pressure(UnitSystem::Metric)), "47.32 +/- 0.14 Pa");
+        assert_eq!(
+            uncertain(r(47.31843, 0.14), Quantity::pressure(UnitSystem::Metric)),
+            "47.32 +/- 0.14 Pa"
+        );
         // A fat error bar strips decimals from the value too.
-        assert_eq!(uncertain(r(47.31843, 3.0), Quantity::pressure(UnitSystem::Metric)), "47 +/- 3 Pa");
-        assert_eq!(uncertain(r(1470.0, 40.0), Quantity::pressure(UnitSystem::Metric)), "1470 +/- 40 Pa");
+        assert_eq!(
+            uncertain(r(47.31843, 3.0), Quantity::pressure(UnitSystem::Metric)),
+            "47 +/- 3 Pa"
+        );
+        assert_eq!(
+            uncertain(r(1470.0, 40.0), Quantity::pressure(UnitSystem::Metric)),
+            "1470 +/- 40 Pa"
+        );
     }
 
     #[test]
@@ -292,7 +312,11 @@ mod tests {
         assert_eq!(decimals_for(0.014), Some(3));
         assert_eq!(decimals_for(3.0), Some(0));
         assert_eq!(decimals_for(14.0), Some(0));
-        assert_eq!(decimals_for(40.0), Some(0), "tens are already coarser than one place");
+        assert_eq!(
+            decimals_for(40.0),
+            Some(0),
+            "tens are already coarser than one place"
+        );
         // Unusable inputs must not invent a precision.
         assert_eq!(decimals_for(0.0), None);
         assert_eq!(decimals_for(-1.0), None);
@@ -306,7 +330,10 @@ mod tests {
         // and someone screenshots it.
         let q = Quantity::pressure(UnitSystem::Metric);
         assert_eq!(uncertain(Reading::unknown(), q), "-- Pa");
-        assert_eq!(uncertain(Reading::new(0.0, 0.1, Health::Good, 0), q), "-- Pa");
+        assert_eq!(
+            uncertain(Reading::new(0.0, 0.1, Health::Good, 0), q),
+            "-- Pa"
+        );
         assert_eq!(value_only(Reading::unknown(), q), "--");
     }
 
@@ -314,7 +341,10 @@ mod tests {
     fn a_reading_with_no_error_bar_is_marked_provisional() {
         let q = Quantity::plain();
         let s = uncertain(Reading::new(1.234, f64::NAN, Health::Unknown, 1), q);
-        assert!(s.starts_with('~'), "an un-averaged sample must be marked: {s}");
+        assert!(
+            s.starts_with('~'),
+            "an un-averaged sample must be marked: {s}"
+        );
         assert!(!s.contains("+/-"));
     }
 
@@ -361,7 +391,10 @@ mod tests {
     #[test]
     fn unit_system_toggles_both_ways() {
         assert_eq!(UnitSystem::Metric.toggled(), UnitSystem::Imperial);
-        assert_eq!(UnitSystem::Imperial.toggled().toggled(), UnitSystem::Imperial);
+        assert_eq!(
+            UnitSystem::Imperial.toggled().toggled(),
+            UnitSystem::Imperial
+        );
     }
 
     #[test]

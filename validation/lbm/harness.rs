@@ -56,7 +56,10 @@ pub fn gpu_without_16bit_storage() -> Option<ad_gpu::GpuContext> {
         (wgpu::Features::SHADER_F16, &mut caps.shader_f16),
         (wgpu::Features::SUBGROUP, &mut caps.subgroups),
         (wgpu::Features::TIMESTAMP_QUERY, &mut caps.timestamps),
-        (wgpu::Features::FLOAT32_FILTERABLE, &mut caps.float32_filterable),
+        (
+            wgpu::Features::FLOAT32_FILTERABLE,
+            &mut caps.float32_filterable,
+        ),
     ] {
         if available.contains(f) {
             features |= f;
@@ -74,7 +77,9 @@ pub fn gpu_without_16bit_storage() -> Option<ad_gpu::GpuContext> {
     }))
     .ok()?;
 
-    Some(ad_gpu::GpuContext::from_parts(instance, adapter, device, queue, caps))
+    Some(ad_gpu::GpuContext::from_parts(
+        instance, adapter, device, queue, caps,
+    ))
 }
 
 /// A plane channel of `n_across` fluid cells between two bounce-back walls,
@@ -89,11 +94,7 @@ pub fn gpu_without_16bit_storage() -> Option<ad_gpu::GpuContext> {
 /// so the channel width is exactly `n_across` lattice units. That is the number
 /// the tau-independence test measures.
 pub fn plane_channel(n_across: u32, cfg: SolverConfig) -> ReferenceLbm {
-    let d = PaddedDomain::uniform_fluid(
-        UVec3::new(1, n_across, 1),
-        [true, false, true],
-        cfg.set,
-    );
+    let d = PaddedDomain::uniform_fluid(UVec3::new(1, n_across, 1), [true, false, true], cfg.set);
     ReferenceLbm::new(d, cfg)
 }
 

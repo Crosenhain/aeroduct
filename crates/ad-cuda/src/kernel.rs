@@ -190,11 +190,7 @@ fn tables(set: VelocitySet) -> String {
     let _ = writeln!(s, "#define Q {q}");
     let _ = writeln!(s, "#define Q_CONST {q}");
     s.push('\n');
-    for (name, pick) in [
-        ("CX", 0usize),
-        ("CY", 1),
-        ("CZ", 2),
-    ] {
+    for (name, pick) in [("CX", 0usize), ("CY", 1), ("CZ", 2)] {
         let _ = write!(s, "__constant__ float {name}[Q] = {{");
         for (n, d) in def.directions.iter().enumerate() {
             let v = [d.x, d.y, d.z][pick];
@@ -327,9 +323,20 @@ fn transport(set: VelocitySet) -> String {
             let dir = i + k;
             let e = probe(q, dir, false, false);
             let o = probe(q, dir, true, false);
-            let idx_e = if e.neighbour_dir.is_some() { "nb" } else { "cell" };
-            let idx_o = if o.neighbour_dir.is_some() { "nb" } else { "cell" };
-            assert_eq!(idx_e, idx_o, "a load's address base must not depend on parity");
+            let idx_e = if e.neighbour_dir.is_some() {
+                "nb"
+            } else {
+                "cell"
+            };
+            let idx_o = if o.neighbour_dir.is_some() {
+                "nb"
+            } else {
+                "cell"
+            };
+            assert_eq!(
+                idx_e, idx_o,
+                "a load's address base must not depend on parity"
+            );
             let _ = writeln!(
                 s,
                 "        if (odd != (((mask >> {dir}u) & 1u) != 0u)) {{ g[{dir}] = ddf_get_{}(ddf, cc, {idx_o}); }}\n\
@@ -964,7 +971,11 @@ pub fn generate(spec: KernelSpec) -> String {
     // One operator selected, the other two compiled out, exactly as the WGSL's
     // `#if COLLIDE_*` does. Defined to 0 rather than left undefined so `#if`
     // never depends on the preprocessor's treatment of unknown identifiers.
-    for m in [CollisionModel::Trt, CollisionModel::Bgk, CollisionModel::RegularizedBgk] {
+    for m in [
+        CollisionModel::Trt,
+        CollisionModel::Bgk,
+        CollisionModel::RegularizedBgk,
+    ] {
         let _ = writeln!(
             s,
             "#define {} {}",
@@ -997,11 +1008,17 @@ mod tests {
     fn all_specs() -> Vec<KernelSpec> {
         let mut v = Vec::new();
         for set in [VelocitySet::D3Q19, VelocitySet::D3Q27] {
-            for collision in
-                [CollisionModel::Trt, CollisionModel::Bgk, CollisionModel::RegularizedBgk]
-            {
+            for collision in [
+                CollisionModel::Trt,
+                CollisionModel::Bgk,
+                CollisionModel::RegularizedBgk,
+            ] {
                 for block_x in [64u32, 128] {
-                    v.push(KernelSpec { set, collision, block_x });
+                    v.push(KernelSpec {
+                        set,
+                        collision,
+                        block_x,
+                    });
                 }
             }
         }
@@ -1033,16 +1050,44 @@ mod tests {
             }};
         }
         check!(
-            dims_x, dims_y, dims_z, step_parity,
-            interior_x, interior_y, interior_z, cell_count,
-            offset_x, offset_y, offset_z, flag_words,
-            inlet_velocity_x, inlet_velocity_y, inlet_velocity_z, tau0,
-            initial_velocity_x, initial_velocity_y, initial_velocity_z, trt_lambda,
-            body_force_x, body_force_y, body_force_z, smagorinsky_c,
-            tau_max, outflow_velocity, rho_ref, sponge_strength,
-            sponge_cells, periodic, total_steps, outlet_anti_bounce_back,
-            outlet_normal_x, outlet_normal_y, outlet_normal_z,
-            inlet_normal_x, inlet_normal_y, inlet_normal_z,
+            dims_x,
+            dims_y,
+            dims_z,
+            step_parity,
+            interior_x,
+            interior_y,
+            interior_z,
+            cell_count,
+            offset_x,
+            offset_y,
+            offset_z,
+            flag_words,
+            inlet_velocity_x,
+            inlet_velocity_y,
+            inlet_velocity_z,
+            tau0,
+            initial_velocity_x,
+            initial_velocity_y,
+            initial_velocity_z,
+            trt_lambda,
+            body_force_x,
+            body_force_y,
+            body_force_z,
+            smagorinsky_c,
+            tau_max,
+            outflow_velocity,
+            rho_ref,
+            sponge_strength,
+            sponge_cells,
+            periodic,
+            total_steps,
+            outlet_anti_bounce_back,
+            outlet_normal_x,
+            outlet_normal_y,
+            outlet_normal_z,
+            inlet_normal_x,
+            inlet_normal_y,
+            inlet_normal_z,
         );
         // ...and the C side really does declare each of them, in order.
         let src = generate(KernelSpec {
@@ -1050,7 +1095,9 @@ mod tests {
             collision: CollisionModel::Trt,
             block_x: 64,
         });
-        let mut cursor = src.find("struct Params {").expect("no Params struct emitted");
+        let mut cursor = src
+            .find("struct Params {")
+            .expect("no Params struct emitted");
         for (ty, name) in PARAM_FIELDS {
             let decl = format!("    {ty} {name};");
             let at = src[cursor..]
@@ -1119,7 +1166,10 @@ mod tests {
                 .unwrap_or_else(|| panic!("`{needle}` occurrence {n} not found"));
             from += at + needle.len();
         }
-        let digits: String = hay[from..].chars().take_while(|c| c.is_ascii_digit()).collect();
+        let digits: String = hay[from..]
+            .chars()
+            .take_while(|c| c.is_ascii_digit())
+            .collect();
         digits.parse().expect("accessor index is not a number")
     }
 
@@ -1145,7 +1195,10 @@ mod tests {
             for i in 0..set.q() {
                 let gets = s.matches(&format!("ddf_get_{i}(")).count();
                 let puts = s.matches(&format!("ddf_put_{i}(")).count();
-                assert_eq!(gets, puts, "{set:?}: buffer {i} read {gets} times, written {puts}");
+                assert_eq!(
+                    gets, puts,
+                    "{set:?}: buffer {i} read {gets} times, written {puts}"
+                );
             }
         }
     }
@@ -1156,9 +1209,18 @@ mod tests {
             let s = generate(spec);
             let q = spec.set.q();
             for i in 0..q {
-                assert!(s.contains(&format!("ddf_get_{i}(")), "{spec:?}: no get for {i}");
-                assert!(s.contains(&format!("ddf_put_{i}(")), "{spec:?}: no put for {i}");
-                assert!(s.contains(&format!("g[{i}]")), "{spec:?}: direction {i} never transported");
+                assert!(
+                    s.contains(&format!("ddf_get_{i}(")),
+                    "{spec:?}: no get for {i}"
+                );
+                assert!(
+                    s.contains(&format!("ddf_put_{i}(")),
+                    "{spec:?}: no put for {i}"
+                );
+                assert!(
+                    s.contains(&format!("g[{i}]")),
+                    "{spec:?}: direction {i} never transported"
+                );
             }
             assert!(s.contains(&format!("#define Q {q}")), "{spec:?}: wrong q");
             assert!(s.contains(&format!("#define BLOCK_X {}", spec.block_x)));
@@ -1178,7 +1240,11 @@ mod tests {
     fn exactly_one_collision_operator_is_enabled() {
         for spec in all_specs() {
             let s = generate(spec);
-            for m in [CollisionModel::Trt, CollisionModel::Bgk, CollisionModel::RegularizedBgk] {
+            for m in [
+                CollisionModel::Trt,
+                CollisionModel::Bgk,
+                CollisionModel::RegularizedBgk,
+            ] {
                 let want = u32::from(m == spec.collision);
                 assert!(
                     s.contains(&format!("#define {} {want}", m.shader_define())),
@@ -1208,7 +1274,11 @@ mod tests {
                     .lines()
                     .find(|l| l.starts_with(&format!("__constant__ float {name}[Q]")))
                     .unwrap_or_else(|| panic!("{name} table missing"));
-                assert_eq!(line.matches(", ").count(), def.q - 1, "{name} has the wrong length");
+                assert_eq!(
+                    line.matches(", ").count(),
+                    def.q - 1,
+                    "{name} has the wrong length"
+                );
             }
         }
     }

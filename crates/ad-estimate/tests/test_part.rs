@@ -30,7 +30,10 @@ fn part() -> Option<ad_geom::StlLoad> {
     let path = ad_geom::test_stl_path()?;
     match ad_geom::load_stl(&path) {
         Ok(l) => Some(l),
-        Err(e) => panic!("the test part exists at {} but would not load: {e:#}", path.display()),
+        Err(e) => panic!(
+            "the test part exists at {} but would not load: {e:#}",
+            path.display()
+        ),
     }
 }
 
@@ -49,7 +52,9 @@ fn extract_part(load: &ad_geom::StlLoad, dx: f32) -> Option<(Passage, f64, f64, 
     // Largest first: the contract puts the inlet on mouth A, the 2116 mm^2
     // opening at z = 0.
     mouths.sort_by(|a, b| {
-        b.open_area_mm2.partial_cmp(&a.open_area_mm2).unwrap_or(std::cmp::Ordering::Equal)
+        b.open_area_mm2
+            .partial_cmp(&a.open_area_mm2)
+            .unwrap_or(std::cmp::Ordering::Equal)
     });
     let specs: Vec<MouthSpec> = mouths.iter().map(MouthSpec::from).collect();
 
@@ -58,7 +63,9 @@ fn extract_part(load: &ad_geom::StlLoad, dx: f32) -> Option<(Passage, f64, f64, 
     // wherever they fall on the grid -- but it keeps the mask honest at the
     // bounding box.
     let grid = Grid::covering(mesh.bbox().expanded(Vec3::splat(2.0)), dx);
-    let soup: Vec<[Vec3; 3]> = (0..mesh.triangle_count()).map(|t| mesh.triangle(t)).collect();
+    let soup: Vec<[Vec3; 3]> = (0..mesh.triangle_count())
+        .map(|t| mesh.triangle(t))
+        .collect();
 
     let t0 = Instant::now();
     let parity = ad_geom::ray_parity_voxelize(&soup, grid);
@@ -77,7 +84,9 @@ fn extract_part(load: &ad_geom::StlLoad, dx: f32) -> Option<(Passage, f64, f64, 
 #[test]
 fn the_real_passage_matches_what_the_contract_says_about_it() {
     let Some(load) = part() else { return };
-    let Some((p, voxel_ms, extract_ms, cells)) = extract_part(&load, 0.5) else { return };
+    let Some((p, voxel_ms, extract_ms, cells)) = extract_part(&load, 0.5) else {
+        return;
+    };
 
     eprintln!("\n=== passage extraction, dx = 0.5 mm, {cells} cells ===");
     eprintln!("{}", p.summary());
@@ -137,12 +146,23 @@ fn the_real_passage_matches_what_the_contract_says_about_it() {
     );
 
     // Nothing about the passage should be absurd.
-    assert!(p.length_mm > 40.0 && p.length_mm < 400.0, "L = {} mm", p.length_mm);
-    assert!(p.mean_dh_mm > 3.0 && p.mean_dh_mm < 40.0, "D_h = {} mm", p.mean_dh_mm);
+    assert!(
+        p.length_mm > 40.0 && p.length_mm < 400.0,
+        "L = {} mm",
+        p.length_mm
+    );
+    assert!(
+        p.mean_dh_mm > 3.0 && p.mean_dh_mm < 40.0,
+        "D_h = {} mm",
+        p.mean_dh_mm
+    );
     assert!(p.volume_mm3 > 1_000.0, "V = {} mm^3", p.volume_mm3);
     // It is a bend: something has to turn, and the two mouth normals are 90
     // degrees apart, so the total turn should be in that neighbourhood.
-    assert!(!p.bends.is_empty(), "a 90 degree bend with no detected bend");
+    assert!(
+        !p.bends.is_empty(),
+        "a 90 degree bend with no detected bend"
+    );
     assert!(
         p.total_turn_deg() > 45.0 && p.total_turn_deg() < 200.0,
         "total turn {} deg",
@@ -154,7 +174,9 @@ fn the_real_passage_matches_what_the_contract_says_about_it() {
 #[test]
 fn the_estimate_for_the_real_part_with_its_band() {
     let Some(load) = part() else { return };
-    let Some((p, voxel_ms, extract_ms, cells)) = extract_part(&load, 0.5) else { return };
+    let Some((p, voxel_ms, extract_ms, cells)) = extract_part(&load, 0.5) else {
+        return;
+    };
 
     // Mouth-to-mouth total pressure, no entry and no exit loss: the same thing
     // the solver's two measurement planes see. This is the only configuration
@@ -193,7 +215,10 @@ fn the_estimate_for_the_real_part_with_its_band() {
     eprintln!("\nat U_in = 3 m/s, mouth to mouth, printed roughness:");
     eprintln!("  {}", r.summary());
     eprint!("{}", r.breakdown());
-    eprintln!("  static drop {} Pa (larger than the total, because the duct accelerates the air)", r.static_pressure_drop_pa);
+    eprintln!(
+        "  static drop {} Pa (larger than the total, because the duct accelerates the air)",
+        r.static_pressure_drop_pa
+    );
     for w in &r.warnings {
         eprintln!("  warning: {w}");
     }
@@ -241,7 +266,10 @@ fn the_estimate_for_the_real_part_with_its_band() {
         "  for scale, one LBM step at dx = 0.75 mm is ~2.2 ms and a converged run is \
          tens of thousands of them"
     );
-    assert!(per_us < 500.0, "{per_us:.1} us per solve is not interactive");
+    assert!(
+        per_us < 500.0,
+        "{per_us:.1} us per solve is not interactive"
+    );
 
     // The estimate has to be a *duct* answer, not an arbitrary number.
     assert!(
@@ -256,7 +284,11 @@ fn the_estimate_for_the_real_part_with_its_band() {
         "Q = {:.2} L/s at 2 m/s, contract says 4.23",
         q2.litres_per_second()
     );
-    assert!((q2.outlet_velocity_ms - 3.71).abs() < 0.2, "U_out = {}", q2.outlet_velocity_ms);
+    assert!(
+        (q2.outlet_velocity_ms - 3.71).abs() < 0.2,
+        "U_out = {}",
+        q2.outlet_velocity_ms
+    );
 
     // Every element must be attributed. A breakdown that does not add up is
     // worse than no breakdown.
@@ -277,7 +309,9 @@ fn the_answer_does_not_depend_on_the_cell_size() {
     };
     let mut seen = Vec::new();
     for dx in [1.0f32, 0.75, 0.5] {
-        let Some((p, voxel_ms, extract_ms, cells)) = extract_part(&load, dx) else { return };
+        let Some((p, voxel_ms, extract_ms, cells)) = extract_part(&load, dx) else {
+            return;
+        };
         let r = estimate(&p, Drive::InletVelocity(3.0), &cfg);
         eprintln!(
             "dx = {dx:>4}: {cells:>9} cells, {voxel_ms:>5.0} + {extract_ms:>4.0} ms | \
@@ -287,7 +321,13 @@ fn the_answer_does_not_depend_on_the_cell_size() {
             p.total_turn_deg(),
             r.loss_coefficient.k
         );
-        seen.push((dx as f64, p.length_mm, p.mean_dh_mm, r.loss_coefficient.k.mean, p.confidence));
+        seen.push((
+            dx as f64,
+            p.length_mm,
+            p.mean_dh_mm,
+            r.loss_coefficient.k.mean,
+            p.confidence,
+        ));
     }
 
     let coarse = seen[0];
@@ -336,21 +376,37 @@ fn the_contracts_hand_calc_table_is_reproduced_once_the_exit_loss_is_counted() {
     // mouth-to-mouth figure, and the two must never be compared directly. That
     // distinction is worth a test on its own.
     let Some(load) = part() else { return };
-    let Some((p, _, _, _)) = extract_part(&load, 0.5) else { return };
-    let air = ad_estimate::Fluid { rho: 1.2, nu: ad_gpu::air::NU };
+    let Some((p, _, _, _)) = extract_part(&load, 0.5) else {
+        return;
+    };
+    let air = ad_estimate::Fluid {
+        rho: 1.2,
+        nu: ad_gpu::air::NU,
+    };
     let base = EstimateConfig {
         fluid: air,
         roughness_mm: ad_estimate::PRINTED_ROUGHNESS_MM,
         ..Default::default()
     };
-    let mouth_to_mouth = EstimateConfig { exit: ExitCondition::None, ..base };
-    let with_exit =
-        EstimateConfig { entry: EntryCondition::None, exit: ExitCondition::Discharge, ..base };
+    let mouth_to_mouth = EstimateConfig {
+        exit: ExitCondition::None,
+        ..base
+    };
+    let with_exit = EstimateConfig {
+        entry: EntryCondition::None,
+        exit: ExitCondition::Discharge,
+        ..base
+    };
 
     eprintln!("\n=== against CONTRACT.md's hand-calc table (rho = 1.2) ===");
     eprintln!(
         "{:>5} {:>17} {:>17} {:>16} {:>18} {:>12}",
-        "U_in", "Q L/s (contract)", "U_out (contract)", "dp mouth-mouth", "dp with exit", "contract"
+        "U_in",
+        "Q L/s (contract)",
+        "U_out (contract)",
+        "dp mouth-mouth",
+        "dp with exit",
+        "contract"
     );
     let table = [
         (2.0f64, 4.23f64, 3.71f64, (4.0f64, 10.0f64)),
@@ -386,8 +442,14 @@ fn the_contracts_hand_calc_table_is_reproduced_once_the_exit_loss_is_counted() {
             "at {u} m/s the estimate {dp} Pa misses the contract's {dp_lo}-{dp_hi} Pa"
         );
     }
-    let k_bare = estimate(&p, Drive::InletVelocity(3.0), &mouth_to_mouth).loss_coefficient.k.mean;
-    let k_full = estimate(&p, Drive::InletVelocity(3.0), &with_exit).loss_coefficient.k.mean;
+    let k_bare = estimate(&p, Drive::InletVelocity(3.0), &mouth_to_mouth)
+        .loss_coefficient
+        .k
+        .mean;
+    let k_full = estimate(&p, Drive::InletVelocity(3.0), &with_exit)
+        .loss_coefficient
+        .k
+        .mean;
     eprintln!(
         "  K = {k_bare:.2} mouth to mouth, {k_full:.2} with the discharge loss; the \
          difference is one outlet velocity head, {:.2} referenced to the inlet",

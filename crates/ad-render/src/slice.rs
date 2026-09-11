@@ -113,7 +113,11 @@ pub struct SlicePlane {
 
 impl Default for SlicePlane {
     fn default() -> Self {
-        Self { origin_mm: Vec3::ZERO, u: Vec3::X, v: Vec3::Y }
+        Self {
+            origin_mm: Vec3::ZERO,
+            u: Vec3::X,
+            v: Vec3::Y,
+        }
     }
 }
 
@@ -134,11 +138,13 @@ impl SlicePlane {
     /// An axis-aligned preset at normalised position `t` across `bbox`.
     pub fn axis(preset: AxisPreset, bbox: Bbox, t: f32) -> Self {
         let t = t.clamp(0.0, 1.0);
-        let origin = bbox.min + (bbox.max - bbox.min) * match preset {
-            AxisPreset::X => Vec3::new(t, 0.5, 0.5),
-            AxisPreset::Y => Vec3::new(0.5, t, 0.5),
-            AxisPreset::Z => Vec3::new(0.5, 0.5, t),
-        };
+        let origin = bbox.min
+            + (bbox.max - bbox.min)
+                * match preset {
+                    AxisPreset::X => Vec3::new(t, 0.5, 0.5),
+                    AxisPreset::Y => Vec3::new(0.5, t, 0.5),
+                    AxisPreset::Z => Vec3::new(0.5, 0.5, t),
+                };
         Self::from_normal(origin, preset.normal())
     }
 
@@ -384,7 +390,11 @@ impl SliceOverlay {
             label: Some("slice"),
             entries: &[
                 util::uniform_entry(0, vf),
-                util::sampled_float_entry(1, wgpu::ShaderStages::FRAGMENT, wgpu::TextureViewDimension::D2),
+                util::sampled_float_entry(
+                    1,
+                    wgpu::ShaderStages::FRAGMENT,
+                    wgpu::TextureViewDimension::D2,
+                ),
                 util::sampler_entry(
                     2,
                     wgpu::ShaderStages::FRAGMENT,
@@ -396,7 +406,10 @@ impl SliceOverlay {
             label: Some("slice"),
             layout: &layout,
             entries: &[
-                wgpu::BindGroupEntry { binding: 0, resource: uniform.as_entire_binding() },
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: uniform.as_entire_binding(),
+                },
                 wgpu::BindGroupEntry {
                     binding: 1,
                     resource: wgpu::BindingResource::TextureView(&lut_view),
@@ -525,7 +538,11 @@ impl SliceOverlay {
         match (self.settings.follow_centreline, &self.centreline) {
             (Some(t), Some(c)) => {
                 let (origin, u, v) = c.frame(t.clamp(0.0, 1.0) * c.length());
-                SlicePlane { origin_mm: origin, u, v }
+                SlicePlane {
+                    origin_mm: origin,
+                    u,
+                    v,
+                }
             }
             _ => self.settings.plane,
         }
@@ -625,7 +642,11 @@ impl OverlayPass for SliceOverlay {
         // is a zero frame delta, because an app that has stopped advancing time
         // has stopped the animation just as effectively as setting the rate to
         // zero would.
-        !Self::animating(self.enabled, self.settings.lic.cycles_per_second, self.last_dt)
+        !Self::animating(
+            self.enabled,
+            self.settings.lic.cycles_per_second,
+            self.last_dt,
+        )
     }
 
     fn record(&mut self, ctx: &mut OverlayContext<'_>) {
@@ -651,7 +672,8 @@ impl OverlayPass for SliceOverlay {
         }
 
         let u = self.build_uniform(ctx.fields.bbox());
-        ctx.queue.write_buffer(&self.uniform, 0, bytemuck::bytes_of(&u));
+        ctx.queue
+            .write_buffer(&self.uniform, 0, bytemuck::bytes_of(&u));
 
         let ts = ctx.profiler.render_scope("slice");
         let mut pass = ctx.encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -660,7 +682,10 @@ impl OverlayPass for SliceOverlay {
                 view: ctx.hdr_view,
                 depth_slice: None,
                 resolve_target: None,
-                ops: wgpu::Operations { load: wgpu::LoadOp::Load, store: wgpu::StoreOp::Store },
+                ops: wgpu::Operations {
+                    load: wgpu::LoadOp::Load,
+                    store: wgpu::StoreOp::Store,
+                },
             })],
             depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
                 view: ctx.depth_view,
@@ -700,7 +725,10 @@ mod tests {
     }
 
     fn test_bbox() -> Bbox {
-        Bbox { min: Vec3::new(-20.0, -10.0, -20.0), max: Vec3::new(60.0, 30.0, 60.0) }
+        Bbox {
+            min: Vec3::new(-20.0, -10.0, -20.0),
+            max: Vec3::new(60.0, 30.0, 60.0),
+        }
     }
 
     #[test]
@@ -716,11 +744,17 @@ mod tests {
             let p = SlicePlane::from_normal(Vec3::new(3.0, 4.0, 5.0), n);
             assert!((p.u.length() - 1.0).abs() < 1e-5, "u is not unit for n={n}");
             assert!((p.v.length() - 1.0).abs() < 1e-5, "v is not unit for n={n}");
-            assert!(p.u.dot(p.v).abs() < 1e-4, "basis is not orthogonal for n={n}");
+            assert!(
+                p.u.dot(p.v).abs() < 1e-4,
+                "basis is not orthogonal for n={n}"
+            );
             // u x v must be the normal we asked for, not its opposite: the sign
             // decides which way the LIC animation appears to travel.
             let got = p.normal();
-            assert!(got.dot(n.normalize()) > 0.999, "normal flipped for n={n}: got {got}");
+            assert!(
+                got.dot(n.normalize()) > 0.999,
+                "normal flipped for n={n}: got {got}"
+            );
         }
         // A zero normal is legal input from a half-built gizmo and must not
         // produce NaNs.
@@ -733,7 +767,10 @@ mod tests {
         let p = SlicePlane::from_normal(Vec3::new(10.0, -2.0, 7.0), Vec3::new(1.0, 2.0, -0.5));
         for uv in [Vec2::ZERO, Vec2::new(12.0, -5.0), Vec2::new(-30.0, 40.0)] {
             let world = p.point(uv);
-            assert!((p.project(world) - uv).length() < 1e-3, "{uv} did not round trip");
+            assert!(
+                (p.project(world) - uv).length() < 1e-3,
+                "{uv} did not round trip"
+            );
             // ...and every such point is exactly on the plane.
             assert!(p.distance(world).abs() < 1e-3);
         }
@@ -831,9 +868,16 @@ mod tests {
         assert!(p.u.dot(p.v).abs() < 1e-5);
 
         // v collapsed onto u: a degenerate quad would be a line on screen.
-        let mut d = SlicePlane { origin_mm: Vec3::ZERO, u: Vec3::X, v: Vec3::X };
+        let mut d = SlicePlane {
+            origin_mm: Vec3::ZERO,
+            u: Vec3::X,
+            v: Vec3::X,
+        };
         d.sanitise();
-        assert!(d.u.dot(d.v).abs() < 1e-4, "a degenerate basis was not repaired");
+        assert!(
+            d.u.dot(d.v).abs() < 1e-4,
+            "a degenerate basis was not repaired"
+        );
         assert!(d.normal().is_finite() && d.normal().length() > 0.9);
     }
 
@@ -884,7 +928,11 @@ mod tests {
     // -- GPU -----------------------------------------------------------------
 
     fn test_grid() -> Grid {
-        Grid { dims: UVec3::new(48, 32, 32), dx_mm: 0.75, origin_mm: Vec3::splat(-12.0) }
+        Grid {
+            dims: UVec3::new(48, 32, 32),
+            dx_mm: 0.75,
+            origin_mm: Vec3::splat(-12.0),
+        }
     }
 
     fn make_renderer(gpu: &GpuContext) -> crate::Renderer {

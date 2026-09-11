@@ -42,7 +42,10 @@ impl TriangleBins {
             .fold(Bbox::EMPTY, |a, b| a.union(b))
             .expanded(Vec3::splat(target_bin_mm * 0.5));
         let bounds = if tri_bounds.is_empty() {
-            Bbox { min: Vec3::ZERO, max: Vec3::ONE }
+            Bbox {
+                min: Vec3::ZERO,
+                max: Vec3::ONE,
+            }
         } else {
             bounds
         };
@@ -115,8 +118,10 @@ impl TriangleBins {
 
     /// Build directly from a triangle soup.
     pub fn of_triangles(tris: &[[Vec3; 3]], target_bin_mm: f32) -> Self {
-        let bounds: Vec<Bbox> =
-            tris.par_iter().map(|t| Bbox::from_points(t.iter().copied())).collect();
+        let bounds: Vec<Bbox> = tris
+            .par_iter()
+            .map(|t| Bbox::from_points(t.iter().copied()))
+            .collect();
         Self::build(&bounds, target_bin_mm)
     }
 
@@ -191,10 +196,13 @@ mod tests {
     #[test]
     fn queries_never_miss_an_overlapping_triangle() {
         let mesh = primitives::uv_sphere(Vec3::new(3.0, -2.0, 1.0), 12.0, 24, 12);
-        let tris: Vec<[Vec3; 3]> =
-            (0..mesh.triangle_count()).map(|t| mesh.triangle(t)).collect();
-        let bounds: Vec<Bbox> =
-            tris.iter().map(|t| Bbox::from_points(t.iter().copied())).collect();
+        let tris: Vec<[Vec3; 3]> = (0..mesh.triangle_count())
+            .map(|t| mesh.triangle(t))
+            .collect();
+        let bounds: Vec<Bbox> = tris
+            .iter()
+            .map(|t| Bbox::from_points(t.iter().copied()))
+            .collect();
         let bins = TriangleBins::of_triangles(&tris, 4.0);
 
         let mut seed = 7u32;
@@ -206,7 +214,10 @@ mod tests {
         for _ in 0..200 {
             let c = Vec3::new(rnd(-16.0, 20.0), rnd(-20.0, 16.0), rnd(-14.0, 16.0));
             let h = Vec3::new(rnd(0.1, 6.0), rnd(0.1, 6.0), rnd(0.1, 6.0));
-            let q = Bbox { min: c - h, max: c + h };
+            let q = Bbox {
+                min: c - h,
+                max: c + h,
+            };
             bins.collect_in_aabb(q, &mut got);
 
             for (t, b) in bounds.iter().enumerate() {
@@ -224,26 +235,36 @@ mod tests {
     #[test]
     fn every_triangle_lands_in_at_least_one_bin() {
         let mesh = primitives::torus(Vec3::ZERO, 10.0, 3.0, 32, 16);
-        let tris: Vec<[Vec3; 3]> =
-            (0..mesh.triangle_count()).map(|t| mesh.triangle(t)).collect();
+        let tris: Vec<[Vec3; 3]> = (0..mesh.triangle_count())
+            .map(|t| mesh.triangle(t))
+            .collect();
         let bins = TriangleBins::of_triangles(&tris, 5.0);
         assert!(bins.entry_count() >= tris.len());
 
         let mut all = Vec::new();
         bins.collect_in_aabb(bins.bounds, &mut all);
-        assert_eq!(all.len(), tris.len(), "a triangle went missing from the bins");
+        assert_eq!(
+            all.len(),
+            tris.len(),
+            "a triangle went missing from the bins"
+        );
     }
 
     #[test]
     fn an_x_column_contains_everything_that_row_can_hit() {
         let mesh = primitives::box_mesh(Vec3::new(-5.0, -5.0, -5.0), Vec3::splat(5.0));
-        let tris: Vec<[Vec3; 3]> =
-            (0..mesh.triangle_count()).map(|t| mesh.triangle(t)).collect();
+        let tris: Vec<[Vec3; 3]> = (0..mesh.triangle_count())
+            .map(|t| mesh.triangle(t))
+            .collect();
         let bins = TriangleBins::of_triangles(&tris, 3.0);
         let mut out = Vec::new();
         bins.collect_x_column(0.0, 0.0, &mut out);
         // A ray through the centre of a box must at least see the two faces it
         // enters and leaves through, which are two triangles each.
-        assert!(out.len() >= 4, "only {} candidates through the centre", out.len());
+        assert!(
+            out.len() >= 4,
+            "only {} candidates through the centre",
+            out.len()
+        );
     }
 }

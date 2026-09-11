@@ -67,7 +67,13 @@ impl Default for LegendRange {
 
 impl LegendRange {
     pub fn new(lo: f32, hi: f32, scale: RangeScale, symmetric: bool) -> Self {
-        let mut r = Self { lo, hi, scale, symmetric, ..Default::default() };
+        let mut r = Self {
+            lo,
+            hi,
+            scale,
+            symmetric,
+            ..Default::default()
+        };
         r.sanitise();
         r
     }
@@ -289,7 +295,11 @@ mod tests {
     fn double_click_auto_ranges_with_a_little_headroom() {
         let mut r = LegendRange::new(0.0, 1.0, RangeScale::Linear, false);
         assert!(r.auto_range(2.0, 12.0));
-        assert!(r.lo < 2.0 && r.hi > 12.0, "range {:?} does not contain the data", (r.lo, r.hi));
+        assert!(
+            r.lo < 2.0 && r.hi > 12.0,
+            "range {:?} does not contain the data",
+            (r.lo, r.hi)
+        );
         assert!(r.lo > 1.5 && r.hi < 12.5, "the padding is far too generous");
     }
 
@@ -312,7 +322,11 @@ mod tests {
         // diverging map's neutral colour.
         let mut r = LegendRange::new(-50.0, 50.0, RangeScale::Linear, true);
         r.drag_handle(Handle::High, 0.3);
-        assert!((r.lo + r.hi).abs() < 1e-4, "range {:?} is off-centre", (r.lo, r.hi));
+        assert!(
+            (r.lo + r.hi).abs() < 1e-4,
+            "range {:?} is off-centre",
+            (r.lo, r.hi)
+        );
         assert!((r.normalise(0.0) - 0.5).abs() < 1e-6);
         r.drag_handle(Handle::Low, -0.2);
         assert!((r.lo + r.hi).abs() < 1e-4);
@@ -348,7 +362,11 @@ mod tests {
         ] {
             for t in [0.0f32, 0.25, 0.5, 1.0] {
                 let v = r.denormalise(t);
-                assert!((r.normalise(v) - t).abs() < 1e-4, "{t} -> {v} -> {}", r.normalise(v));
+                assert!(
+                    (r.normalise(v) - t).abs() < 1e-4,
+                    "{t} -> {v} -> {}",
+                    r.normalise(v)
+                );
             }
         }
     }
@@ -364,7 +382,11 @@ mod tests {
 
         let log = LegendRange::new(0.01, 100.0, RangeScale::Log, false);
         let lt = log.ticks(6);
-        assert!(lt.iter().all(|t| (t.log10() - t.log10().round()).abs() < 1e-4), "{lt:?}");
+        assert!(
+            lt.iter()
+                .all(|t| (t.log10() - t.log10().round()).abs() < 1e-4),
+            "{lt:?}"
+        );
     }
 
     #[test]

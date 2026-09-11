@@ -343,7 +343,10 @@ mod tests {
         );
         // ...and it really is a half-ulp code, not a lucky truncation: the worst
         // case must be close to 2^-12, otherwise the mantissa is not 11 bits.
-        assert!(worst > 1.0e-4, "worst error {worst:e} is suspiciously small; is the sweep dense enough?");
+        assert!(
+            worst > 1.0e-4,
+            "worst error {worst:e} is suspiciously small; is the sweep dense enough?"
+        );
     }
 
     #[test]
@@ -385,7 +388,10 @@ mod tests {
             assert_eq!(quantise_fp16c(x), FP16C_MAX, "{x} should clamp");
             assert_eq!(quantise_fp16c(-x), -FP16C_MAX, "{} should clamp", -x);
         }
-        assert!(quantise_fp16c(f32::NAN).is_finite(), "NaN must not survive the codec");
+        assert!(
+            quantise_fp16c(f32::NAN).is_finite(),
+            "NaN must not survive the codec"
+        );
     }
 
     #[test]
@@ -412,7 +418,11 @@ mod tests {
             let h = h as u16;
             let x = fp16c_to_f32(h);
             assert!(x.is_finite(), "pattern {h:#06x} decoded to {x}");
-            assert_eq!(f32_to_fp16c(x), h, "pattern {h:#06x} did not survive re-encoding");
+            assert_eq!(
+                f32_to_fp16c(x),
+                h,
+                "pattern {h:#06x} did not survive re-encoding"
+            );
         }
     }
 
@@ -423,9 +433,17 @@ mod tests {
         assert_eq!(binary16_to_f32(0x3c00), 1.0);
         assert_eq!(binary16_to_f32(0x7bff), 65504.0);
         assert_eq!(binary16_to_f32(0x0400), 6.103_515_6e-5);
-        assert_eq!(quantise_binary16(65505.0), 65504.0, "just below the midpoint, still finite");
+        assert_eq!(
+            quantise_binary16(65505.0),
+            65504.0,
+            "just below the midpoint, still finite"
+        );
         assert_eq!(quantise_binary16(70000.0), f32::INFINITY);
-        assert_eq!(binary16_to_f32(0x0001), 5.960_464_5e-8, "smallest subnormal is 2^-24");
+        assert_eq!(
+            binary16_to_f32(0x0001),
+            5.960_464_5e-8,
+            "smallest subnormal is 2^-24"
+        );
     }
 
     #[test]
@@ -472,10 +490,17 @@ mod tests {
             }
         }
         // sum_i g_i^eq == rho - 1, and sum_i c_i g_i^eq == rho*u.
-        assert!((sum - drho as f64).abs() < 1e-6, "mass closure: {sum} vs {drho}");
+        assert!(
+            (sum - drho as f64).abs() < 1e-6,
+            "mass closure: {sum} vs {drho}"
+        );
         for a in 0..3 {
             let want = (rho * u[a]) as f64;
-            assert!((mom[a] - want).abs() < 1e-6, "momentum {a}: {} vs {want}", mom[a]);
+            assert!(
+                (mom[a] - want).abs() < 1e-6,
+                "momentum {a}: {} vs {want}",
+                mom[a]
+            );
         }
     }
 
@@ -484,7 +509,14 @@ mod tests {
         let s = wgsl_codec();
         // The magic numbers that define the format must appear in both halves;
         // if someone edits one side these are the constants that would change.
-        for needle in ["0x7fffu", "0x7ffu", "112u", "0x007fffffu", "125u - e", "firstLeadingBit"] {
+        for needle in [
+            "0x7fffu",
+            "0x7ffu",
+            "112u",
+            "0x007fffffu",
+            "125u - e",
+            "firstLeadingBit",
+        ] {
             assert!(s.contains(needle), "WGSL codec is missing {needle}");
         }
         assert!(s.contains("fn f32_to_fp16c") && s.contains("fn fp16c_to_f32"));

@@ -122,7 +122,10 @@ pub fn field_bind_group(
                 binding: 1,
                 resource: wgpu::BindingResource::TextureView(field.density),
             },
-            wgpu::BindGroupEntry { binding: 2, resource: field.flags.as_entire_binding() },
+            wgpu::BindGroupEntry {
+                binding: 2,
+                resource: field.flags.as_entire_binding(),
+            },
         ],
     })
 }
@@ -140,7 +143,9 @@ pub fn pack_flags(bytes: &[u8]) -> Vec<u32> {
 /// Inverse of [`pack_flags`], for tests and for anything that wants to inspect
 /// a flag buffer it read back.
 pub fn unpack_flags(words: &[u32], count: usize) -> Vec<u8> {
-    (0..count).map(|i| ((words[i >> 2] >> ((i & 3) * 8)) & 0xff) as u8).collect()
+    (0..count)
+        .map(|i| ((words[i >> 2] >> ((i & 3) * 8)) & 0xff) as u8)
+        .collect()
 }
 
 /// IEEE binary32 to binary16, round-to-nearest-even, with overflow saturating to
@@ -231,7 +236,11 @@ impl FieldTextures {
         Self::with_format(device, grid, VELOCITY_FORMAT_EXACT)
     }
 
-    fn with_format(device: &wgpu::Device, grid: Grid, velocity_format: wgpu::TextureFormat) -> Self {
+    fn with_format(
+        device: &wgpu::Device,
+        grid: Grid,
+        velocity_format: wgpu::TextureFormat,
+    ) -> Self {
         let size = wgpu::Extent3d {
             width: grid.dims.x,
             height: grid.dims.y,
@@ -268,17 +277,31 @@ impl FieldTextures {
     /// byte per cell. All in **lattice units**, matching what the solver writes.
     pub fn upload(&self, queue: &wgpu::Queue, values: &[Vec4], flags: &[u8]) -> Result<()> {
         let n = self.grid.cell_count() as usize;
-        anyhow::ensure!(values.len() == n, "expected {n} field values, got {}", values.len());
-        anyhow::ensure!(flags.len() == n, "expected {n} flag bytes, got {}", flags.len());
+        anyhow::ensure!(
+            values.len() == n,
+            "expected {n} field values, got {}",
+            values.len()
+        );
+        anyhow::ensure!(
+            flags.len() == n,
+            "expected {n} flag bytes, got {}",
+            flags.len()
+        );
 
         let (w, h, d) = (self.grid.dims.x, self.grid.dims.y, self.grid.dims.z);
-        let extent = wgpu::Extent3d { width: w, height: h, depth_or_array_layers: d };
+        let extent = wgpu::Extent3d {
+            width: w,
+            height: h,
+            depth_or_array_layers: d,
+        };
 
         let vel_bytes: Vec<u8> = match self.velocity_format {
             VELOCITY_FORMAT_EXACT => values
                 .iter()
                 .flat_map(|v| {
-                    [v.x, v.y, v.z, 0.0f32].into_iter().flat_map(f32::to_le_bytes)
+                    [v.x, v.y, v.z, 0.0f32]
+                        .into_iter()
+                        .flat_map(f32::to_le_bytes)
                 })
                 .collect(),
             _ => values
@@ -290,7 +313,11 @@ impl FieldTextures {
                 })
                 .collect(),
         };
-        let bpp = if self.velocity_format == VELOCITY_FORMAT_EXACT { 16 } else { 8 };
+        let bpp = if self.velocity_format == VELOCITY_FORMAT_EXACT {
+            16
+        } else {
+            8
+        };
         queue.write_texture(
             self.velocity.as_image_copy(),
             &vel_bytes,
@@ -342,11 +369,13 @@ impl FieldTextures {
     }
 
     pub fn velocity_view(&self) -> wgpu::TextureView {
-        self.velocity.create_view(&wgpu::TextureViewDescriptor::default())
+        self.velocity
+            .create_view(&wgpu::TextureViewDescriptor::default())
     }
 
     pub fn density_view(&self) -> wgpu::TextureView {
-        self.density.create_view(&wgpu::TextureViewDescriptor::default())
+        self.density
+            .create_view(&wgpu::TextureViewDescriptor::default())
     }
 
     pub fn flags_buffer(&self) -> &wgpu::Buffer {
@@ -372,9 +401,15 @@ mod tests {
     #[test]
     fn f16_round_trips_the_values_a_lattice_velocity_actually_takes() {
         // Lattice velocities live in +/-0.2 and densities near 1.
-        for v in [0.0f32, 1.0, -1.0, 0.05, -0.05, 0.1, 1e-4, -1e-4, 0.123_456, 65504.0] {
+        for v in [
+            0.0f32, 1.0, -1.0, 0.05, -0.05, 0.1, 1e-4, -1e-4, 0.123_456, 65504.0,
+        ] {
             let back = f16_bits_to_f32(f32_to_f16_bits(v));
-            let err = if v == 0.0 { back.abs() } else { (back - v).abs() / v.abs() };
+            let err = if v == 0.0 {
+                back.abs()
+            } else {
+                (back - v).abs() / v.abs()
+            };
             assert!(err < 1e-3, "{v} round-tripped to {back}");
         }
         assert!(f16_bits_to_f32(f32_to_f16_bits(f32::INFINITY)).is_infinite());
@@ -390,7 +425,10 @@ mod tests {
     fn a_fixture_uploads_and_binds_against_the_shared_layout() {
         let Some(gpu) = crate::test_gpu() else { return };
         let grid = Grid::covering(
-            ad_gpu::Bbox { min: glam::Vec3::ZERO, max: glam::Vec3::splat(4.0) },
+            ad_gpu::Bbox {
+                min: glam::Vec3::ZERO,
+                max: glam::Vec3::splat(4.0),
+            },
             1.0,
         );
         for exact in [false, true] {
@@ -399,15 +437,26 @@ mod tests {
             } else {
                 FieldTextures::new(&gpu.device, grid)
             };
-            f.fill(&gpu.queue, |_, p| (glam::Vec3::new(0.05, 0.0, 0.0), 1.0 + p.x * 1e-4, flags::FLUID))
-                .unwrap();
+            f.fill(&gpu.queue, |_, p| {
+                (
+                    glam::Vec3::new(0.05, 0.0, 0.0),
+                    1.0 + p.x * 1e-4,
+                    flags::FLUID,
+                )
+            })
+            .unwrap();
             let layout = field_layout(&gpu.device);
             let (vv, dv) = (f.velocity_view(), f.density_view());
             // Validation failures surface at bind group creation.
             let _ = field_bind_group(
                 &gpu.device,
                 &layout,
-                &FieldRefs { grid, velocity: &vv, density: &dv, flags: f.flags_buffer() },
+                &FieldRefs {
+                    grid,
+                    velocity: &vv,
+                    density: &dv,
+                    flags: f.flags_buffer(),
+                },
             );
         }
     }

@@ -104,7 +104,11 @@ impl Default for Scene {
 
 impl Scene {
     pub fn new() -> Self {
-        Self { meshes: Vec::new(), model: Mat4::IDENTITY, prev_model: Mat4::IDENTITY }
+        Self {
+            meshes: Vec::new(),
+            model: Mat4::IDENTITY,
+            prev_model: Mat4::IDENTITY,
+        }
     }
 
     /// World-space bounds of everything visible.
@@ -118,9 +122,21 @@ impl Scene {
                 let mut acc = b;
                 for i in 0..8 {
                     let c = Vec3::new(
-                        if i & 1 == 0 { m.bbox.min.x } else { m.bbox.max.x },
-                        if i & 2 == 0 { m.bbox.min.y } else { m.bbox.max.y },
-                        if i & 4 == 0 { m.bbox.min.z } else { m.bbox.max.z },
+                        if i & 1 == 0 {
+                            m.bbox.min.x
+                        } else {
+                            m.bbox.max.x
+                        },
+                        if i & 2 == 0 {
+                            m.bbox.min.y
+                        } else {
+                            m.bbox.max.y
+                        },
+                        if i & 4 == 0 {
+                            m.bbox.min.z
+                        } else {
+                            m.bbox.max.z
+                        },
                     );
                     acc = acc.union_point((self.model * m.model).transform_point3(c));
                 }
@@ -132,7 +148,10 @@ impl Scene {
     /// for a rigid transform, but the accumulator still has to be told.
     pub fn is_static(&self) -> bool {
         self.model.abs_diff_eq(self.prev_model, 1e-7)
-            && self.meshes.iter().all(|m| m.model.abs_diff_eq(m.prev_model, 1e-7))
+            && self
+                .meshes
+                .iter()
+                .all(|m| m.model.abs_diff_eq(m.prev_model, 1e-7))
     }
 
     /// Call once per frame after rendering, so next frame's motion vectors have
@@ -290,7 +309,10 @@ impl Renderer {
         let camera_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("camera"),
             layout: &camera_layout,
-            entries: &[wgpu::BindGroupEntry { binding: 0, resource: camera_buffer.as_entire_binding() }],
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: camera_buffer.as_entire_binding(),
+            }],
         });
 
         let fields = DerivedFields::new(
@@ -437,7 +459,8 @@ impl Renderer {
     }
 
     pub fn set_target_format(&mut self, format: wgpu::TextureFormat) -> Result<()> {
-        self.post.set_target_format(&self.device, &self.loader, format)
+        self.post
+            .set_target_format(&self.device, &self.loader, format)
     }
 
     /// Switch the displayed scalar.
@@ -589,7 +612,11 @@ impl Renderer {
     // -- the frame ------------------------------------------------------------
 
     /// Record the whole frame into `encoder`. The caller submits.
-    pub fn render(&mut self, encoder: &mut wgpu::CommandEncoder, input: FrameInput<'_>) -> Result<()> {
+    pub fn render(
+        &mut self,
+        encoder: &mut wgpu::CommandEncoder,
+        input: FrameInput<'_>,
+    ) -> Result<()> {
         self.profiler.begin_frame();
 
         // 1. Derived fields, when the solver has stepped.
@@ -612,7 +639,8 @@ impl Renderer {
             if self.accessible_colors {
                 effective.map = effective.map.accessible_substitute();
             }
-            self.volume.upload_transfer_function(&self.queue, &effective);
+            self.volume
+                .upload_transfer_function(&self.queue, &effective);
             self.tf_dirty = false;
             self.post.reset_accumulation();
         }
@@ -650,7 +678,8 @@ impl Renderer {
             let mut vs = *self.volume.settings();
             if vs.light_dir != key_lattice {
                 vs.light_dir = key_lattice;
-                self.volume.set_settings(&self.device, vs, self.size.0, self.size.1);
+                self.volume
+                    .set_settings(&self.device, vs, self.size.0, self.size.1);
             }
         }
 
@@ -669,14 +698,12 @@ impl Renderer {
         let vp = cam.view_projection_unjittered();
         let camera_static = vp.abs_diff_eq(self.prev_view_proj, 1.0e-7);
         let overlays_static = self.overlays.iter().all(|p| p.is_static());
-        let static_scene = camera_static
-            && input.scene.is_static()
-            && overlays_static
-            && !stepped
-            && !rebuilt;
+        let static_scene =
+            camera_static && input.scene.is_static() && overlays_static && !stepped && !rebuilt;
 
         let cu = CameraUniform::new(&cam, self.prev_view_proj, w, h, self.frame);
-        self.queue.write_buffer(&self.camera_buffer, 0, bytemuck::bytes_of(&cu));
+        self.queue
+            .write_buffer(&self.camera_buffer, 0, bytemuck::bytes_of(&cu));
 
         // Keep the background's ground plane and contact shadow under the part.
         let bbox = input.scene.bbox();
@@ -690,7 +717,12 @@ impl Renderer {
         // 5. Opaque G-buffer. Runs even in ghost/wireframe/off, because clearing
         //    depth to the reverse-Z far plane is what tells the raymarcher there
         //    is nothing in the way.
-        self.mesh.upload(&self.queue, &input.scene.meshes, input.scene.model, input.scene.prev_model);
+        self.mesh.upload(
+            &self.queue,
+            &input.scene.meshes,
+            input.scene.model,
+            input.scene.prev_model,
+        );
         self.mesh.render_gbuffer(
             encoder,
             &mut self.profiler,
@@ -787,8 +819,10 @@ impl Renderer {
             self.volume.front_view(),
             static_scene,
         );
-        self.post.bloom(&self.device, &self.queue, encoder, &mut self.profiler);
-        self.post.tonemap(&self.device, &self.queue, encoder, input.target);
+        self.post
+            .bloom(&self.device, &self.queue, encoder, &mut self.profiler);
+        self.post
+            .tonemap(&self.device, &self.queue, encoder, input.target);
 
         self.profiler.resolve(encoder);
 
@@ -826,7 +860,11 @@ impl Renderer {
         let mut lines: Vec<String> = Vec::new();
         for name in ORDER {
             if self.profiler.timing(name).is_some() {
-                let bytes = if name == "derive" { self.fields.traffic_bytes() } else { 0 };
+                let bytes = if name == "derive" {
+                    self.fields.traffic_bytes()
+                } else {
+                    0
+                };
                 lines.push(self.profiler.summary(name, bytes));
             }
         }
@@ -879,7 +917,10 @@ mod tests {
         // Exercise the lookup against a bare Vec rather than a full Renderer,
         // which would need a GPU device just to answer a question about names.
         let mut overlays: Vec<Box<dyn OverlayPass>> = vec![
-            Box::new(Probe { name: "q-iso", isolevel: 0.5 }),
+            Box::new(Probe {
+                name: "q-iso",
+                isolevel: 0.5,
+            }),
             Box::new(Other),
         ];
 
@@ -887,7 +928,9 @@ mod tests {
             v: &'a mut [Box<dyn OverlayPass>],
             name: &str,
         ) -> Option<&'a mut dyn OverlayPass> {
-            v.iter_mut().find(|o| o.name() == name).map(|o| o.as_mut() as &mut dyn OverlayPass)
+            v.iter_mut()
+                .find(|o| o.name() == name)
+                .map(|o| o.as_mut() as &mut dyn OverlayPass)
         }
 
         // The happy path: recover the concrete type and mutate it.
@@ -980,19 +1023,40 @@ mod tests {
 
         let mut scene = Scene::new();
         let verts = [
-            MeshVertex { position: [-10.0, -10.0, 0.0], normal: [0.0, 0.0, 1.0], scalar: 0.0 },
-            MeshVertex { position: [10.0, -10.0, 0.0], normal: [0.0, 0.0, 1.0], scalar: 0.5 },
-            MeshVertex { position: [0.0, 10.0, 0.0], normal: [0.0, 0.0, 1.0], scalar: 1.0 },
+            MeshVertex {
+                position: [-10.0, -10.0, 0.0],
+                normal: [0.0, 0.0, 1.0],
+                scalar: 0.0,
+            },
+            MeshVertex {
+                position: [10.0, -10.0, 0.0],
+                normal: [0.0, 0.0, 1.0],
+                scalar: 0.5,
+            },
+            MeshVertex {
+                position: [0.0, 10.0, 0.0],
+                normal: [0.0, 0.0, 1.0],
+                scalar: 1.0,
+            },
         ];
         scene.meshes.push(GpuMesh::upload(
             &gpu.device,
             &gpu.queue,
-            MeshData { vertices: &verts, indices: &[0, 1, 2] },
+            MeshData {
+                vertices: &verts,
+                indices: &[0, 1, 2],
+            },
             MeshStyle::default(),
         ));
 
         let mut cam = Camera::default();
-        cam.frame_bbox(Bbox { min: Vec3::splat(-24.0), max: Vec3::splat(24.0) }, 0.1);
+        cam.frame_bbox(
+            Bbox {
+                min: Vec3::splat(-24.0),
+                max: Vec3::splat(24.0),
+            },
+            0.1,
+        );
 
         let units = ad_gpu::LatticeUnits::for_air(grid.dx_mm as f64, 5.0, 0.05);
         let scales = DeriveScales::new(&units, 6.3);
@@ -1005,7 +1069,9 @@ mod tests {
             }
             let mut enc = gpu
                 .device
-                .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("test") });
+                .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                    label: Some("test"),
+                });
             r.render(
                 &mut enc,
                 FrameInput {
@@ -1060,14 +1126,22 @@ mod tests {
         let target_view = target.create_view(&Default::default());
 
         let mut cam = Camera::default();
-        cam.frame_bbox(Bbox { min: Vec3::splat(-24.0), max: Vec3::splat(24.0) }, 0.1);
+        cam.frame_bbox(
+            Bbox {
+                min: Vec3::splat(-24.0),
+                max: Vec3::splat(24.0),
+            },
+            0.1,
+        );
         // Look slightly downward so the ground plane is in frame.
         cam.pitch = 0.35;
 
         let scene = Scene::new();
         let mut enc = gpu
             .device
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("readback") });
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("readback"),
+            });
         r.render(
             &mut enc,
             FrameInput {
@@ -1092,9 +1166,18 @@ mod tests {
         let var = lum.iter().map(|l| (l - mean) * (l - mean)).sum::<f32>() / lum.len() as f32;
 
         assert!(mean > 0.5, "the frame is black: mean luminance {mean}");
-        assert!(mean < 250.0, "the frame is blown out: mean luminance {mean}");
-        assert!(var > 0.05, "the frame is a flat fill: luminance variance {var}");
-        assert!(pixels.chunks_exact(4).all(|p| p[3] == 255), "alpha must be opaque");
+        assert!(
+            mean < 250.0,
+            "the frame is blown out: mean luminance {mean}"
+        );
+        assert!(
+            var > 0.05,
+            "the frame is a flat fill: luminance variance {var}"
+        );
+        assert!(
+            pixels.chunks_exact(4).all(|p| p[3] == 255),
+            "alpha must be opaque"
+        );
     }
 
     #[test]
@@ -1118,7 +1201,11 @@ mod tests {
     /// Grid used by the numeric tests. `x = 32` makes an `Rgba16Float` row
     /// exactly 256 bytes, which is the `copy_texture_to_buffer` row alignment.
     fn numeric_grid() -> Grid {
-        Grid { dims: UVec3::new(32, 24, 24), dx_mm: 0.75, origin_mm: Vec3::splat(-8.0) }
+        Grid {
+            dims: UVec3::new(32, 24, 24),
+            dx_mm: 0.75,
+            origin_mm: Vec3::splat(-8.0),
+        }
     }
 
     /// A Taylor-Green vortex in lattice units, plus a density ripple. Chosen
@@ -1251,9 +1338,8 @@ mod tests {
         let idx = |c: UVec3| ((c.z * dims.y + c.y) * dims.x + c.x) as usize;
         let in_domain =
             |c: glam::IVec3| c.cmpge(glam::IVec3::ZERO).all() && c.cmplt(dims.as_ivec3()).all();
-        let usable = |c: glam::IVec3| {
-            in_domain(c) && ad_gpu::flags::is_fluid(flags[idx(c.as_uvec3())])
-        };
+        let usable =
+            |c: glam::IVec3| in_domain(c) && ad_gpu::flags::is_fluid(flags[idx(c.as_uvec3())]);
         let vel = |c: glam::IVec3| {
             let t = data[idx(c.as_uvec3())];
             Vec3::new(quantise(t[0]), quantise(t[1]), quantise(t[2]))
@@ -1336,7 +1422,11 @@ mod tests {
             &gpu.queue,
             &mut enc,
             &mut profiler,
-            &FieldSources { macro_view: &mac_view, flags_view: Some(&flg_view), scales },
+            &FieldSources {
+                macro_view: &mac_view,
+                flags_view: Some(&flg_view),
+                scales,
+            },
         );
 
         let raw = util::readback_texture(
@@ -1369,12 +1459,17 @@ mod tests {
                 let want = expect[i][c];
                 // Relative, with an absolute floor scaled to the channel's own
                 // range: `f16` output has ~1e-3 relative precision.
-                let scale = want.abs().max(0.02 * expect.iter().map(|e| e[c].abs()).fold(0.0, f32::max));
+                let scale = want
+                    .abs()
+                    .max(0.02 * expect.iter().map(|e| e[c].abs()).fold(0.0, f32::max));
                 let err = (got - want).abs() / scale.max(1e-12);
                 worst[c] = worst[c].max(err);
             }
         }
-        assert!(checked > 1000, "the test grid produced only {checked} fluid cells");
+        assert!(
+            checked > 1000,
+            "the test grid produced only {checked} fluid cells"
+        );
         for (c, name) in ["speed", "Q~", "|omega|", "pressure"].iter().enumerate() {
             assert!(
                 worst[c] < 0.02,
@@ -1402,14 +1497,24 @@ mod tests {
         let dims = grid.dims;
         let loader = util::shader_loader();
 
-        let mut f =
-            DerivedFields::new(&gpu.device, &gpu.queue, &loader, grid, FieldResolution::Full)
-                .unwrap();
+        let mut f = DerivedFields::new(
+            &gpu.device,
+            &gpu.queue,
+            &loader,
+            grid,
+            FieldResolution::Full,
+        )
+        .unwrap();
         let mut bricks = BrickGrid::new(&gpu.device, &loader, &f).unwrap();
 
         let (mac, flg) = fields::create_source_textures(&gpu.device, grid);
         upload_macro(&gpu.queue, &mac, dims, &sparse_macro(dims));
-        upload_flags(&gpu.queue, &flg, dims, &vec![ad_gpu::flags::FLUID; (dims.x * dims.y * dims.z) as usize]);
+        upload_flags(
+            &gpu.queue,
+            &flg,
+            dims,
+            &vec![ad_gpu::flags::FLUID; (dims.x * dims.y * dims.z) as usize],
+        );
         let d3 = wgpu::TextureViewDescriptor {
             dimension: Some(wgpu::TextureViewDimension::D3),
             ..Default::default()
@@ -1425,7 +1530,12 @@ mod tests {
         // blob's shell survive binarisation.
         let mut tf = TransferFunction::preset(DerivedField::Speed);
         tf.mode = OpacityMode::SoftIso;
-        tf.iso = SoftIso { center: 5.0, width: 0.25, amplitude: 0.9, cutoff_widths: 2.5 };
+        tf.iso = SoftIso {
+            center: 5.0,
+            width: 0.25,
+            amplitude: 0.9,
+            cutoff_widths: 2.5,
+        };
         tf.range = [0.0, 9.0];
         tf.sanitise();
 
@@ -1435,7 +1545,11 @@ mod tests {
             &gpu.queue,
             &mut enc,
             &mut profiler,
-            &FieldSources { macro_view: &mac_view, flags_view: Some(&flg_view), scales },
+            &FieldSources {
+                macro_view: &mac_view,
+                flags_view: Some(&flg_view),
+                scales,
+            },
         );
         assert!(bricks.update(&gpu.queue, &mut enc, &mut profiler, &f, &tf));
 
@@ -1447,8 +1561,14 @@ mod tests {
         };
         // Both textures come from the same encoder submission, so the min/max
         // read back is exactly the one the seed pass binarised.
-        let minmax_raw =
-            util::readback_texture(&gpu.device, &gpu.queue, bricks.minmax_texture(), extent, 8, enc);
+        let minmax_raw = util::readback_texture(
+            &gpu.device,
+            &gpu.queue,
+            bricks.minmax_texture(),
+            extent,
+            8,
+            enc,
+        );
         let enc2 = gpu.device.create_command_encoder(&Default::default());
         let dist_raw = util::readback_texture(
             &gpu.device,
@@ -1463,7 +1583,9 @@ mod tests {
         assert_eq!(minmax_raw.len(), n * 8);
         assert_eq!(dist_raw.len(), n * 4);
 
-        let support = tf.support().expect("the test transfer function must have support");
+        let support = tf
+            .support()
+            .expect("the test transfer function must have support");
         let active: Vec<bool> = (0..n)
             .map(|i| {
                 let mn = f32::from_le_bytes(minmax_raw[i * 8..i * 8 + 4].try_into().unwrap());
@@ -1473,7 +1595,10 @@ mod tests {
             .collect();
 
         let active_count = active.iter().filter(|a| **a).count();
-        assert!(active_count > 0, "no brick is active; the test proves nothing");
+        assert!(
+            active_count > 0,
+            "no brick is active; the test proves nothing"
+        );
         assert!(
             active_count < n,
             "every brick is active; the distance transform is untested"
@@ -1488,7 +1613,10 @@ mod tests {
         let got: Vec<u32> = (0..n)
             .map(|i| u32::from_le_bytes(dist_raw[i * 4..i * 4 + 4].try_into().unwrap()))
             .collect();
-        assert_eq!(got, expect, "GPU Chebyshev transform disagrees with the CPU reference");
+        assert_eq!(
+            got, expect,
+            "GPU Chebyshev transform disagrees with the CPU reference"
+        );
     }
 
     #[test]
@@ -1544,7 +1672,12 @@ mod tests {
             {
                 let tf = r.transfer_function_mut();
                 tf.mode = OpacityMode::SoftIso;
-                tf.iso = SoftIso { center: 2.0, width: 0.35, amplitude: 0.9, cutoff_widths: 2.5 };
+                tf.iso = SoftIso {
+                    center: 2.0,
+                    width: 0.35,
+                    amplitude: 0.9,
+                    cutoff_widths: 2.5,
+                };
                 tf.range = [0.0, 6.0];
                 tf.sanitise();
             }
@@ -1656,14 +1789,23 @@ mod tests {
         r.set_field(DerivedField::Pressure);
         assert_ne!(r.transfer_function().mode, OpacityMode::SoftIso);
         r.set_field(DerivedField::QCriterion);
-        assert_eq!(r.transfer_function().iso.center, 1.234, "the tuning was lost");
+        assert_eq!(
+            r.transfer_function().iso.center,
+            1.234,
+            "the tuning was lost"
+        );
 
         // ...and the other fields are visible without switching to them.
-        assert!(r.transfer_function_for(DerivedField::Pressure).symmetric_lock);
+        assert!(
+            r.transfer_function_for(DerivedField::Pressure)
+                .symmetric_lock
+        );
         r.reset_transfer_function(DerivedField::QCriterion);
         assert_eq!(
             r.transfer_function().iso.center,
-            TransferFunction::preset(DerivedField::QCriterion).iso.center
+            TransferFunction::preset(DerivedField::QCriterion)
+                .iso
+                .center
         );
     }
 
@@ -1713,7 +1855,10 @@ mod tests {
             "the volume is lit from {} instead of {dir}",
             r.volume_settings().light_dir
         );
-        assert!((r.mesh.light_dir - dir).length() < 1e-5, "the mesh is lit from elsewhere");
+        assert!(
+            (r.mesh.light_dir - dir).length() < 1e-5,
+            "the mesh is lit from elsewhere"
+        );
     }
 
     #[test]

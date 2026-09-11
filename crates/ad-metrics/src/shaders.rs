@@ -219,9 +219,18 @@ pub fn build_loader() -> ShaderLoader {
             include_str!("../../../shaders/metrics/common.wgsl")
         ),
     );
-    loader.add_virtual("metrics/plane.wgsl", include_str!("../../../shaders/metrics/plane.wgsl"));
-    loader.add_virtual("metrics/volume.wgsl", include_str!("../../../shaders/metrics/volume.wgsl"));
-    loader.add_virtual("metrics/wall.wgsl", include_str!("../../../shaders/metrics/wall.wgsl"));
+    loader.add_virtual(
+        "metrics/plane.wgsl",
+        include_str!("../../../shaders/metrics/plane.wgsl"),
+    );
+    loader.add_virtual(
+        "metrics/volume.wgsl",
+        include_str!("../../../shaders/metrics/volume.wgsl"),
+    );
+    loader.add_virtual(
+        "metrics/wall.wgsl",
+        include_str!("../../../shaders/metrics/wall.wgsl"),
+    );
     loader
 }
 
@@ -269,8 +278,14 @@ mod tests {
         // without needing a GPU.
         let loader = build_loader();
         let d = defines();
-        for entry in ["metrics/plane.wgsl", "metrics/volume.wgsl", "metrics/wall.wgsl"] {
-            let src = loader.load(entry, &d).unwrap_or_else(|e| panic!("{entry}: {e}"));
+        for entry in [
+            "metrics/plane.wgsl",
+            "metrics/volume.wgsl",
+            "metrics/wall.wgsl",
+        ] {
+            let src = loader
+                .load(entry, &d)
+                .unwrap_or_else(|e| panic!("{entry}: {e}"));
             assert!(src.contains("@compute"), "{entry}: no entry point emitted");
             assert!(
                 src.contains(&format!("const ACC_STRIDE: u32 = {ACC_STRIDE}u;")),
@@ -280,7 +295,10 @@ mod tests {
                 src.contains(&format!("const FLAG_SOLID: u32 = {}u;", flags::SOLID)),
                 "{entry}: flag constants missing"
             );
-            assert!(src.contains("fn sample_field"), "{entry}: common.wgsl was not included");
+            assert!(
+                src.contains("fn sample_field"),
+                "{entry}: common.wgsl was not included"
+            );
         }
     }
 

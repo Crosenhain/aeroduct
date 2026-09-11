@@ -20,8 +20,11 @@ use ad_gpu::types::VelocitySet;
 use ad_solver::CollisionModel;
 
 fn main() {
-    let mut spec =
-        KernelSpec { set: VelocitySet::D3Q19, collision: CollisionModel::Trt, block_x: 64 };
+    let mut spec = KernelSpec {
+        set: VelocitySet::D3Q19,
+        collision: CollisionModel::Trt,
+        block_x: 64,
+    };
     for arg in std::env::args().skip(1) {
         match arg.to_ascii_lowercase().as_str() {
             "d3q19" => spec.set = VelocitySet::D3Q19,

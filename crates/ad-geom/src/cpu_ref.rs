@@ -75,7 +75,10 @@ impl RayParityResult {
             self.volume_mm3(),
             self.grid.dx_mm,
             if self.grazing_hits > 0 {
-                format!("; {} grazing hits, parity may be unreliable", self.grazing_hits)
+                format!(
+                    "; {} grazing hits, parity may be unreliable",
+                    self.grazing_hits
+                )
             } else {
                 String::new()
             },
@@ -282,7 +285,10 @@ impl CpuSdf {
         let mut cand = Vec::new();
 
         loop {
-            let q = Bbox { min: p - Vec3::splat(radius), max: p + Vec3::splat(radius) };
+            let q = Bbox {
+                min: p - Vec3::splat(radius),
+                max: p + Vec3::splat(radius),
+            };
             self.bins.collect_in_aabb(q, &mut cand);
             if let Some(hit) = self.best_of(p, cand.iter().copied()) {
                 if hit.distance <= radius || radius >= limit {
@@ -308,7 +314,13 @@ impl CpuSdf {
             if best.is_none_or(|h| d < h.distance) {
                 let n = self.geom.pseudonormal(t, feature);
                 let signed = if (p - q).dot(n) > 0.0 { d } else { -d };
-                best = Some(Hit { tri: t, feature, point: q, distance: d, signed });
+                best = Some(Hit {
+                    tri: t,
+                    feature,
+                    point: q,
+                    distance: d,
+                    signed,
+                });
             }
         }
         best
@@ -365,7 +377,9 @@ mod tests {
     use crate::primitives;
 
     fn soup(mesh: &TriMesh) -> Vec<[Vec3; 3]> {
-        (0..mesh.triangle_count()).map(|t| mesh.triangle(t)).collect()
+        (0..mesh.triangle_count())
+            .map(|t| mesh.triangle(t))
+            .collect()
     }
 
     fn grid_around(b: Bbox, dx: f32) -> Grid {
@@ -396,7 +410,11 @@ mod tests {
         let r = ray_parity_voxelize(&soup(&m), g);
         assert!(r.is_watertight(), "{}", r.report());
         let exact = 4.0 / 3.0 * std::f64::consts::PI * 12.0f64.powi(3);
-        assert!((r.volume_mm3() / exact - 1.0).abs() < 0.02, "{}", r.report());
+        assert!(
+            (r.volume_mm3() / exact - 1.0).abs() < 0.02,
+            "{}",
+            r.report()
+        );
     }
 
     /// A hole in the mesh must be reported, not silently voxelised into
@@ -414,7 +432,11 @@ mod tests {
 
         let g = grid_around(m.bbox(), 0.5);
         let r = ray_parity_voxelize(&soup(&m), g);
-        assert!(!r.is_watertight(), "the hole went unnoticed: {}", r.report());
+        assert!(
+            !r.is_watertight(),
+            "the hole went unnoticed: {}",
+            r.report()
+        );
         assert!(!r.odd_parity_examples.is_empty());
         assert!(r.report().contains("odd parity"));
     }
@@ -443,7 +465,10 @@ mod tests {
             }
             z += 0.5;
         }
-        assert!(worst < 1e-3, "worst error {worst} mm against the analytic box SDF");
+        assert!(
+            worst < 1e-3,
+            "worst error {worst} mm against the analytic box SDF"
+        );
     }
 
     #[test]
@@ -466,7 +491,10 @@ mod tests {
             let p = Vec3::new(rnd(), rnd(), rnd()) * 15.0;
             let want = p.length() - r;
             let got = sdf.signed_distance(p);
-            assert!((got - want).abs() < tol, "{got} vs {want} at {p:?} (tol {tol})");
+            assert!(
+                (got - want).abs() < tol,
+                "{got} vs {want} at {p:?} (tol {tol})"
+            );
         }
     }
 

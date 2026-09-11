@@ -111,8 +111,9 @@ pub struct DeviceInfo {
 impl DeviceInfo {
     fn query(ctx: &Arc<CudaContext>) -> Result<Self> {
         let name = ctx.name().context("querying the CUDA device name")?;
-        let compute_capability =
-            ctx.compute_capability().context("querying the compute capability")?;
+        let compute_capability = ctx
+            .compute_capability()
+            .context("querying the compute capability")?;
         let clock_khz = ctx
             .attribute(CUdevice_attribute::CU_DEVICE_ATTRIBUTE_MEMORY_CLOCK_RATE)
             .unwrap_or(0);
@@ -124,7 +125,12 @@ impl DeviceInfo {
         let multiprocessors = ctx
             .attribute(CUdevice_attribute::CU_DEVICE_ATTRIBUTE_MULTIPROCESSOR_COUNT)
             .unwrap_or(0);
-        Ok(Self { name, compute_capability, peak_bandwidth, multiprocessors })
+        Ok(Self {
+            name,
+            compute_capability,
+            peak_bandwidth,
+            multiprocessors,
+        })
     }
 }
 
@@ -220,7 +226,10 @@ impl CudaSolver {
             .checked_mul(q)
             .and_then(|n| usize::try_from(n).ok())
             .with_context(|| {
-                format!("grid {}x{}x{} overflows an allocation", grid.dims.x, grid.dims.y, grid.dims.z)
+                format!(
+                    "grid {}x{}x{} overflows an allocation",
+                    grid.dims.x, grid.dims.y, grid.dims.z
+                )
             })?;
 
         let ctx = CudaContext::new(0).context(
@@ -237,26 +246,29 @@ impl CudaSolver {
         let (module, f_init, f_step, f_macro) = compile(&ctx, spec, &info)?;
 
         let flag_words = pack_flags(&domain.flags);
-        let flags = stream.clone_htod(&flag_words).context("uploading the flag bytes")?;
-        let link_mask =
-            stream.clone_htod(&domain.link_mask).context("uploading the link mask")?;
+        let flags = stream
+            .clone_htod(&flag_words)
+            .context("uploading the flag bytes")?;
+        let link_mask = stream
+            .clone_htod(&domain.link_mask)
+            .context("uploading the link mask")?;
         // Explicit, and not redundant. cudarc issues host copies with
         // `cuMemcpy*Async` and only synchronises for *pinned* host memory - a
         // plain `Vec` gets `SyncOnDrop::Sync(None)`, i.e. nothing. The driver
         // does treat a pageable copy as synchronous in practice, but `flag_words`
         // is a local about to be dropped, and "the DMA has probably already read
         // it" is not a thing to rely on for a use-after-free.
-        stream.synchronize().context("waiting for the static uploads")?;
+        stream
+            .synchronize()
+            .context("waiting for the static uploads")?;
 
-        let ddf = stream
-            .alloc_zeros::<f32>(ddf_elems)
-            .with_context(|| {
-                format!(
-                    "allocating {:.2} GiB of distribution functions ({:.1} M cells x {q})",
-                    (ddf_elems * 4) as f64 / (1u64 << 30) as f64,
-                    cells as f64 / 1e6
-                )
-            })?;
+        let ddf = stream.alloc_zeros::<f32>(ddf_elems).with_context(|| {
+            format!(
+                "allocating {:.2} GiB of distribution functions ({:.1} M cells x {q})",
+                (ddf_elems * 4) as f64 / (1u64 << 30) as f64,
+                cells as f64 / 1e6
+            )
+        })?;
         let interior = usize::try_from(domain.interior_cell_count() * 4)
             .context("interior grid overflows an allocation")?;
         let macro_buf = stream
@@ -350,7 +362,9 @@ impl CudaSolver {
         // Zeroing is not strictly required - every slot the solver reads is
         // written by `init` - but it costs one clear per reset and removes any
         // chance of a stray value in an unread slot surviving a future change.
-        self.stream.memset_zeros(&mut self.ddf).context("clearing the distribution functions")?;
+        self.stream
+            .memset_zeros(&mut self.ddf)
+            .context("clearing the distribution functions")?;
 
         let params = self.params(0);
         let cfg = self.launch_config(self.domain.padded);
@@ -393,10 +407,13 @@ impl CudaSolver {
             // batch's timing is silently dropped.
             self.collect(true);
             let start = self.new_timing_event()?;
-            start.record(&self.stream).context("recording the start event")?;
+            start
+                .record(&self.stream)
+                .context("recording the start event")?;
             self.launch_steps(n)?;
             let end = self.new_timing_event()?;
-            end.record(&self.stream).context("recording the end event")?;
+            end.record(&self.stream)
+                .context("recording the end event")?;
             self.pending = Some((start, end, n));
             self.profiled_steps = n;
         } else {
@@ -427,7 +444,10 @@ impl CudaSolver {
                 let params = self.params(parity);
                 let stream = self.stream.clone();
                 let mut b = stream.launch_builder(&self.f_step);
-                b.arg(&params).arg(&mut self.ddf).arg(&self.flags).arg(&self.link_mask);
+                b.arg(&params)
+                    .arg(&mut self.ddf)
+                    .arg(&self.flags)
+                    .arg(&self.link_mask);
                 // SAFETY: as `reset`. The argument list matches
                 // `lbm_stream_collide`, and Esoteric Pull makes the in-place
                 // update race-free - every (address, half) is owned by exactly
@@ -467,7 +487,9 @@ impl CudaSolver {
     }
 
     fn collect(&mut self, block: bool) {
-        let Some((start, end, steps)) = self.pending.take() else { return };
+        let Some((start, end, steps)) = self.pending.take() else {
+            return;
+        };
         if !block && !end.is_complete() {
             self.pending = Some((start, end, steps));
             return;
@@ -517,8 +539,13 @@ impl CudaSolver {
         // issued asynchronously and synchronised by nothing. Reading `flat`
         // before this line would be a race with the copy that fills it - and one
         // that would usually appear to work, which is the worst kind.
-        self.stream.synchronize().context("waiting for the macroscopic readback")?;
-        Ok(flat.chunks_exact(4).map(|c| [c[0], c[1], c[2], c[3]]).collect())
+        self.stream
+            .synchronize()
+            .context("waiting for the macroscopic readback")?;
+        Ok(flat
+            .chunks_exact(4)
+            .map(|c| [c[0], c[1], c[2], c[3]])
+            .collect())
     }
 
     /// Bytes of memory traffic one step moves, for the roofline percentage.
@@ -534,8 +561,7 @@ impl CudaSolver {
 
     /// Milliseconds per step, from the last collected event pair.
     pub fn ms_per_step(&self) -> Option<f64> {
-        (self.timing.samples > 0)
-            .then(|| self.timing.mean_ms / self.profiled_steps.max(1) as f64)
+        (self.timing.samples > 0).then(|| self.timing.mean_ms / self.profiled_steps.max(1) as f64)
     }
 
     /// Achieved million lattice updates per second.
@@ -563,7 +589,10 @@ impl CudaSolver {
     pub fn profiler_summary(&self) -> String {
         match (self.ms_per_step(), self.mlups(), self.roofline_fraction()) {
             (Some(ms), Some(m), Some(r)) => {
-                format!("stream_collide: {ms:.3} ms/step, {m:.0} MLUPS, {:.0}% of roofline", r * 100.0)
+                format!(
+                    "stream_collide: {ms:.3} ms/step, {m:.0} MLUPS, {:.0}% of roofline",
+                    r * 100.0
+                )
             }
             (Some(ms), Some(m), None) => format!("stream_collide: {ms:.3} ms/step, {m:.0} MLUPS"),
             _ => "stream_collide: no timing collected".to_string(),
@@ -590,9 +619,8 @@ impl CudaSolver {
 
     fn params(&self, parity: u32) -> CudaParams {
         let c = &self.cfg;
-        let periodic = (c.periodic[0] as u32)
-            | ((c.periodic[1] as u32) << 1)
-            | ((c.periodic[2] as u32) << 2);
+        let periodic =
+            (c.periodic[0] as u32) | ((c.periodic[1] as u32) << 1) | ((c.periodic[2] as u32) << 2);
         let d = self.domain.padded;
         let i = self.domain.interior;
         let o = self.domain.offset;
@@ -751,10 +779,16 @@ fn compile(
         anyhow::anyhow!("NVRTC rejected the generated kernel{hint}: {e}")
     })?;
 
-    let module = ctx.load_module(ptx).context("loading the compiled PTX module")?;
+    let module = ctx
+        .load_module(ptx)
+        .context("loading the compiled PTX module")?;
     let f_init = module.load_function(kernel::FN_INIT).context("lbm_init")?;
-    let f_step = module.load_function(kernel::FN_STREAM_COLLIDE).context("lbm_stream_collide")?;
-    let f_macro = module.load_function(kernel::FN_MACROSCOPIC).context("lbm_macroscopic")?;
+    let f_step = module
+        .load_function(kernel::FN_STREAM_COLLIDE)
+        .context("lbm_stream_collide")?;
+    let f_macro = module
+        .load_function(kernel::FN_MACROSCOPIC)
+        .context("lbm_macroscopic")?;
     Ok((module, f_init, f_step, f_macro))
 }
 

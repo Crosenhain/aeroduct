@@ -72,7 +72,9 @@ fn main() -> Result<()> {
     event_loop.set_control_flow(ControlFlow::Poll);
 
     let mut app = App::default();
-    event_loop.run_app(&mut app).context("running the event loop")?;
+    event_loop
+        .run_app(&mut app)
+        .context("running the event loop")?;
     if let Some(e) = app.fatal {
         return Err(e);
     }
@@ -101,7 +103,9 @@ impl ApplicationHandler for App {
     }
 
     fn window_event(&mut self, event_loop: &ActiveEventLoop, _id: WindowId, event: WindowEvent) {
-        let Some(r) = self.running.as_mut() else { return };
+        let Some(r) = self.running.as_mut() else {
+            return;
+        };
         if let Err(e) = r.window_event(event_loop, event) {
             log::error!("frame failed: {e:#}");
             self.fatal = Some(e);
@@ -263,7 +267,11 @@ impl Running {
             view_formats: vec![],
         };
         surface.configure(&gpu.device, &surface_config);
-        log::info!("surface: {format:?} {}x{}", surface_config.width, surface_config.height);
+        log::info!(
+            "surface: {format:?} {}x{}",
+            surface_config.width,
+            surface_config.height
+        );
 
         // --- geometry and solver ---
         let params = startup_params();
@@ -286,7 +294,12 @@ impl Running {
         // --- renderer ---
         let renderer = Renderer::new(
             &gpu,
-            RendererConfig::new(surface_config.width, surface_config.height, format, sim.grid),
+            RendererConfig::new(
+                surface_config.width,
+                surface_config.height,
+                format,
+                sim.grid,
+            ),
         )
         .context("building the renderer")?;
         // Where the part sits in the car. Only the picture, the camera and
@@ -354,7 +367,12 @@ impl Running {
         let (inlet, outlet) = mouth_roles(&sim, &params);
         let metrics = build_metrics(&gpu, &sim, inlet, outlet);
         let tracers = build_tracers(&sim, inlet, outlet);
-        state.status = format!("{} | {} | {}", gpu.info.name, sim.describe(), metrics.provenance());
+        state.status = format!(
+            "{} | {} | {}",
+            gpu.info.name,
+            sim.describe(),
+            metrics.provenance()
+        );
         log::info!("{}", sim.voxel_report);
         state.toasts.push(
             ad_ui::Toast::new(ad_ui::Severity::Notice, "Simulation running")
@@ -467,7 +485,8 @@ impl Running {
         }
         self.surface_config.width = width;
         self.surface_config.height = height;
-        self.surface.configure(&self.gpu.device, &self.surface_config);
+        self.surface
+            .configure(&self.gpu.device, &self.surface_config);
         self.renderer.resize(width, height);
         self.ui.resized(&self.window);
         self.ui.set_surface_size(width, height);
@@ -531,11 +550,17 @@ impl Running {
                 self.mouse.shift = s.shift_key();
                 self.mouse.alt = s.alt_key();
             }
-            WindowEvent::KeyboardInput { event, is_synthetic, .. } => {
+            WindowEvent::KeyboardInput {
+                event,
+                is_synthetic,
+                ..
+            } => {
                 if *is_synthetic || captured || event.state != ElementState::Pressed {
                     return;
                 }
-                let PhysicalKey::Code(code) = event.physical_key else { return };
+                let PhysicalKey::Code(code) = event.physical_key else {
+                    return;
+                };
                 self.shortcut(code);
             }
             _ => {}
@@ -578,7 +603,8 @@ impl Running {
         }
 
         if std::mem::take(&mut self.reconfigure_pending) {
-            self.surface.configure(&self.gpu.device, &self.surface_config);
+            self.surface
+                .configure(&self.gpu.device, &self.surface_config);
         }
 
         let now = Instant::now();
@@ -633,7 +659,8 @@ impl Running {
         if change.reset_statistics {
             // `sync_params` has already toasted this one, so the adapter is told
             // the cause and swallows the notice its own monitor will raise.
-            self.metrics.reset(change.cause.unwrap_or(ad_ui::view::ResetCause::Manual));
+            self.metrics
+                .reset(change.cause.unwrap_or(ad_ui::view::ResetCause::Manual));
             self.window_start_step = self.sim.solver.steps_taken();
         }
 
@@ -643,7 +670,11 @@ impl Running {
 
         // Step the solver, and the macroscopic fields in the same submit: only
         // when there is something new to derive.
-        let steps = if self.state.playing { self.state.tuner.steps() } else { 0 };
+        let steps = if self.state.playing {
+            self.state.tuner.steps()
+        } else {
+            0
+        };
         if steps > 0 {
             self.sim.solver.step_and_compute_macroscopic(steps);
             self.wall_time_s += dt as f64;
@@ -667,7 +698,11 @@ impl Running {
         let cx = SampleContext {
             sim: &self.sim,
             step: self.sim.solver.steps_taken(),
-            steps_in_window: self.sim.solver.steps_taken().saturating_sub(self.window_start_step),
+            steps_in_window: self
+                .sim
+                .solver
+                .steps_taken()
+                .saturating_sub(self.window_start_step),
             sim_time_s: self.sim.solver.sim_time_seconds(),
             inlet_velocity_ms: self.state.params.inlet_velocity_ms,
             inlet,
@@ -706,7 +741,8 @@ impl Running {
                 t
             }
             Acquired::Outdated | Acquired::Lost => {
-                self.surface.configure(&self.gpu.device, &self.surface_config);
+                self.surface
+                    .configure(&self.gpu.device, &self.surface_config);
                 return Ok(());
             }
             Acquired::Timeout | Acquired::Occluded => return Ok(()),
@@ -736,10 +772,14 @@ impl Running {
                 // `configure` calls a second is itself a way to upset the
                 // swapchain; one every quarter second is plenty to recover from a
                 // hiccup and cheap enough to be free.
-                if self.last_reconfigure.is_none_or(|t| now - t >= RECONFIGURE_INTERVAL) {
+                if self
+                    .last_reconfigure
+                    .is_none_or(|t| now - t >= RECONFIGURE_INTERVAL)
+                {
                     self.last_reconfigure = Some(now);
                     log::warn!("surface acquisition failed validation; reconfiguring");
-                    self.surface.configure(&self.gpu.device, &self.surface_config);
+                    self.surface
+                        .configure(&self.gpu.device, &self.surface_config);
                 }
                 return Ok(());
             }
@@ -756,7 +796,9 @@ impl Running {
         let mut encoder = self
             .gpu
             .device
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("frame") });
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("frame"),
+            });
         self.frame_profile.gpu.begin_frame();
 
         let velocity_view = self.sim.solver.velocity_view();
@@ -860,7 +902,10 @@ impl Running {
             );
             let rgba = to_rgba(raw, self.surface_config.format);
             png::write_rgba(&self.smoke_path, w, h, &rgba)?;
-            log::info!("captured the composited window to {}", self.smoke_path.display());
+            log::info!(
+                "captured the composited window to {}",
+                self.smoke_path.display()
+            );
             if tracers::rtd_enabled() {
                 let (i, o) = mouth_roles(&self.sim, &self.state.params);
                 tracers::probe_mouth(&mut self.sim, i, "inlet");
@@ -896,7 +941,8 @@ impl Running {
         laps.lap(Phase::Present);
         let window_closed = self.frame_profile.end_frame(dt, &laps, steps);
         self.state.profiling =
-            self.frame_profile.report(&self.sim.solver, &self.renderer, self.metrics.as_ref());
+            self.frame_profile
+                .report(&self.sim.solver, &self.renderer, self.metrics.as_ref());
         // An unattended run logs the breakdown once per window, so profiling a
         // configuration needs nothing but the log.
         if self.smoke_frames.is_some() && window_closed {
@@ -988,7 +1034,10 @@ impl Running {
         // roughly the outer 40% of the window, so a box framed to the viewport
         // has its downstream face behind the plots. The margin that matters for
         // this shot is the one to the panel edge, not to the window edge.
-        let domain = self.state.install.world_bbox(self.state.install_pivot_mm, self.sim.grid.bbox());
+        let domain = self
+            .state
+            .install
+            .world_bbox(self.state.install_pivot_mm, self.sim.grid.bbox());
         self.controller.frame_bbox(domain, DOMAIN_FRAME_MARGIN);
         self.controller.snap();
         log::info!("smoke script: framed the domain from {}", preset.label());
@@ -998,7 +1047,9 @@ impl Running {
     /// "frame the part" shot aims at. Obstructions included, so a part parked
     /// beside the duct is in shot too.
     fn world_scene_bbox(&self) -> ad_gpu::Bbox {
-        self.state.install.world_bbox(self.state.install_pivot_mm, self.sim.scene_bbox())
+        self.state
+            .install
+            .world_bbox(self.state.install_pivot_mm, self.sim.scene_bbox())
     }
 
     // -- obstructions --------------------------------------------------------
@@ -1019,10 +1070,20 @@ impl Running {
     ) -> ad_geom::Scene {
         let pivot = duct.world_bbox().center();
         let mut scene = ad_geom::Scene::new();
-        scene.add(duct.name, duct.asset, duct.transform, ad_geom::MeshRole::Duct);
+        scene.add(
+            duct.name,
+            duct.asset,
+            duct.transform,
+            ad_geom::MeshRole::Duct,
+        );
         for (o, p) in assets.iter().zip(placements) {
             let t = self.state.install.placement_to_lattice(pivot, *p);
-            scene.add(o.name.clone(), o.asset.clone(), t, ad_geom::MeshRole::Obstruction);
+            scene.add(
+                o.name.clone(),
+                o.asset.clone(),
+                t,
+                ad_geom::MeshRole::Obstruction,
+            );
         }
         scene
     }
@@ -1067,22 +1128,31 @@ impl Running {
                 self.committed_pose = self.state.install;
                 // A rebuild no parameter change announced, so the statistics
                 // reset is raised here, as `UiState::sync_params` would.
-                self.state
-                    .toasts
-                    .push(ad_ui::Toast::statistics_reset(ad_ui::view::ResetCause::GeometryChanged));
+                self.state.toasts.push(ad_ui::Toast::statistics_reset(
+                    ad_ui::view::ResetCause::GeometryChanged,
+                ));
                 self.state.probes.clear_history();
                 let grid = self.sim.grid.bbox();
-                for inst in self.sim.scene.instances().iter().filter(|i| i.role == ad_geom::MeshRole::Obstruction) {
+                for inst in self
+                    .sim
+                    .scene
+                    .instances()
+                    .iter()
+                    .filter(|i| i.role == ad_geom::MeshRole::Obstruction)
+                {
                     let b = inst.world_bbox();
                     if b.min.cmplt(grid.min).any() || b.max.cmpgt(grid.max).any() {
                         self.state.toasts.push(
-                            ad_ui::Toast::new(ad_ui::Severity::Notice, "Obstruction cut at the domain edge")
-                                .with_detail(format!(
-                                    "The part of {:?} outside the simulated box is left out; the box \
+                            ad_ui::Toast::new(
+                                ad_ui::Severity::Notice,
+                                "Obstruction cut at the domain edge",
+                            )
+                            .with_detail(format!(
+                                "The part of {:?} outside the simulated box is left out; the box \
                                      is sized from the duct.",
-                                    inst.name
-                                ))
-                                .with_key("obstruction-clipped"),
+                                inst.name
+                            ))
+                            .with_key("obstruction-clipped"),
                         );
                     }
                 }
@@ -1090,14 +1160,22 @@ impl Running {
             }
             Err(e) => {
                 if let Some(why) = self.gpu.lost() {
-                    return Err(e.context(format!("the GPU device was lost placing an obstruction ({why})")));
+                    return Err(e.context(format!(
+                        "the GPU device was lost placing an obstruction ({why})"
+                    )));
                 }
                 log::error!("placing the obstructions/vents failed; the previous setup keeps running: {e:#}");
                 self.state.obstructions = self.committed_placements.clone();
                 self.state.vents = self.committed_vents.clone();
                 self.state.duct = self.committed_duct;
-                let names: Vec<String> = self.committed_vents.iter().map(|v| v.name.clone()).collect();
-                self.state.layers.reset_vents(names.iter().map(String::as_str));
+                let names: Vec<String> = self
+                    .committed_vents
+                    .iter()
+                    .map(|v| v.name.clone())
+                    .collect();
+                self.state
+                    .layers
+                    .reset_vents(names.iter().map(String::as_str));
                 self.state.install = self.committed_pose;
                 self.state.toasts.push(
                     ad_ui::Toast::new(ad_ui::Severity::Warning, "Placement not applied")
@@ -1113,14 +1191,19 @@ impl Running {
     /// coordinates in the duct's frame — where a part exported from the same
     /// CAD assembly belongs — moved by `offset_mm` in the car.
     fn add_obstruction(&mut self, path: &std::path::Path, offset_mm: Vec3) -> Result<()> {
-        let Some((asset, placement)) = self.load_obstruction(path, offset_mm) else { return Ok(()) };
+        let Some((asset, placement)) = self.load_obstruction(path, offset_mm) else {
+            return Ok(());
+        };
         let name = asset.name.clone();
         let mut assets = self.obstructions.clone();
         assets.push(asset);
         let mut placements = self.state.obstructions.clone();
         placements.push(placement);
         if self.commit_placements(assets, placements, self.state.vents.clone())? {
-            let id = self.state.layers.push(ad_ui::LayerKind::Obstruction(self.obstructions.len() - 1), name);
+            let id = self.state.layers.push(
+                ad_ui::LayerKind::Obstruction(self.obstructions.len() - 1),
+                name,
+            );
             self.state.layers.select(Some(id));
         }
         Ok(())
@@ -1131,7 +1214,11 @@ impl Running {
     /// fits over it. Each extra one stands a little further out so they do
     /// not coincide.
     fn default_vent(&self, i: usize) -> ad_ui::VentSettings {
-        let inlet = self.state.params.inlet_mouth.min(self.sim.mouths.len().saturating_sub(1));
+        let inlet = self
+            .state
+            .params
+            .inlet_mouth
+            .min(self.sim.mouths.len().saturating_sub(1));
         // The first vent sits on the inlet mouth, sealed to it: a duct fitted
         // over a car vent. Each further one stands off a little so they do not
         // share cells.
@@ -1155,7 +1242,11 @@ impl Running {
         let centre = s.to_world(m.patch.center_mm) - n * standoff;
         ad_ui::VentSettings::new(
             name,
-            ad_ui::Placement { translation_mm: centre, rotation, scale: 1.0 },
+            ad_ui::Placement {
+                translation_mm: centre,
+                rotation,
+                scale: 1.0,
+            },
             2.0 * m.patch.half_u.length(),
             2.0 * m.patch.half_v.length(),
         )
@@ -1181,7 +1272,9 @@ impl Running {
             None if self.state.vents.len() >= sim::MAX_VENTS => {
                 self.state.toasts.push(
                     ad_ui::Toast::new(ad_ui::Severity::Info, "Three vents at most")
-                        .with_detail("Select a vent layer and ctrl+click a mouth to move it there instead.")
+                        .with_detail(
+                            "Select a vent layer and ctrl+click a mouth to move it there instead.",
+                        )
                         .with_key("vent-slots"),
                 );
                 return;
@@ -1197,9 +1290,12 @@ impl Running {
             }
         }
         self.state.toasts.push(
-            ad_ui::Toast::new(ad_ui::Severity::Info, format!("Air source on mouth {letter}"))
-                .with_detail("Sealed to the opening. Drag it off with the gizmo for a free jet.")
-                .with_key("vent-placed"),
+            ad_ui::Toast::new(
+                ad_ui::Severity::Info,
+                format!("Air source on mouth {letter}"),
+            )
+            .with_detail("Sealed to the opening. Drag it off with the gizmo for a free jet.")
+            .with_key("vent-placed"),
         );
     }
 
@@ -1212,7 +1308,9 @@ impl Running {
         if turn == Quat::IDENTITY {
             self.state.toasts.push(
                 ad_ui::Toast::new(ad_ui::Severity::Info, "Nothing to bake")
-                    .with_detail("The pose is within 45 degrees of the part's own axes on every axis.")
+                    .with_detail(
+                        "The pose is within 45 degrees of the part's own axes on every axis.",
+                    )
                     .with_key("bake"),
             );
             return;
@@ -1279,7 +1377,13 @@ impl Running {
             .install
             .lattice_to_placement(self.state.install_pivot_mm, ad_geom::Transform::IDENTITY);
         placement.translation_mm += offset_mm;
-        Some((ObstructionAsset { name, asset: ad_geom::MeshAsset::new(load.mesh) }, placement))
+        Some((
+            ObstructionAsset {
+                name,
+                asset: ad_geom::MeshAsset::new(load.mesh),
+            },
+            placement,
+        ))
     }
 
     /// Take obstruction `i` out. Its layer went when the button was pressed,
@@ -1313,7 +1417,10 @@ impl Running {
         let pivot = self.state.install_pivot_mm;
         let wanted = lattice_vents(&pose, pivot, &self.state.vents);
         let cells_same = wanted.len() == self.sim.vents.len()
-            && wanted.iter().zip(&self.sim.vents).all(|(a, b)| a.same_cells(b));
+            && wanted
+                .iter()
+                .zip(&self.sim.vents)
+                .all(|(a, b)| a.same_cells(b));
         if cells_same {
             let mut air_changed = false;
             for (have, want) in self.sim.vents.iter_mut().zip(&wanted) {
@@ -1324,7 +1431,8 @@ impl Running {
                 }
             }
             if air_changed {
-                self.state.params.vent_generation = self.state.params.vent_generation.wrapping_add(1);
+                self.state.params.vent_generation =
+                    self.state.params.vent_generation.wrapping_add(1);
             }
         }
 
@@ -1356,7 +1464,12 @@ impl Running {
         }
         let now = Instant::now();
         match &self.placement_edit {
-            Some(e) if e.placements == *placements && e.vents == *vents && e.pose == pose && e.duct == duct => {
+            Some(e)
+                if e.placements == *placements
+                    && e.vents == *vents
+                    && e.pose == pose
+                    && e.duct == duct =>
+            {
                 if !self.mouse.left && now.duration_since(e.at) >= OBSTRUCTION_SETTLE {
                     self.placement_edit = None;
                     self.commit_placements(
@@ -1410,7 +1523,11 @@ impl Running {
         let mut placements = self.state.obstructions.clone();
         if let Ok(spec) = std::env::var("AERODUCT_OBSTRUCTION") {
             for (path, offset) in parse_obstructions(&spec) {
-                log::info!("loading obstruction {} offset {:?} mm (AERODUCT_OBSTRUCTION)", path.display(), offset);
+                log::info!(
+                    "loading obstruction {} offset {:?} mm (AERODUCT_OBSTRUCTION)",
+                    path.display(),
+                    offset
+                );
                 if let Some((asset, placement)) = self.load_obstruction(&path, offset) {
                     assets.push(asset);
                     placements.push(placement);
@@ -1432,16 +1549,21 @@ impl Running {
                 vents.push(v);
             }
         }
-        let obstruction_names: Vec<String> = assets[first..].iter().map(|a| a.name.clone()).collect();
+        let obstruction_names: Vec<String> =
+            assets[first..].iter().map(|a| a.name.clone()).collect();
         let vent_names: Vec<String> = vents.iter().map(|v| v.name.clone()).collect();
         if obstruction_names.is_empty() && vents.len() == self.state.vents.len() {
             return Ok(());
         }
         if self.commit_placements(assets, placements, vents)? {
             for (k, name) in obstruction_names.into_iter().enumerate() {
-                self.state.layers.push(ad_ui::LayerKind::Obstruction(first + k), name);
+                self.state
+                    .layers
+                    .push(ad_ui::LayerKind::Obstruction(first + k), name);
             }
-            self.state.layers.reset_vents(vent_names.iter().map(String::as_str));
+            self.state
+                .layers
+                .reset_vents(vent_names.iter().map(String::as_str));
         }
         Ok(())
     }
@@ -1514,10 +1636,12 @@ impl Running {
                 }
                 UiAction::ApplyViewPreset(p) => {
                     self.controller.apply_preset(p);
-                    self.controller.frame_bbox(self.world_scene_bbox(), FRAME_MARGIN);
+                    self.controller
+                        .frame_bbox(self.world_scene_bbox(), FRAME_MARGIN);
                 }
                 UiAction::FrameScene => {
-                    self.controller.frame_bbox(self.world_scene_bbox(), FRAME_MARGIN);
+                    self.controller
+                        .frame_bbox(self.world_scene_bbox(), FRAME_MARGIN);
                 }
                 UiAction::SetField(f) => self.renderer.set_field(f),
                 UiAction::LoadDuct(path) => {
@@ -1535,7 +1659,9 @@ impl Running {
                         let lattice = lattice_vents(&self.state.install, pivot, &vents);
                         (self.assemble_scene(duct, &assets, &placements), lattice)
                     });
-                    match scene.and_then(|(s, v)| self.replace_sim(|gpu| Sim::from_scene(gpu, s, v, &params))) {
+                    match scene.and_then(|(s, v)| {
+                        self.replace_sim(|gpu| Sim::from_scene(gpu, s, v, &params))
+                    }) {
                         Ok(()) => {
                             self.committed_placements = placements;
                             self.committed_vents = vents;
@@ -1577,7 +1703,10 @@ impl Running {
                         .push(ad_ui::LayerKind::Slice(i), format!("Slice {}", i + 1));
                     self.state.layers.select(Some(id));
                 }
-                UiAction::ProbeFromRay { origin_mm, direction } => {
+                UiAction::ProbeFromRay {
+                    origin_mm,
+                    direction,
+                } => {
                     // The ray is the camera's, in the world; the flags are in
                     // the lattice. Probes are kept in the lattice so they ride
                     // along when the part is re-posed.
@@ -1648,7 +1777,9 @@ impl Running {
                     if i >= sim::MAX_VENTS {
                         self.state.toasts.push(
                             ad_ui::Toast::new(ad_ui::Severity::Info, "Three vents at most")
-                                .with_detail("The solver has three vent slots. Remove one to add another.")
+                                .with_detail(
+                                    "The solver has three vent slots. Remove one to add another.",
+                                )
                                 .with_key("vent-slots"),
                         );
                     } else {
@@ -1690,7 +1821,11 @@ impl Running {
         // A clone rather than a move, so the old `Sim` stays whole until the new
         // one exists. Cheap: the meshes are behind `Arc`s.
         let scene = self.sim.scene.clone();
-        let vents = lattice_vents(&self.state.install, self.state.install_pivot_mm, &self.state.vents);
+        let vents = lattice_vents(
+            &self.state.install,
+            self.state.install_pivot_mm,
+            &self.state.vents,
+        );
         let started = Instant::now();
         match self.replace_sim(|gpu| Sim::from_scene(gpu, scene, vents, &params)) {
             Ok(()) => {
@@ -1748,8 +1883,14 @@ impl Running {
     /// Holds a second lattice's worth of VRAM while it runs, which is what the
     /// pre-flight budgets for.
     fn replace_sim(&mut self, build: impl FnOnce(&GpuContext) -> Result<Sim>) -> Result<()> {
-        let oom = self.gpu.device.push_error_scope(wgpu::ErrorFilter::OutOfMemory);
-        let validation = self.gpu.device.push_error_scope(wgpu::ErrorFilter::Validation);
+        let oom = self
+            .gpu
+            .device
+            .push_error_scope(wgpu::ErrorFilter::OutOfMemory);
+        let validation = self
+            .gpu
+            .device
+            .push_error_scope(wgpu::ErrorFilter::Validation);
         if std::env::var("AERODUCT_FAULT").as_deref() == Ok("validation") {
             // `AERODUCT_FAULT=validation`: one deliberately invalid buffer inside
             // the scopes (MAP_READ with MAP_WRITE needs a feature the device
@@ -1878,8 +2019,19 @@ impl Running {
         }
     }
 
-    fn estimate_resolution(&self, dx_mm: f32, domain_mm: Option<[f32; 6]>) -> ad_ui::ResolutionEstimate {
-        resolution::estimate(&self.gpu, &self.sim, &self.state.params, dx_mm, domain_mm, self.step_rate.rate())
+    fn estimate_resolution(
+        &self,
+        dx_mm: f32,
+        domain_mm: Option<[f32; 6]>,
+    ) -> ad_ui::ResolutionEstimate {
+        resolution::estimate(
+            &self.gpu,
+            &self.sim,
+            &self.state.params,
+            dx_mm,
+            domain_mm,
+            self.step_rate.rate(),
+        )
     }
 
     /// Pre-flight a cell-size change and, if it fits, make it.
@@ -1910,7 +2062,10 @@ impl Running {
                 self.state.params.dx_mm = dx_mm;
             }
             None => {
-                log::info!("dx {} -> {dx_mm} mm: pre-flight passed", self.state.params.dx_mm);
+                log::info!(
+                    "dx {} -> {dx_mm} mm: pre-flight passed",
+                    self.state.params.dx_mm
+                );
                 self.state.params.dx_mm = dx_mm;
             }
         }
@@ -1942,7 +2097,9 @@ impl Running {
             let mut enc = self
                 .gpu
                 .device
-                .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("shot") });
+                .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                    label: Some("shot"),
+                });
             self.renderer.render(
                 &mut enc,
                 FrameInput {
@@ -1959,22 +2116,21 @@ impl Running {
                 },
             )?;
             if i + 1 == SAMPLES {
-                pixels = util::readback_rgba8(&self.gpu.device, &self.gpu.queue, &target, w, h, enc);
+                pixels =
+                    util::readback_rgba8(&self.gpu.device, &self.gpu.queue, &target, w, h, enc);
             } else {
                 self.gpu.queue.submit([enc.finish()]);
             }
         }
         self.renderer.end_supersample();
-        self.renderer.set_target_format(self.surface_config.format)?;
+        self.renderer
+            .set_target_format(self.surface_config.format)?;
 
         let down = util::box_downsample_rgba8(&pixels, w, h, SCALE);
-        let path = std::env::current_dir()?.join(format!(
-            "aeroduct-{:05}.png",
-            {
-                self.screenshot_counter += 1;
-                self.screenshot_counter
-            }
-        ));
+        let path = std::env::current_dir()?.join(format!("aeroduct-{:05}.png", {
+            self.screenshot_counter += 1;
+            self.screenshot_counter
+        }));
         png::write_rgba(&path, w / SCALE, h / SCALE, &down)?;
         log::info!("screenshot: {}", path.display());
         Ok(path)
@@ -2002,7 +2158,12 @@ fn mouth_roles(sim: &Sim, _params: &SimParams) -> (usize, usize) {
 /// A shader that fails to compile on some other driver must degrade to "we do
 /// not know" rather than to a plausible number: a fabricated pressure drop with
 /// an error bar beside it is indistinguishable from a measured one.
-fn build_metrics(gpu: &GpuContext, sim: &Sim, inlet: usize, outlet: usize) -> Box<dyn MetricsSource> {
+fn build_metrics(
+    gpu: &GpuContext,
+    sim: &Sim,
+    inlet: usize,
+    outlet: usize,
+) -> Box<dyn MetricsSource> {
     // `AERODUCT_METRICS=off` forces the placeholder. Purely a bisection handle:
     // when something goes wrong on a long run, the first question is whether the
     // measurement passes are involved, and the cheapest way to answer it is to
@@ -2039,7 +2200,11 @@ fn build_tracers(sim: &Sim, inlet: usize, outlet: usize) -> Option<TracerRtd> {
 /// is an unattended run before the frame loop exists — so it lives in one
 /// function rather than being parsed twice.
 fn headless_capture() -> Option<u64> {
-    std::env::var("AERODUCT_FRAMES").ok()?.parse::<u64>().ok().filter(|n| *n > 0)
+    std::env::var("AERODUCT_FRAMES")
+        .ok()?
+        .parse::<u64>()
+        .ok()
+        .filter(|n| *n > 0)
 }
 
 /// `AERODUCT_PRESENT=fifo|mailbox|immediate`: override the present mode.
@@ -2076,7 +2241,11 @@ fn present_mode_override(supported: &[wgpu::PresentMode]) -> Option<wgpu::Presen
 /// question is not decidable from a single ghosted frame, and it is the one that
 /// matters most for a duct: seeing inside is the whole point of the tool.
 fn mesh_display_override() -> Option<MeshDisplay> {
-    match std::env::var("AERODUCT_MESH").ok()?.to_ascii_lowercase().as_str() {
+    match std::env::var("AERODUCT_MESH")
+        .ok()?
+        .to_ascii_lowercase()
+        .as_str()
+    {
         "off" | "none" => Some(MeshDisplay::Off),
         "solid" => Some(MeshDisplay::Solid),
         "ghost" => Some(MeshDisplay::Ghost),
@@ -2236,7 +2405,12 @@ fn startup_params() -> SimParams {
 fn parse_margins(s: &str) -> Option<[f32; 6]> {
     let v: Option<Vec<f32>> = s
         .split(',')
-        .map(|t| t.trim().parse::<f32>().ok().filter(|v| v.is_finite() && *v >= 0.0))
+        .map(|t| {
+            t.trim()
+                .parse::<f32>()
+                .ok()
+                .filter(|v| v.is_finite() && *v >= 0.0)
+        })
         .collect();
     let v = v?;
     (v.len() == 6).then(|| [v[0], v[1], v[2], v[3], v[4], v[5]])
@@ -2247,7 +2421,9 @@ fn parse_margins(s: &str) -> Option<[f32; 6]> {
 /// size in mm, and optionally its speed as a multiple of the inlet U.
 fn parse_vents(spec: &str) -> Vec<ad_ui::VentSettings> {
     let nums = |s: &str| -> Option<Vec<f32>> {
-        s.split(',').map(|t| t.trim().parse::<f32>().ok().filter(|v| v.is_finite())).collect()
+        s.split(',')
+            .map(|t| t.trim().parse::<f32>().ok().filter(|v| v.is_finite()))
+            .collect()
     };
     spec.split(';')
         .map(str::trim)
@@ -2398,7 +2574,9 @@ fn lattice_vents(
 /// follow along unless the user has started editing them.
 fn publish_domain(sim: &Sim, state: &mut UiState) {
     let d = &sim.domain;
-    let running = [d.lo_mm.x, d.hi_mm.x, d.lo_mm.y, d.hi_mm.y, d.lo_mm.z, d.hi_mm.z];
+    let running = [
+        d.lo_mm.x, d.hi_mm.x, d.lo_mm.y, d.hi_mm.y, d.lo_mm.z, d.hi_mm.z,
+    ];
     let bits = |m: [f32; 6]| m.map(f32::to_bits);
     if bits(state.pending_domain_mm) == bits(state.domain_margins_mm) {
         state.pending_domain_mm = running;
@@ -2419,7 +2597,10 @@ fn build_render_scene(gpu: &GpuContext, sim: &Sim) -> (ad_render::Scene, Vec<Opt
             ad_geom::MeshRole::Obstruction => {
                 next_obstruction += 1;
                 // Warm grey-orange, so a car part never reads as more duct.
-                let style = MeshStyle { albedo: Vec3::new(0.80, 0.55, 0.38), ..MeshStyle::default() };
+                let style = MeshStyle {
+                    albedo: Vec3::new(0.80, 0.55, 0.38),
+                    ..MeshStyle::default()
+                };
                 (Some(next_obstruction - 1), style)
             }
         };
@@ -2442,11 +2623,18 @@ fn build_render_scene(gpu: &GpuContext, sim: &Sim) -> (ad_render::Scene, Vec<Opt
                 scalar: 0.0,
             })
             .collect();
-        let indices: Vec<u32> = mesh.indices.iter().flat_map(|t| t.iter().copied()).collect();
+        let indices: Vec<u32> = mesh
+            .indices
+            .iter()
+            .flat_map(|t| t.iter().copied())
+            .collect();
         scene.meshes.push(GpuMesh::upload(
             &gpu.device,
             &gpu.queue,
-            MeshData { vertices: &vertices, indices: &indices },
+            MeshData {
+                vertices: &vertices,
+                indices: &indices,
+            },
             style,
         ));
     }
@@ -2572,7 +2760,10 @@ mod tests {
         assert_eq!(v.len(), 2);
         assert_eq!(v[0].placement.translation_mm, Vec3::new(0.0, 10.0, -40.0));
         assert!(v[0].normal().abs_diff_eq(Vec3::Z, 1e-6));
-        assert_eq!((v[0].width_mm, v[0].height_mm, v[0].speed_scale), (140.0, 15.0, 0.5));
+        assert_eq!(
+            (v[0].width_mm, v[0].height_mm, v[0].speed_scale),
+            (140.0, 15.0, 0.5)
+        );
         assert!(v[1].normal().abs_diff_eq(Vec3::X, 1e-6));
         assert_eq!(v[1].speed_scale, 1.0);
         assert!(parse_vents("1,2,3@0,0,1").is_empty(), "a vent needs a size");
@@ -2581,7 +2772,10 @@ mod tests {
 
     #[test]
     fn margins_parse_as_six_non_negative_numbers() {
-        assert_eq!(parse_margins("1, 2,3,4,5,6"), Some([1.0, 2.0, 3.0, 4.0, 5.0, 6.0]));
+        assert_eq!(
+            parse_margins("1, 2,3,4,5,6"),
+            Some([1.0, 2.0, 3.0, 4.0, 5.0, 6.0])
+        );
         assert_eq!(parse_margins("1,2,3,4,5"), None);
         assert_eq!(parse_margins("1,2,3,4,5,-6"), None);
         assert_eq!(parse_margins("a,2,3,4,5,6"), None);
@@ -2594,16 +2788,30 @@ mod tests {
         let pivot = Vec3::new(-1.7, 36.1, 34.5);
         let v = ad_ui::VentSettings::new(
             "v",
-            ad_ui::Placement { translation_mm: pivot + Vec3::X * 40.0, rotation: Quat::IDENTITY, scale: 1.0 },
+            ad_ui::Placement {
+                translation_mm: pivot + Vec3::X * 40.0,
+                rotation: Quat::IDENTITY,
+                scale: 1.0,
+            },
             140.0,
             15.0,
         );
         let l = lattice_vents(&pose, pivot, &[v]);
         // World +X is lattice +Z after a quarter turn about Y; world +Z is
         // lattice -X.
-        assert!(l[0].center_mm.abs_diff_eq(pivot + Vec3::Z * 40.0, 1e-3), "{}", l[0].center_mm);
-        assert!(l[0].normal.abs_diff_eq(Vec3::NEG_X, 1e-5), "{}", l[0].normal);
-        assert!((l[0].half_u.length() - 70.0).abs() < 1e-3 && (l[0].half_v.length() - 7.5).abs() < 1e-3);
+        assert!(
+            l[0].center_mm.abs_diff_eq(pivot + Vec3::Z * 40.0, 1e-3),
+            "{}",
+            l[0].center_mm
+        );
+        assert!(
+            l[0].normal.abs_diff_eq(Vec3::NEG_X, 1e-5),
+            "{}",
+            l[0].normal
+        );
+        assert!(
+            (l[0].half_u.length() - 70.0).abs() < 1e-3 && (l[0].half_v.length() - 7.5).abs() < 1e-3
+        );
         assert_eq!(l[0].direction, l[0].normal);
     }
 
@@ -2614,11 +2822,17 @@ mod tests {
         assert_eq!(
             v,
             vec![
-                (PathBuf::from(r"C:\parts\vane.stl"), Vec3::new(10.0, 0.0, -5.0)),
+                (
+                    PathBuf::from(r"C:\parts\vane.stl"),
+                    Vec3::new(10.0, 0.0, -5.0)
+                ),
                 (PathBuf::from("b.stl"), Vec3::ZERO),
             ]
         );
-        assert!(parse_obstructions("x.stl@1,2").is_empty(), "a bad offset drops that entry");
+        assert!(
+            parse_obstructions("x.stl@1,2").is_empty(),
+            "a bad offset drops that entry"
+        );
         assert!(parse_obstructions("").is_empty());
     }
 
@@ -2627,7 +2841,10 @@ mod tests {
         let e = anyhow::anyhow!("line one\nline two\nline three").context("building the solver");
         assert_eq!(brief(&e), "building the solver: line one.");
         let long = brief(&anyhow::anyhow!("x".repeat(1000)));
-        assert!(long.chars().count() == 303 && long.ends_with("..."), "{long}");
+        assert!(
+            long.chars().count() == 303 && long.ends_with("..."),
+            "{long}"
+        );
     }
 
     #[test]
@@ -2636,15 +2853,24 @@ mod tests {
         // physically do, or auto-range clips the picture.
         let (lo, hi) = heuristic_field_range(DerivedField::Speed, 3.0, 6.3, 1.184);
         assert_eq!(lo, 0.0);
-        assert!(hi > 3.0, "the range must reach past the inlet bulk, got {hi}");
+        assert!(
+            hi > 3.0,
+            "the range must reach past the inlet bulk, got {hi}"
+        );
 
         let (lo, hi) = heuristic_field_range(DerivedField::Pressure, 8.0, 6.3, 1.184);
-        assert!(lo < 0.0 && hi > 0.0, "pressure must be signed and symmetric");
+        assert!(
+            lo < 0.0 && hi > 0.0,
+            "pressure must be signed and symmetric"
+        );
         assert!((lo + hi).abs() < 1e-4);
 
         // A zero-velocity slider must not collapse the range to a point.
         let (lo, hi) = heuristic_field_range(DerivedField::Speed, 0.0, 6.3, 1.184);
-        assert!(hi > lo, "a stopped fan must still leave a usable colour bar");
+        assert!(
+            hi > lo,
+            "a stopped fan must still leave a usable colour bar"
+        );
     }
 
     #[test]
@@ -2679,7 +2905,11 @@ mod tests {
         std::env::set_var("AERODUCT_CS", "0.11");
         assert!((startup_params().smagorinsky_c - 0.11).abs() < 1e-6);
         std::env::set_var("AERODUCT_CS", "-1");
-        assert_eq!(startup_params().smagorinsky_c, base.smagorinsky_c, "a negative Cs is not a model");
+        assert_eq!(
+            startup_params().smagorinsky_c,
+            base.smagorinsky_c,
+            "a negative Cs is not a model"
+        );
         std::env::remove_var("AERODUCT_CS");
 
         // Steps per frame: a pin outside the tuner's range must be ignored

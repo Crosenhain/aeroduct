@@ -137,7 +137,12 @@ impl Toast {
     /// how big it was.
     pub fn display_title(&self) -> String {
         if self.repeats > 0 {
-            format!("{}{} (x{})", self.severity.prefix(), self.title, self.repeats + 1)
+            format!(
+                "{}{} (x{})",
+                self.severity.prefix(),
+                self.title,
+                self.repeats + 1
+            )
         } else {
             format!("{}{}", self.severity.prefix(), self.title)
         }
@@ -176,7 +181,11 @@ impl Toasts {
         self.items.push_back(toast);
         while self.items.len() > MAX_TOASTS {
             // Drop the oldest expirable one; never silently drop a critical.
-            match self.items.iter().position(|t| t.severity != Severity::Critical) {
+            match self
+                .items
+                .iter()
+                .position(|t| t.severity != Severity::Critical)
+            {
                 Some(i) => {
                     self.items.remove(i);
                 }
@@ -239,7 +248,10 @@ mod tests {
         let t = Toast::statistics_reset(ResetCause::InletVelocity);
         assert_eq!(t.severity, Severity::Notice);
         assert!(t.detail.contains("inlet velocity changed"), "{}", t.detail);
-        assert!(t.detail.contains("start again"), "the consequence must be spelled out");
+        assert!(
+            t.detail.contains("start again"),
+            "the consequence must be spelled out"
+        );
     }
 
     #[test]
@@ -298,7 +310,11 @@ mod tests {
         ts.error("solver diverged");
         ts.update(600.0);
         assert_eq!(ts.len(), 1);
-        assert_eq!(ts.iter().next().unwrap().remaining(), 1.0, "a critical toast must not fade");
+        assert_eq!(
+            ts.iter().next().unwrap().remaining(),
+            1.0,
+            "a critical toast must not fade"
+        );
         ts.dismiss(0);
         assert!(ts.is_empty());
     }
@@ -346,7 +362,9 @@ mod tests {
             ResetCause::Manual,
         ] {
             assert!(!cause.message().is_empty(), "{cause:?} has no message");
-            assert!(Toast::statistics_reset(cause).detail.contains(cause.message()));
+            assert!(Toast::statistics_reset(cause)
+                .detail
+                .contains(cause.message()));
         }
     }
 }

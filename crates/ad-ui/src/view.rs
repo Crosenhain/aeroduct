@@ -127,11 +127,21 @@ impl Reading {
     /// A reading with no data behind it. This is what a fresh app shows, and
     /// what a statistics reset returns every metric to.
     pub const fn unknown() -> Self {
-        Self { value: f64::NAN, sem: f64::NAN, state: Health::Unknown, samples: 0 }
+        Self {
+            value: f64::NAN,
+            sem: f64::NAN,
+            state: Health::Unknown,
+            samples: 0,
+        }
     }
 
     pub const fn new(value: f64, sem: f64, state: Health, samples: u32) -> Self {
-        Self { value, sem, state, samples }
+        Self {
+            value,
+            sem,
+            state,
+            samples,
+        }
     }
 
     /// True when there is something worth showing. A reading with no samples
@@ -309,7 +319,13 @@ pub struct Trace {
 
 impl Trace {
     pub fn new(name: impl Into<String>, unit: impl Into<String>) -> Self {
-        Self { name: name.into(), unit: unit.into(), x: Vec::new(), y: Vec::new(), log_y: false }
+        Self {
+            name: name.into(),
+            unit: unit.into(),
+            x: Vec::new(),
+            y: Vec::new(),
+            log_y: false,
+        }
     }
 
     /// Append a point, discarding the oldest once `capacity` is reached.
@@ -442,7 +458,10 @@ impl ResolutionPanel {
     pub const MAX_MM: f32 = 3.0;
 
     pub fn new(dx_mm: f32) -> Self {
-        Self { pending_dx_mm: dx_mm, estimate: None }
+        Self {
+            pending_dx_mm: dx_mm,
+            estimate: None,
+        }
     }
 
     /// The estimate, if it describes the cell size in the box *and* the box
@@ -690,8 +709,7 @@ impl MetricsView {
         // K < 1 is the contract's pass mark; 0.6 is the "ideal" ceiling. An
         // uncut mitred bend runs 2.0-3.5, so anything above 1.5 is a genuine
         // failure rather than a merely disappointing design.
-        self.loss_coefficient.state =
-            Health::below(self.loss_coefficient.value, 0.6, 1.5);
+        self.loss_coefficient.state = Health::below(self.loss_coefficient.value, 0.6, 1.5);
         // Weltens uniformity: 0.95 is a good outlet, below 0.8 is a jet with a
         // dead zone beside it.
         self.uniformity.state = Health::above(self.uniformity.value, 0.95, 0.8);
@@ -701,8 +719,7 @@ impl MetricsView {
         // peaks around 2-3x inlet; 6x means separation or an instability.
         let u_in = self.inlet.mean_velocity.value;
         if u_in.is_finite() && u_in > 1e-6 {
-            self.max_speed.state =
-                Health::below(self.max_speed.value / u_in, 3.5, 6.0);
+            self.max_speed.state = Health::below(self.max_speed.value / u_in, 3.5, 6.0);
         }
         // Mass imbalance: 1% is fine, 5% means the answer is not converged.
         self.convergence.mass_imbalance.state =
@@ -756,8 +773,16 @@ mod tests {
         m.max_speed = Reading::new(18.4, 0.3, Health::Unknown, 100);
         m.apply_default_thresholds();
 
-        assert_eq!(m.loss_coefficient.state, Health::Good, "K = 0.58 is in the ideal band");
-        assert_eq!(m.uniformity.state, Health::Watch, "gamma = 0.91 is not great");
+        assert_eq!(
+            m.loss_coefficient.state,
+            Health::Good,
+            "K = 0.58 is in the ideal band"
+        );
+        assert_eq!(
+            m.uniformity.state,
+            Health::Watch,
+            "gamma = 0.91 is not great"
+        );
         assert_eq!(m.deflection_deg.state, Health::Good);
         // 18.4 / 3.0 = 6.1x the inlet bulk: that is the red one in the mock-up.
         assert_eq!(m.max_speed.state, Health::Bad);
@@ -778,7 +803,10 @@ mod tests {
         // are the same reading.
         let a = Reading::new(47.3, 0.6, Health::Good, 200);
         let b = Reading::new(47.6, 0.6, Health::Good, 200);
-        assert!(!a.differs_from(&b, 2.0), "0.3 Pa apart with +/-0.6 is noise");
+        assert!(
+            !a.differs_from(&b, 2.0),
+            "0.3 Pa apart with +/-0.6 is noise"
+        );
         let c = Reading::new(52.0, 0.6, Health::Good, 200);
         assert!(a.differs_from(&c, 2.0), "4.7 Pa apart with +/-0.6 is real");
         // An unknown reading never "differs": there is nothing to compare.
@@ -815,13 +843,20 @@ mod tests {
 
         // One count too many is the classic off-by-one; it must be rejected
         // rather than drawn misaligned.
-        let bad = HistogramView { counts: vec![1.0, 2.0, 3.0, 4.0], ..h };
+        let bad = HistogramView {
+            counts: vec![1.0, 2.0, 3.0, 4.0],
+            ..h
+        };
         assert!(!bad.is_valid());
     }
 
     #[test]
     fn stats_progress_is_clamped_and_safe_at_zero_target() {
-        let mut s = StatsWindowView { flow_throughs: 7.3, flow_throughs_target: 15.0, ..Default::default() };
+        let mut s = StatsWindowView {
+            flow_throughs: 7.3,
+            flow_throughs_target: 15.0,
+            ..Default::default()
+        };
         assert!((s.progress() - 7.3 / 15.0).abs() < 1e-6);
         s.flow_throughs = 40.0;
         assert_eq!(s.progress(), 1.0);

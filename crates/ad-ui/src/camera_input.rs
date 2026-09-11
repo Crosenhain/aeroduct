@@ -75,7 +75,11 @@ pub struct CameraInput {
 
 impl Default for CameraInput {
     fn default() -> Self {
-        Self { wheel_gain: 1.0, dolly_drag_pixels: 60.0, invert_orbit_y: false }
+        Self {
+            wheel_gain: 1.0,
+            dolly_drag_pixels: 60.0,
+            invert_orbit_y: false,
+        }
     }
 }
 
@@ -164,14 +168,29 @@ mod tests {
     fn the_ui_and_the_gizmo_take_precedence_over_the_camera() {
         // The bug this prevents: the view spins while you drag a slider.
         let ci = CameraInput::default();
-        let left = MouseState { left: true, ..Default::default() };
+        let left = MouseState {
+            left: true,
+            ..Default::default()
+        };
         assert_eq!(ci.gesture(left, owner()), Gesture::Orbit);
         assert_eq!(
-            ci.gesture(left, PointerOwnership { ui_capture: true, gizmo_active: false }),
+            ci.gesture(
+                left,
+                PointerOwnership {
+                    ui_capture: true,
+                    gizmo_active: false
+                }
+            ),
             Gesture::None
         );
         assert_eq!(
-            ci.gesture(left, PointerOwnership { ui_capture: false, gizmo_active: true }),
+            ci.gesture(
+                left,
+                PointerOwnership {
+                    ui_capture: false,
+                    gizmo_active: true
+                }
+            ),
             Gesture::None
         );
     }
@@ -187,11 +206,29 @@ mod tests {
         assert_eq!(m(|s| s.left = true), Gesture::Orbit);
         assert_eq!(m(|s| s.middle = true), Gesture::Pan);
         assert_eq!(m(|s| s.right = true), Gesture::DollyDrag);
-        assert_eq!(m(|s| { s.left = true; s.shift = true; }), Gesture::Pan);
-        assert_eq!(m(|s| { s.left = true; s.alt = true; }), Gesture::DollyDrag);
+        assert_eq!(
+            m(|s| {
+                s.left = true;
+                s.shift = true;
+            }),
+            Gesture::Pan
+        );
+        assert_eq!(
+            m(|s| {
+                s.left = true;
+                s.alt = true;
+            }),
+            Gesture::DollyDrag
+        );
         assert_eq!(m(|_| {}), Gesture::None);
         // Middle wins over a simultaneously-reported left during a chord.
-        assert_eq!(m(|s| { s.left = true; s.middle = true; }), Gesture::Pan);
+        assert_eq!(
+            m(|s| {
+                s.left = true;
+                s.middle = true;
+            }),
+            Gesture::Pan
+        );
     }
 
     #[test]
@@ -200,7 +237,10 @@ mod tests {
         let mut c = OrbitController::default();
         let yaw0 = c.goal.yaw;
         ci.apply_drag(&mut c, Gesture::Orbit, 50.0, 0.0, 800.0);
-        assert!(c.goal.yaw < yaw0, "dragging right must swing the model to the right");
+        assert!(
+            c.goal.yaw < yaw0,
+            "dragging right must swing the model to the right"
+        );
 
         let mut c = OrbitController::default();
         let target0 = c.goal.target;
@@ -216,8 +256,11 @@ mod tests {
         let mut c = OrbitController::default();
         let mut c2 = c.clone();
         CameraInput::default().apply_drag(&mut c, Gesture::Orbit, 0.0, 30.0, 800.0);
-        CameraInput { invert_orbit_y: true, ..Default::default() }
-            .apply_drag(&mut c2, Gesture::Orbit, 0.0, 30.0, 800.0);
+        CameraInput {
+            invert_orbit_y: true,
+            ..Default::default()
+        }
+        .apply_drag(&mut c2, Gesture::Orbit, 0.0, 30.0, 800.0);
         let base = OrbitController::default().goal.pitch;
         assert!((c.goal.pitch - base).signum() != (c2.goal.pitch - base).signum());
     }
@@ -246,7 +289,14 @@ mod tests {
         let ci = CameraInput::default();
         let mut c = OrbitController::default();
         let d0 = c.goal.distance;
-        assert!(!ci.apply_wheel(&mut c, 3.0, PointerOwnership { ui_capture: true, gizmo_active: false }));
+        assert!(!ci.apply_wheel(
+            &mut c,
+            3.0,
+            PointerOwnership {
+                ui_capture: true,
+                gizmo_active: false
+            }
+        ));
         assert_eq!(c.goal.distance, d0);
     }
 
@@ -257,7 +307,11 @@ mod tests {
         let d0 = c.goal.distance;
         // Screen y grows downward, so a negative dy is "drag up".
         ci.apply_drag(&mut c, Gesture::DollyDrag, 0.0, -60.0, 800.0);
-        assert!(c.goal.distance < d0, "drag up should zoom in, got {}", c.goal.distance);
+        assert!(
+            c.goal.distance < d0,
+            "drag up should zoom in, got {}",
+            c.goal.distance
+        );
     }
 
     #[test]
@@ -273,9 +327,21 @@ mod tests {
     fn framing_through_the_controller_respects_the_distance_clamps() {
         // A tiny part must not put the camera inside its own near plane.
         let mut c = OrbitController::default();
-        c.frame_bbox(Bbox { min: Vec3::splat(-0.05), max: Vec3::splat(0.05) }, 0.1);
+        c.frame_bbox(
+            Bbox {
+                min: Vec3::splat(-0.05),
+                max: Vec3::splat(0.05),
+            },
+            0.1,
+        );
         assert!(c.goal.distance >= c.distance_range.0);
-        c.frame_bbox(Bbox { min: Vec3::splat(-1.0e5), max: Vec3::splat(1.0e5) }, 0.1);
+        c.frame_bbox(
+            Bbox {
+                min: Vec3::splat(-1.0e5),
+                max: Vec3::splat(1.0e5),
+            },
+            0.1,
+        );
         assert!(c.goal.distance <= c.distance_range.1);
     }
 }

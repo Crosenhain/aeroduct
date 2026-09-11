@@ -71,7 +71,9 @@ impl Default for OpacityCurve {
     fn default() -> Self {
         // A gentle ramp: transparent through the low quarter, then rising.
         // Starting at exactly zero is not cosmetic — see `diverging` below.
-        Self { points: vec![[0.0, 0.0], [0.25, 0.0], [0.65, 0.25], [1.0, 0.85]] }
+        Self {
+            points: vec![[0.0, 0.0], [0.25, 0.0], [0.65, 0.25], [1.0, 0.85]],
+        }
     }
 }
 
@@ -196,7 +198,12 @@ impl Default for SoftIso {
         // 0.1-2 band, so the default view of a fresh sim shows vortex cores —
         // and with n = 2 the support is exactly [0, 1], so quiescent air is
         // exactly transparent.
-        Self { center: 0.5, width: 0.25, amplitude: 0.9, cutoff_widths: 2.0 }
+        Self {
+            center: 0.5,
+            width: 0.25,
+            amplitude: 0.9,
+            cutoff_widths: 2.0,
+        }
     }
 }
 
@@ -431,7 +438,11 @@ impl TransferFunction {
         match self.mode {
             OpacityMode::SoftIso => {
                 let a = self.iso.amplitude * self.density;
-                let half = SoftIso { amplitude: a, ..self.iso }.half_support(SUPPORT_EPSILON)?;
+                let half = SoftIso {
+                    amplitude: a,
+                    ..self.iso
+                }
+                .half_support(SUPPORT_EPSILON)?;
                 Some(Support {
                     range: (self.iso.center - half, self.iso.center + half),
                     gap: None,
@@ -491,7 +502,10 @@ impl TransferFunction {
                     None
                 };
 
-                Some(Support { range: (lo_v, hi_v), gap })
+                Some(Support {
+                    range: (lo_v, hi_v),
+                    gap,
+                })
             }
         }
     }
@@ -618,8 +632,7 @@ mod tests {
         for alpha_ref in [0.02f32, 0.1, 0.35, 0.8, 0.99] {
             let coarse = composite_uniform(alpha_ref, h_ref, h_ref, 8);
             for div in [2u32, 4, 8, 16, 64] {
-                let fine =
-                    composite_uniform(alpha_ref, h_ref, h_ref / div as f32, 8 * div);
+                let fine = composite_uniform(alpha_ref, h_ref, h_ref / div as f32, 8 * div);
                 assert!(
                     (fine - coarse).abs() < 1e-4,
                     "alpha_ref={alpha_ref} div={div}: {fine} vs {coarse}"
@@ -641,7 +654,10 @@ mod tests {
         };
         let coarse = naive(0.1, 8);
         let fine = naive(0.1, 64);
-        assert!(fine > coarse * 1.5, "expected a large drift, got {coarse} -> {fine}");
+        assert!(
+            fine > coarse * 1.5,
+            "expected a large drift, got {coarse} -> {fine}"
+        );
     }
 
     #[test]
@@ -656,7 +672,12 @@ mod tests {
 
     #[test]
     fn soft_iso_peaks_at_the_centre_and_decays_like_a_gaussian() {
-        let iso = SoftIso { center: 0.5, width: 0.25, amplitude: 0.8, cutoff_widths: 4.0 };
+        let iso = SoftIso {
+            center: 0.5,
+            width: 0.25,
+            amplitude: 0.8,
+            cutoff_widths: 4.0,
+        };
         assert!((iso.eval(0.5) - 0.8).abs() < 1e-6);
         // One width out is about 1/e of the peak. This is the property that
         // makes "width" mean something the user can reason about. The pedestal
@@ -666,7 +687,10 @@ mod tests {
             (one_width - 0.8 / std::f32::consts::E).abs() < 0.005,
             "one width out gave {one_width}"
         );
-        assert!((iso.eval(0.25) - iso.eval(0.75)).abs() < 1e-7, "must be symmetric");
+        assert!(
+            (iso.eval(0.25) - iso.eval(0.75)).abs() < 1e-7,
+            "must be symmetric"
+        );
         assert!(iso.eval(2.0) == 0.0);
     }
 
@@ -677,8 +701,16 @@ mod tests {
         // steps into a solid black brick the size of the whole domain.
         let tf = TransferFunction::preset(crate::fields::DerivedField::QCriterion);
         assert_eq!(tf.mode, OpacityMode::SoftIso);
-        assert_eq!(tf.opacity(0.0), 0.0, "quiescent air must be exactly transparent");
-        assert_eq!(tf.opacity(-1.0), 0.0, "strain-dominated flow is not a vortex");
+        assert_eq!(
+            tf.opacity(0.0),
+            0.0,
+            "quiescent air must be exactly transparent"
+        );
+        assert_eq!(
+            tf.opacity(-1.0),
+            0.0,
+            "strain-dominated flow is not a vortex"
+        );
         // ...and the support agrees, so the accelerator skips it rather than
         // marching through it.
         let lo = tf.support().unwrap().range.0;
@@ -689,7 +721,10 @@ mod tests {
 
         // The same shape without a cutoff would fog the domain, which is the
         // point of the comparison.
-        let uncut = SoftIso { cutoff_widths: 12.0, ..tf.iso };
+        let uncut = SoftIso {
+            cutoff_widths: 12.0,
+            ..tf.iso
+        };
         assert!(
             composite_uniform(uncut.eval(0.0), 1.0, 1.0, 200) > 0.9,
             "the untruncated tail should have been opaque; the test is not proving anything"
@@ -703,7 +738,12 @@ mod tests {
         // normalising the centre.
         let mut tf = TransferFunction {
             mode: OpacityMode::SoftIso,
-            iso: SoftIso { center: 0.5, width: 0.2, amplitude: 1.0, cutoff_widths: 3.0 },
+            iso: SoftIso {
+                center: 0.5,
+                width: 0.2,
+                amplitude: 1.0,
+                cutoff_widths: 3.0,
+            },
             range: [0.0, 2.0],
             ..Default::default()
         };
@@ -720,7 +760,10 @@ mod tests {
         assert!((c.eval(0.0) - 0.0).abs() < 1e-6);
         assert!((c.eval(0.5) - 1.0).abs() < 1e-6);
         assert!((c.eval(1.0) - 0.2).abs() < 1e-6);
-        assert!((c.eval(0.25) - 0.5).abs() < 1e-6, "midpoint should be exactly halfway");
+        assert!(
+            (c.eval(0.25) - 0.5).abs() < 1e-6,
+            "midpoint should be exactly halfway"
+        );
         assert!((c.eval(0.75) - 0.6).abs() < 1e-6);
         // Clamped, not extrapolated.
         assert!((c.eval(-1.0) - 0.0).abs() < 1e-6);
@@ -740,9 +783,15 @@ mod tests {
             [0.7, 0.0],
         ]);
         assert!(c.points.len() <= MAX_CURVE_POINTS);
-        assert!(c.points.windows(2).all(|w| w[0][0] <= w[1][0]), "not sorted");
+        assert!(
+            c.points.windows(2).all(|w| w[0][0] <= w[1][0]),
+            "not sorted"
+        );
         let mut c2 = OpacityCurve::new(vec![[0.5, 0.5]]);
-        assert!(c2.points.len() >= 2, "must never degenerate below two points");
+        assert!(
+            c2.points.len() >= 2,
+            "must never degenerate below two points"
+        );
         assert!(!c2.try_remove(0), "must refuse to drop below two points");
     }
 
@@ -750,11 +799,21 @@ mod tests {
     fn symmetric_lock_centres_the_range_on_zero() {
         // A diverging map with an off-centre zero is the failure mode this
         // exists to prevent.
-        let mut tf = TransferFunction { map: ColorMap::CoolWarm, ..Default::default() };
+        let mut tf = TransferFunction {
+            map: ColorMap::CoolWarm,
+            ..Default::default()
+        };
         tf.fit_range(-12.0, 80.0);
         assert!(tf.symmetric_lock);
-        assert!((tf.range[0] + tf.range[1]).abs() < 1e-6, "range {:?} is off-centre", tf.range);
-        assert!((tf.normalise(0.0) - 0.5).abs() < 1e-6, "zero must land at the map midpoint");
+        assert!(
+            (tf.range[0] + tf.range[1]).abs() < 1e-6,
+            "range {:?} is off-centre",
+            tf.range
+        );
+        assert!(
+            (tf.normalise(0.0) - 0.5).abs() < 1e-6,
+            "zero must land at the map midpoint"
+        );
     }
 
     #[test]
@@ -766,7 +825,11 @@ mod tests {
         };
         for v in [0.01f32, 0.1, 1.0, 10.0, 100.0] {
             let t = tf.normalise(v);
-            assert!((tf.denormalise(t) - v).abs() < v * 1e-4, "{v} round-tripped to {}", tf.denormalise(t));
+            assert!(
+                (tf.denormalise(t) - v).abs() < v * 1e-4,
+                "{v} round-tripped to {}",
+                tf.denormalise(t)
+            );
         }
         // Four decades over [0,1] means one decade per quarter.
         assert!((tf.normalise(0.1) - 0.25).abs() < 1e-5);
@@ -779,17 +842,29 @@ mod tests {
         // outside `support()` must be exactly transparent.
         let tf = TransferFunction {
             mode: OpacityMode::SoftIso,
-            iso: SoftIso { center: 0.5, width: 0.2, amplitude: 1.0, cutoff_widths: 3.0 },
+            iso: SoftIso {
+                center: 0.5,
+                width: 0.2,
+                amplitude: 1.0,
+                cutoff_widths: 3.0,
+            },
             range: [0.0, 2.0],
             ..Default::default()
         };
-        let Support { range: (lo, hi), gap } = tf.support().unwrap();
+        let Support {
+            range: (lo, hi),
+            gap,
+        } = tf.support().unwrap();
         assert!(gap.is_none(), "a single bump has no interior hole");
         assert!(lo < 0.5 && hi > 0.5);
         for i in 0..500 {
             let v = -2.0 + i as f32 * 0.01;
             if v < lo || v > hi {
-                assert!(tf.opacity(v) <= SUPPORT_EPSILON, "opacity {} at v={v} is outside support ({lo}..{hi})", tf.opacity(v));
+                assert!(
+                    tf.opacity(v) <= SUPPORT_EPSILON,
+                    "opacity {} at v={v} is outside support ({lo}..{hi})",
+                    tf.opacity(v)
+                );
             }
         }
     }
@@ -804,10 +879,15 @@ mod tests {
             range: [0.0, 10.0],
             ..Default::default()
         };
-        let Support { range: (lo, hi), .. } = tf.support().unwrap();
+        let Support {
+            range: (lo, hi), ..
+        } = tf.support().unwrap();
         assert_eq!(hi, f32::INFINITY);
         assert!(lo > 0.0 && lo < 10.0, "lo was {lo}");
-        assert!(tf.opacity(1.0e6) > 0.5, "clamped high values must stay opaque");
+        assert!(
+            tf.opacity(1.0e6) > 0.5,
+            "clamped high values must stay opaque"
+        );
     }
 
     #[test]
@@ -852,12 +932,18 @@ mod tests {
                 c.eval(1.0 - t)
             );
         }
-        assert!(c.eval(0.0) > 0.5 && c.eval(1.0) > 0.5, "both extremes must be visible");
+        assert!(
+            c.eval(0.0) > 0.5 && c.eval(1.0) > 0.5,
+            "both extremes must be visible"
+        );
     }
 
     #[test]
     fn a_fully_transparent_transfer_function_has_no_support() {
-        let tf = TransferFunction { density: 0.0, ..Default::default() };
+        let tf = TransferFunction {
+            density: 0.0,
+            ..Default::default()
+        };
         assert!(tf.support().is_none());
     }
 
@@ -869,7 +955,10 @@ mod tests {
         for i in [0usize, 37, 128, 255] {
             let t = i as f32 / (LUT_SIZE - 1) as f32;
             let v = tf.denormalise(t);
-            assert!((lut[i][3] - tf.opacity(v)).abs() < 1e-6, "alpha mismatch at {i}");
+            assert!(
+                (lut[i][3] - tf.opacity(v)).abs() < 1e-6,
+                "alpha mismatch at {i}"
+            );
             let c = tf.color(v);
             assert!((lut[i][0] - c.x).abs() < 1e-5, "colour mismatch at {i}");
         }
@@ -878,7 +967,11 @@ mod tests {
     #[test]
     fn uniform_matches_the_cpu_normalisation() {
         for scale in [RangeScale::Linear, RangeScale::Log] {
-            let mut tf = TransferFunction { range: [0.5, 50.0], scale, ..Default::default() };
+            let mut tf = TransferFunction {
+                range: [0.5, 50.0],
+                scale,
+                ..Default::default()
+            };
             tf.sanitise();
             let u = tf.uniform();
             for v in [0.6f32, 5.0, 25.0, 49.0] {

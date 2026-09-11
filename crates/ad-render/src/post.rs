@@ -221,8 +221,21 @@ struct Target {
 }
 
 impl Target {
-    fn new(device: &wgpu::Device, label: &str, w: u32, h: u32, format: wgpu::TextureFormat) -> Self {
-        Self::with_usage(device, label, w, h, format, wgpu::TextureUsages::STORAGE_BINDING)
+    fn new(
+        device: &wgpu::Device,
+        label: &str,
+        w: u32,
+        h: u32,
+        format: wgpu::TextureFormat,
+    ) -> Self {
+        Self::with_usage(
+            device,
+            label,
+            w,
+            h,
+            format,
+            wgpu::TextureUsages::STORAGE_BINDING,
+        )
     }
 
     fn with_usage(
@@ -306,7 +319,12 @@ impl PostChain {
             label: Some("ssao"),
             entries: &[
                 util::uniform_entry(0, cs),
-                util::texture_entry(1, cs, wgpu::TextureSampleType::Depth, wgpu::TextureViewDimension::D2),
+                util::texture_entry(
+                    1,
+                    cs,
+                    wgpu::TextureSampleType::Depth,
+                    wgpu::TextureViewDimension::D2,
+                ),
                 util::sampled_float_entry(2, cs, wgpu::TextureViewDimension::D2),
                 util::sampled_float_entry(3, cs, wgpu::TextureViewDimension::D2),
                 util::storage_texture_entry(4, cs, AO_FORMAT, wgpu::TextureViewDimension::D2),
@@ -330,7 +348,12 @@ impl PostChain {
                 util::sampler_entry(1, cs, wgpu::SamplerBindingType::Filtering),
                 util::sampled_float_entry(2, cs, wgpu::TextureViewDimension::D2),
                 util::sampled_float_entry(3, cs, wgpu::TextureViewDimension::D2),
-                util::texture_entry(4, cs, wgpu::TextureSampleType::Depth, wgpu::TextureViewDimension::D2),
+                util::texture_entry(
+                    4,
+                    cs,
+                    wgpu::TextureSampleType::Depth,
+                    wgpu::TextureViewDimension::D2,
+                ),
                 util::texture_entry(
                     5,
                     cs,
@@ -360,7 +383,12 @@ impl PostChain {
                 util::sampled_float_entry(2, cs, wgpu::TextureViewDimension::D2),
                 util::sampled_float_entry(3, cs, wgpu::TextureViewDimension::D2),
                 util::sampled_float_entry(4, cs, wgpu::TextureViewDimension::D2),
-                util::texture_entry(5, cs, wgpu::TextureSampleType::Depth, wgpu::TextureViewDimension::D2),
+                util::texture_entry(
+                    5,
+                    cs,
+                    wgpu::TextureSampleType::Depth,
+                    wgpu::TextureViewDimension::D2,
+                ),
                 util::texture_entry(
                     6,
                     cs,
@@ -418,8 +446,7 @@ impl PostChain {
                 util::sampled_float_entry(4, fs, wgpu::TextureViewDimension::D2),
             ],
         });
-        let tone_pipeline =
-            Self::build_tonemap(device, loader, &tone_layout, target_format)?;
+        let tone_pipeline = Self::build_tonemap(device, loader, &tone_layout, target_format)?;
 
         let (ao, hdr, history, down_chain, up_chain) = Self::create_targets(device, width, height);
 
@@ -476,27 +503,29 @@ impl PostChain {
             bind_group_layouts: &[Some(layout)],
             immediate_size: 0,
         });
-        Ok(device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("tonemap"),
-            layout: Some(&pl),
-            vertex: wgpu::VertexState {
-                module: &module,
-                entry_point: Some("vs_fullscreen"),
-                compilation_options: Default::default(),
-                buffers: &[],
-            },
-            primitive: wgpu::PrimitiveState::default(),
-            depth_stencil: None,
-            multisample: wgpu::MultisampleState::default(),
-            fragment: Some(wgpu::FragmentState {
-                module: &module,
-                entry_point: Some("fs_tonemap"),
-                compilation_options: Default::default(),
-                targets: &[Some(format.into())],
+        Ok(
+            device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+                label: Some("tonemap"),
+                layout: Some(&pl),
+                vertex: wgpu::VertexState {
+                    module: &module,
+                    entry_point: Some("vs_fullscreen"),
+                    compilation_options: Default::default(),
+                    buffers: &[],
+                },
+                primitive: wgpu::PrimitiveState::default(),
+                depth_stencil: None,
+                multisample: wgpu::MultisampleState::default(),
+                fragment: Some(wgpu::FragmentState {
+                    module: &module,
+                    entry_point: Some("fs_tonemap"),
+                    compilation_options: Default::default(),
+                    targets: &[Some(format.into())],
+                }),
+                multiview_mask: None,
+                cache: None,
             }),
-            multiview_mask: None,
-            cache: None,
-        }))
+        )
     }
 
     #[allow(clippy::type_complexity)]
@@ -534,7 +563,13 @@ impl PostChain {
         // point and needs no destination of its own.
         let mut up = Vec::with_capacity(BLOOM_LEVELS - 1);
         for i in 0..BLOOM_LEVELS - 1 {
-            up.push(Target::new(device, "bloom up", down[i].size.0, down[i].size.1, HDR_FORMAT));
+            up.push(Target::new(
+                device,
+                "bloom up",
+                down[i].size.0,
+                down[i].size.1,
+                HDR_FORMAT,
+            ));
         }
         (ao, hdr, history, down, up)
     }
@@ -608,7 +643,11 @@ impl PostChain {
             // Zero samples means the shader writes a flat 1.0, which is exactly
             // what "SSAO off" should look like to the compositor. Cheaper than
             // maintaining a second code path or a white stand-in texture.
-            sample_count: if self.settings.ssao { self.settings.ssao_samples } else { 0 },
+            sample_count: if self.settings.ssao {
+                self.settings.ssao_samples
+            } else {
+                0
+            },
         };
         queue.write_buffer(&self.ssao_uniform, 0, bytemuck::bytes_of(&u));
 
@@ -616,9 +655,18 @@ impl PostChain {
             label: Some("ssao"),
             layout: &self.ssao_layout,
             entries: &[
-                wgpu::BindGroupEntry { binding: 0, resource: self.ssao_uniform.as_entire_binding() },
-                wgpu::BindGroupEntry { binding: 1, resource: wgpu::BindingResource::TextureView(depth) },
-                wgpu::BindGroupEntry { binding: 2, resource: wgpu::BindingResource::TextureView(normal) },
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: self.ssao_uniform.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::TextureView(depth),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: wgpu::BindingResource::TextureView(normal),
+                },
                 wgpu::BindGroupEntry {
                     binding: 3,
                     resource: wgpu::BindingResource::TextureView(&self.blue_noise_view),
@@ -666,12 +714,30 @@ impl PostChain {
             sky_top: bg.sky_top.extend(1.0).to_array(),
             sky_bottom: bg.sky_bottom.extend(1.0).to_array(),
             ground_color: bg.ground.extend(1.0).to_array(),
-            key_dir: li.key_dir.normalize_or(Vec3::Y).extend(li.key_intensity).to_array(),
-            fill_dir: li.fill_dir.normalize_or(Vec3::NEG_Y).extend(li.fill_intensity).to_array(),
+            key_dir: li
+                .key_dir
+                .normalize_or(Vec3::Y)
+                .extend(li.key_intensity)
+                .to_array(),
+            fill_dir: li
+                .fill_dir
+                .normalize_or(Vec3::NEG_Y)
+                .extend(li.fill_intensity)
+                .to_array(),
             key_color: li.key_color.extend(li.ambient).to_array(),
-            ground: [bg.ground_y_mm, bg.shadow_radius_mm, bg.shadow_strength, bg.ground_fade_mm],
+            ground: [
+                bg.ground_y_mm,
+                bg.shadow_radius_mm,
+                bg.shadow_strength,
+                bg.ground_fade_mm,
+            ],
             scene_center: scene_center.extend(self.settings.clearcoat).to_array(),
-            misc: [1.0, li.rim, if volume_enabled { 1.0 } else { 0.0 }, li.ao_power],
+            misc: [
+                1.0,
+                li.rim,
+                if volume_enabled { 1.0 } else { 0.0 },
+                li.ao_power,
+            ],
         };
         queue.write_buffer(&self.comp_uniform, 0, bytemuck::bytes_of(&u));
 
@@ -679,14 +745,26 @@ impl PostChain {
             label: Some("composite"),
             layout: &self.comp_layout,
             entries: &[
-                wgpu::BindGroupEntry { binding: 0, resource: self.comp_uniform.as_entire_binding() },
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: self.comp_uniform.as_entire_binding(),
+                },
                 wgpu::BindGroupEntry {
                     binding: 1,
                     resource: wgpu::BindingResource::Sampler(&self.linear_sampler),
                 },
-                wgpu::BindGroupEntry { binding: 2, resource: wgpu::BindingResource::TextureView(albedo) },
-                wgpu::BindGroupEntry { binding: 3, resource: wgpu::BindingResource::TextureView(normal) },
-                wgpu::BindGroupEntry { binding: 4, resource: wgpu::BindingResource::TextureView(depth) },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: wgpu::BindingResource::TextureView(albedo),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 3,
+                    resource: wgpu::BindingResource::TextureView(normal),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 4,
+                    resource: wgpu::BindingResource::TextureView(depth),
+                },
                 wgpu::BindGroupEntry {
                     binding: 5,
                     resource: wgpu::BindingResource::TextureView(&self.ao.sampled),
@@ -755,7 +833,10 @@ impl PostChain {
             label: Some("taa"),
             layout: &self.taa_layout,
             entries: &[
-                wgpu::BindGroupEntry { binding: 0, resource: self.taa_uniform.as_entire_binding() },
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: self.taa_uniform.as_entire_binding(),
+                },
                 wgpu::BindGroupEntry {
                     binding: 1,
                     resource: wgpu::BindingResource::Sampler(&self.linear_sampler),
@@ -768,8 +849,14 @@ impl PostChain {
                     binding: 3,
                     resource: wgpu::BindingResource::TextureView(&self.history[src].sampled),
                 },
-                wgpu::BindGroupEntry { binding: 4, resource: wgpu::BindingResource::TextureView(motion) },
-                wgpu::BindGroupEntry { binding: 5, resource: wgpu::BindingResource::TextureView(depth) },
+                wgpu::BindGroupEntry {
+                    binding: 4,
+                    resource: wgpu::BindingResource::TextureView(motion),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 5,
+                    resource: wgpu::BindingResource::TextureView(depth),
+                },
                 wgpu::BindGroupEntry {
                     binding: 6,
                     resource: wgpu::BindingResource::TextureView(volume_front),
@@ -839,14 +926,26 @@ impl PostChain {
                 label: Some("bloom"),
                 layout: &self.bloom_layout,
                 entries: &[
-                    wgpu::BindGroupEntry { binding: 0, resource: self.bloom_uniform.as_entire_binding() },
+                    wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: self.bloom_uniform.as_entire_binding(),
+                    },
                     wgpu::BindGroupEntry {
                         binding: 1,
                         resource: wgpu::BindingResource::Sampler(&self.linear_sampler),
                     },
-                    wgpu::BindGroupEntry { binding: 2, resource: wgpu::BindingResource::TextureView(a) },
-                    wgpu::BindGroupEntry { binding: 3, resource: wgpu::BindingResource::TextureView(b) },
-                    wgpu::BindGroupEntry { binding: 4, resource: wgpu::BindingResource::TextureView(dst) },
+                    wgpu::BindGroupEntry {
+                        binding: 2,
+                        resource: wgpu::BindingResource::TextureView(a),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 3,
+                        resource: wgpu::BindingResource::TextureView(b),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 4,
+                        resource: wgpu::BindingResource::TextureView(dst),
+                    },
                 ],
             })
         };
@@ -879,7 +978,11 @@ impl PostChain {
             };
             steps.push((
                 &self.bloom_up,
-                make_group(smaller, &self.down_chain[i].sampled, &self.up_chain[i].storage),
+                make_group(
+                    smaller,
+                    &self.down_chain[i].sampled,
+                    &self.up_chain[i].storage,
+                ),
                 self.up_chain[i].size,
             ));
         }
@@ -910,7 +1013,11 @@ impl PostChain {
     ) {
         let u = TonemapUniform {
             exposure: self.settings.exposure.max(0.0),
-            bloom_intensity: if self.settings.bloom { self.settings.bloom_intensity } else { 0.0 },
+            bloom_intensity: if self.settings.bloom {
+                self.settings.bloom_intensity
+            } else {
+                0.0
+            },
             look_strength: self.settings.agx_look,
             dither: self.settings.dither,
         };
@@ -924,7 +1031,10 @@ impl PostChain {
             label: Some("tonemap"),
             layout: &self.tone_layout,
             entries: &[
-                wgpu::BindGroupEntry { binding: 0, resource: self.tone_uniform.as_entire_binding() },
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: self.tone_uniform.as_entire_binding(),
+                },
                 wgpu::BindGroupEntry {
                     binding: 1,
                     resource: wgpu::BindingResource::Sampler(&self.linear_sampler),
@@ -933,7 +1043,10 @@ impl PostChain {
                     binding: 2,
                     resource: wgpu::BindingResource::TextureView(self.resolved_view()),
                 },
-                wgpu::BindGroupEntry { binding: 3, resource: wgpu::BindingResource::TextureView(bloom_view) },
+                wgpu::BindGroupEntry {
+                    binding: 3,
+                    resource: wgpu::BindingResource::TextureView(bloom_view),
+                },
                 wgpu::BindGroupEntry {
                     binding: 4,
                     resource: wgpu::BindingResource::TextureView(&self.blue_noise_view),
@@ -980,9 +1093,12 @@ impl GBuffer {
     pub fn new(device: &wgpu::Device, width: u32, height: u32) -> Self {
         let (w, h) = (width.max(1), height.max(1));
         let attach = wgpu::TextureUsages::RENDER_ATTACHMENT;
-        let albedo = util::color_target(device, "gbuffer albedo", w, h, mesh::ALBEDO_FORMAT, attach);
-        let normal = util::color_target(device, "gbuffer normal", w, h, mesh::NORMAL_FORMAT, attach);
-        let motion = util::color_target(device, "gbuffer motion", w, h, mesh::MOTION_FORMAT, attach);
+        let albedo =
+            util::color_target(device, "gbuffer albedo", w, h, mesh::ALBEDO_FORMAT, attach);
+        let normal =
+            util::color_target(device, "gbuffer normal", w, h, mesh::NORMAL_FORMAT, attach);
+        let motion =
+            util::color_target(device, "gbuffer motion", w, h, mesh::MOTION_FORMAT, attach);
         let depth = util::color_target(device, "gbuffer depth", w, h, mesh::DEPTH_FORMAT, attach);
         Self {
             albedo: albedo.create_view(&Default::default()),
@@ -1014,12 +1130,23 @@ mod tests {
     #[test]
     fn default_settings_are_plausible() {
         let s = PostSettings::default();
-        assert!(s.taa_blend > 0.0 && s.taa_blend < 0.5, "blend {} will ghost or flicker", s.taa_blend);
+        assert!(
+            s.taa_blend > 0.0 && s.taa_blend < 0.5,
+            "blend {} will ghost or flicker",
+            s.taa_blend
+        );
         assert!(s.taa_variance_gamma >= 1.0);
         // AO radius must be scaled to the passage, not the part: the test duct's
         // median internal width is 6.3 mm.
-        assert!(s.ssao_radius_mm < 10.0, "AO radius {} is bigger than the passage", s.ssao_radius_mm);
-        assert!(s.bloom_threshold > 1.0, "bloom must only catch above-white content");
+        assert!(
+            s.ssao_radius_mm < 10.0,
+            "AO radius {} is bigger than the passage",
+            s.ssao_radius_mm
+        );
+        assert!(
+            s.bloom_threshold > 1.0,
+            "bloom must only catch above-white content"
+        );
         assert!(s.bloom_intensity < 0.25, "bloom this strong hides the data");
         assert!(s.exposure > 0.0);
     }
@@ -1059,8 +1186,12 @@ mod tests {
     fn hdr_format_is_storage_capable_and_filterable() {
         let base = wgpu::Features::empty();
         let f = HDR_FORMAT.guaranteed_format_features(base);
-        assert!(f.allowed_usages.contains(wgpu::TextureUsages::STORAGE_BINDING));
-        assert!(f.allowed_usages.contains(wgpu::TextureUsages::RENDER_ATTACHMENT));
+        assert!(f
+            .allowed_usages
+            .contains(wgpu::TextureUsages::STORAGE_BINDING));
+        assert!(f
+            .allowed_usages
+            .contains(wgpu::TextureUsages::RENDER_ATTACHMENT));
         assert_eq!(
             HDR_FORMAT.sample_type(None, Some(base)),
             Some(wgpu::TextureSampleType::Float { filterable: true }),

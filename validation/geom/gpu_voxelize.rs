@@ -9,7 +9,7 @@ use ad_geom::primitives::{self, ConvexSolid};
 use ad_geom::{
     scene::FlatGeometry, CpuSdf, MeshAsset, MeshRole, Scene, Transform, TriMesh, Voxelizer,
 };
-use ad_gpu::{flags, Bbox, Grid, GpuContext};
+use ad_gpu::{flags, Bbox, GpuContext, Grid};
 use glam::{UVec3, Vec3};
 
 /// `None` means "no GPU"; every test treats that as a skip.
@@ -24,7 +24,11 @@ fn grid_around(mesh: &TriMesh, dx: f32, margin_cells: f32) -> Grid {
 fn cell_at(grid: Grid, i: usize) -> UVec3 {
     let nx = grid.dims.x as usize;
     let ny = grid.dims.y as usize;
-    UVec3::new((i % nx) as u32, ((i / nx) % ny) as u32, (i / (nx * ny)) as u32)
+    UVec3::new(
+        (i % nx) as u32,
+        ((i / nx) % ny) as u32,
+        (i / (nx * ny)) as u32,
+    )
 }
 
 fn soup(m: &TriMesh) -> Vec<[Vec3; 3]> {
@@ -43,7 +47,9 @@ fn narrow_band_matches_the_analytic_box_sdf() {
     let grid = grid_around(&mesh, 0.5, 8.0);
 
     let mut vox = Voxelizer::new(&gpu).expect("pipelines");
-    let stats = vox.voxelize(FlatGeometry::from_mesh(&mesh), grid).expect("voxelize");
+    let stats = vox
+        .voxelize(FlatGeometry::from_mesh(&mesh), grid)
+        .expect("voxelize");
     let phi = vox.read_phi().expect("phi readback");
 
     let mut worst = 0.0f32;
@@ -76,7 +82,9 @@ fn narrow_band_matches_the_cpu_reference_on_a_sphere() {
     let grid = grid_around(&mesh, 0.5, 8.0);
 
     let mut vox = Voxelizer::new(&gpu).expect("pipelines");
-    let stats = vox.voxelize(FlatGeometry::from_mesh(&mesh), grid).expect("voxelize");
+    let stats = vox
+        .voxelize(FlatGeometry::from_mesh(&mesh), grid)
+        .expect("voxelize");
     let phi = vox.read_phi().expect("phi readback");
 
     let reference = CpuSdf::from_mesh(&mesh).sample_band(grid, stats.band_mm);
@@ -90,7 +98,10 @@ fn narrow_band_matches_the_cpu_reference_on_a_sphere() {
         worst = worst.max((phi[i] - want).abs());
     }
     assert!(checked > 20_000, "only {checked} band cells");
-    assert!(worst < 0.01 * grid.dx_mm, "worst error {worst} mm over {checked} cells");
+    assert!(
+        worst < 0.01 * grid.dx_mm,
+        "worst error {worst} mm over {checked} cells"
+    );
 
     // ...and against the analytic sphere, within the inscribed-polyhedron error.
     let theta = std::f32::consts::TAU / 96.0;
@@ -101,7 +112,10 @@ fn narrow_band_matches_the_cpu_reference_on_a_sphere() {
         if want.abs() > stats.band_mm * 0.98 {
             continue;
         }
-        assert!((got - want).abs() < tol, "{got} vs analytic {want} at {p:?}");
+        assert!(
+            (got - want).abs() < tol,
+            "{got} vs analytic {want} at {p:?}"
+        );
     }
 }
 
@@ -115,7 +129,8 @@ fn signs_are_right_at_a_sharp_edge() {
     let grid = grid_around(&mesh, 0.25, 8.0);
 
     let mut vox = Voxelizer::new(&gpu).expect("pipelines");
-    vox.voxelize(FlatGeometry::from_mesh(&mesh), grid).expect("voxelize");
+    vox.voxelize(FlatGeometry::from_mesh(&mesh), grid)
+        .expect("voxelize");
     let phi = vox.read_phi().expect("phi readback");
 
     let mut wrong = 0usize;
@@ -133,7 +148,10 @@ fn signs_are_right_at_a_sharp_edge() {
         }
     }
     assert!(checked > 50_000, "only {checked} cells");
-    assert_eq!(wrong, 0, "{wrong} of {checked} cells were signed wrongly near a 25 degree edge");
+    assert_eq!(
+        wrong, 0,
+        "{wrong} of {checked} cells were signed wrongly near a 25 degree edge"
+    );
 }
 
 /// The solid mask against a completely independent method: ray parity, which
@@ -152,7 +170,9 @@ fn solid_mask_matches_the_ray_parity_reference() {
         assert!(reference.is_watertight(), "{}", reference.report());
 
         let mut vox = Voxelizer::new(&gpu).expect("pipelines");
-        let stats = vox.voxelize(FlatGeometry::from_mesh(&mesh), grid).expect("voxelize");
+        let stats = vox
+            .voxelize(FlatGeometry::from_mesh(&mesh), grid)
+            .expect("voxelize");
         assert!(stats.fill_converged, "{}", stats.report());
         let cell_flags = vox.read_flags().expect("flag readback");
 
@@ -206,13 +226,18 @@ fn boundary_links_are_consistent_with_the_field() {
     let grid = grid_around(&mesh, 0.5, 6.0);
 
     let mut vox = Voxelizer::new(&gpu).expect("pipelines");
-    let stats = vox.voxelize(FlatGeometry::from_mesh(&mesh), grid).expect("voxelize");
+    let stats = vox
+        .voxelize(FlatGeometry::from_mesh(&mesh), grid)
+        .expect("voxelize");
     let phi = vox.read_phi().expect("phi");
     let cell_flags = vox.read_flags().expect("flags");
     let links = vox.read_links().expect("links");
 
     assert_eq!(links.len(), stats.link_count as usize);
-    assert!(!links.is_empty(), "a sphere in a box must have boundary links");
+    assert!(
+        !links.is_empty(),
+        "a sphere in a box must have boundary links"
+    );
 
     let dirs = ad_gpu::lattice::D3Q19_DIRS;
     let mut cells_with_links = std::collections::HashSet::new();
@@ -221,20 +246,29 @@ fn boundary_links_are_consistent_with_the_field() {
         cells_with_links.insert(link.cell);
 
         // Every link starts on a fluid cell that is flagged as a boundary.
-        assert!(flags::is_fluid(cell_flags[cell]), "link from a solid cell {cell}");
+        assert!(
+            flags::is_fluid(cell_flags[cell]),
+            "link from a solid cell {cell}"
+        );
         assert!(
             cell_flags[cell] & flags::SOLID_BOUNDARY != 0,
             "cell {cell} has a link but is not flagged SOLID_BOUNDARY"
         );
 
         let d = link.direction as usize;
-        assert!((1..19).contains(&d), "direction {d} is not a D3Q19 non-rest link");
+        assert!(
+            (1..19).contains(&d),
+            "direction {d} is not a D3Q19 non-rest link"
+        );
 
         // ...and ends on a solid one.
         let c = cell_at(grid, cell).as_ivec3() + dirs[d];
         assert!(c.cmpge(glam::IVec3::ZERO).all() && c.cmplt(grid.dims.as_ivec3()).all());
         let n = grid.linear(c.as_uvec3()) as usize;
-        assert!(!flags::is_fluid(cell_flags[n]), "link {d} from {cell} does not reach solid");
+        assert!(
+            !flags::is_fluid(cell_flags[n]),
+            "link {d} from {cell} does not reach solid"
+        );
 
         // q must reproduce the linear interpolation along the link.
         let want = (phi[cell] / (phi[cell] - phi[n])).clamp(1.0 / 255.0, 1.0);
@@ -248,9 +282,15 @@ fn boundary_links_are_consistent_with_the_field() {
 
     // Every boundary-flagged cell has to appear, or the solver would apply plain
     // bounce-back where interpolation was expected.
-    let flagged: usize =
-        cell_flags.iter().filter(|f| **f & flags::SOLID_BOUNDARY != 0).count();
-    assert_eq!(flagged, cells_with_links.len(), "flagged boundary cells without links");
+    let flagged: usize = cell_flags
+        .iter()
+        .filter(|f| **f & flags::SOLID_BOUNDARY != 0)
+        .count();
+    assert_eq!(
+        flagged,
+        cells_with_links.len(),
+        "flagged boundary cells without links"
+    );
     assert_eq!(flagged as u64, stats.boundary_cells);
 }
 
@@ -275,7 +315,10 @@ fn an_incremental_update_matches_a_full_rebuild() {
         MeshRole::Obstruction,
     );
     let grid = Grid::covering(
-        Bbox { min: Vec3::new(-45.0, -20.0, -20.0), max: Vec3::new(45.0, 20.0, 20.0) },
+        Bbox {
+            min: Vec3::new(-45.0, -20.0, -20.0),
+            max: Vec3::new(45.0, 20.0, 20.0),
+        },
         0.5,
     );
 
@@ -286,7 +329,10 @@ fn an_incremental_update_matches_a_full_rebuild() {
     let moved = Transform::from_translation(Vec3::new(-24.0, 4.0, 2.0));
     scene.set_transform(obstruction, moved);
     let incremental = vox.sync(&mut scene, grid).expect("incremental");
-    assert!(incremental.incremental, "the drag should not have forced a full rebuild");
+    assert!(
+        incremental.incremental,
+        "the drag should not have forced a full rebuild"
+    );
     assert!(
         incremental.active_triangles < incremental.triangles,
         "an incremental pass dispatched all {} triangles",
@@ -317,7 +363,10 @@ fn an_incremental_update_matches_a_full_rebuild() {
     let full_flags = vox2.read_flags().expect("flags");
     let full_phi = vox2.read_phi().expect("phi");
 
-    assert_eq!(incremental.solid_cells, full.solid_cells, "solid cell counts differ");
+    assert_eq!(
+        incremental.solid_cells, full.solid_cells,
+        "solid cell counts differ"
+    );
     assert_eq!(incremental.boundary_cells, full.boundary_cells);
     assert_eq!(incremental.link_count, full.link_count);
     assert_eq!(inc_flags, full_flags, "the flag fields differ");
@@ -326,7 +375,10 @@ fn an_incremental_update_matches_a_full_rebuild() {
         .zip(&full_phi)
         .map(|(a, b)| (a - b).abs())
         .fold(0.0f32, f32::max);
-    assert!(worst < 1e-4, "the distance fields differ by up to {worst} mm");
+    assert!(
+        worst < 1e-4,
+        "the distance fields differ by up to {worst} mm"
+    );
 }
 
 /// Moving a part back to where it started must restore the original mask
@@ -348,7 +400,13 @@ fn dragging_a_part_and_back_restores_the_original_mask() {
         Transform::from_translation(Vec3::new(-24.0, 0.0, 0.0)),
         MeshRole::Obstruction,
     );
-    let grid = Grid::covering(Bbox { min: Vec3::splat(-32.0), max: Vec3::splat(32.0) }, 0.6);
+    let grid = Grid::covering(
+        Bbox {
+            min: Vec3::splat(-32.0),
+            max: Vec3::splat(32.0),
+        },
+        0.6,
+    );
 
     let mut vox = Voxelizer::new(&gpu).expect("pipelines");
     vox.sync(&mut scene, grid).expect("initial");
@@ -374,14 +432,21 @@ fn a_sealed_cavity_stays_fluid_and_an_enclosed_solid_stays_solid() {
     inner.flip_winding();
     let offset = mesh.positions.len() as u32;
     mesh.positions.extend(inner.positions);
-    mesh.indices.extend(inner.indices.iter().map(|t| [t[0] + offset, t[1] + offset, t[2] + offset]));
+    mesh.indices.extend(
+        inner
+            .indices
+            .iter()
+            .map(|t| [t[0] + offset, t[1] + offset, t[2] + offset]),
+    );
 
     let grid = grid_around(&mesh, 0.5, 8.0);
     let reference = ad_geom::ray_parity_voxelize(&soup(&mesh), grid);
     assert!(reference.is_watertight(), "{}", reference.report());
 
     let mut vox = Voxelizer::new(&gpu).expect("pipelines");
-    let stats = vox.voxelize(FlatGeometry::from_mesh(&mesh), grid).expect("voxelize");
+    let stats = vox
+        .voxelize(FlatGeometry::from_mesh(&mesh), grid)
+        .expect("voxelize");
     let cell_flags = vox.read_flags().expect("flags");
     let phi = vox.read_phi().expect("phi");
 
@@ -391,17 +456,32 @@ fn a_sealed_cavity_stays_fluid_and_an_enclosed_solid_stays_solid() {
             disagree += 1;
         }
     }
-    assert_eq!(disagree, 0, "{disagree} cells disagreed; {}", stats.report());
+    assert_eq!(
+        disagree,
+        0,
+        "{disagree} cells disagreed; {}",
+        stats.report()
+    );
 
     // The sealed void in the middle must be fluid, and the shell around it solid.
     let centre = grid.linear(
-        ((Vec3::ZERO - grid.origin_mm) / grid.dx_mm).round().as_uvec3(),
+        ((Vec3::ZERO - grid.origin_mm) / grid.dx_mm)
+            .round()
+            .as_uvec3(),
     ) as usize;
-    assert!(flags::is_fluid(cell_flags[centre]), "the sealed cavity was filled in");
+    assert!(
+        flags::is_fluid(cell_flags[centre]),
+        "the sealed cavity was filled in"
+    );
     let in_wall = grid.linear(
-        ((Vec3::new(8.0, 0.0, 0.0) - grid.origin_mm) / grid.dx_mm).round().as_uvec3(),
+        ((Vec3::new(8.0, 0.0, 0.0) - grid.origin_mm) / grid.dx_mm)
+            .round()
+            .as_uvec3(),
     ) as usize;
-    assert!(!flags::is_fluid(cell_flags[in_wall]), "the shell wall came out fluid");
+    assert!(
+        !flags::is_fluid(cell_flags[in_wall]),
+        "the shell wall came out fluid"
+    );
 }
 
 /// A grid whose cells outnumber a single dispatch's workgroup limit, to prove
@@ -412,11 +492,22 @@ fn a_grid_larger_than_one_dispatch_is_fully_covered() {
     let Some(gpu) = gpu() else { return };
     let mesh = primitives::box_mesh(Vec3::splat(-20.0), Vec3::splat(20.0));
     // 220^3 = 10.6 M cells, comfortably past the 4.2 M a single dispatch covers.
-    let grid = Grid::covering(Bbox { min: Vec3::splat(-27.5), max: Vec3::splat(27.5) }, 0.25);
-    assert!(grid.cell_count() > 65535 * 64, "grid too small to exercise the stride loop");
+    let grid = Grid::covering(
+        Bbox {
+            min: Vec3::splat(-27.5),
+            max: Vec3::splat(27.5),
+        },
+        0.25,
+    );
+    assert!(
+        grid.cell_count() > 65535 * 64,
+        "grid too small to exercise the stride loop"
+    );
 
     let mut vox = Voxelizer::new(&gpu).expect("pipelines");
-    let stats = vox.voxelize(FlatGeometry::from_mesh(&mesh), grid).expect("voxelize");
+    let stats = vox
+        .voxelize(FlatGeometry::from_mesh(&mesh), grid)
+        .expect("voxelize");
     assert!(stats.fill_converged, "{}", stats.report());
     let exact = 40.0f64.powi(3);
     assert!(

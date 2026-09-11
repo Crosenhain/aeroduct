@@ -69,7 +69,10 @@ fn profile_matches_the_analytic_parabola_at_twenty_cells() {
     // ...and in fact it is at round-off, because TRT at Lambda = 3/16 solves
     // this case exactly. If this tightened bound ever fails while the 1% bound
     // still passes, something has quietly become first-order.
-    assert!(err < 5e-5, "L2 error {err:e} is far above round-off for exact TRT Poiseuille");
+    assert!(
+        err < 5e-5,
+        "L2 error {err:e} is far above round-off for exact TRT Poiseuille"
+    );
 }
 
 #[test]
@@ -134,8 +137,14 @@ fn refinement_does_not_degrade_the_solution() {
         "BGK converged at order {o1:.2} between n=10 and n=20; halfway bounce-back \
          with BGK should be second order with a viscosity-dependent constant"
     );
-    assert!(o2 > 1.4, "BGK order collapsed to {o2:.2} at the finest mesh");
-    assert!(bgk[1] > 20.0 * errors[1], "BGK should be visibly worse than TRT at n=20");
+    assert!(
+        o2 > 1.4,
+        "BGK order collapsed to {o2:.2} at the finest mesh"
+    );
+    assert!(
+        bgk[1] > 20.0 * errors[1],
+        "BGK should be visibly worse than TRT at n=20"
+    );
 
     // The wall position itself: TRT must put it exactly halfway at *every*
     // resolution, and BGK must not.
@@ -261,9 +270,7 @@ fn laminar_friction_factor_of_a_plane_channel() {
     let f_darcy = dpdx_pa_per_m * d_h_m / (0.5 * lu.rho_phys * u_bulk_ms * u_bulk_ms);
     let product = f_darcy * re;
 
-    println!(
-        "plane channel: tau={tau:.5} Re={re:.1} f={f_darcy:.5} f*Re={product:.3} (want 96)"
-    );
+    println!("plane channel: tau={tau:.5} Re={re:.1} f={f_darcy:.5} f*Re={product:.3} (want 96)");
     // The physical numbers must also be sane, or the conversion could be
     // self-consistently wrong.
     assert!(
@@ -271,7 +278,10 @@ fn laminar_friction_factor_of_a_plane_channel() {
         "bulk velocity {u_bulk_ms} m/s does not match the design point {} m/s",
         lu.u_phys
     );
-    assert!(re > 20.0 && re < 2000.0, "Re {re} is not in the laminar range");
+    assert!(
+        re > 20.0 && re < 2000.0,
+        "Re {re} is not in the laminar range"
+    );
     assert!(
         (product - 96.0).abs() / 96.0 < 0.02,
         "f*Re = {product}, expected 96 within 2%"
@@ -335,7 +345,10 @@ fn laminar_friction_factor_of_a_square_duct() {
     let product = f_darcy * re;
 
     println!("square duct: Re={re:.1} f*Re={product:.3} (want {F_RE_SQUARE})");
-    assert!(re > 5.0 && re < 2000.0, "Re {re} is not in the laminar range");
+    assert!(
+        re > 5.0 && re < 2000.0,
+        "Re {re} is not in the laminar range"
+    );
     assert!(
         (product - F_RE_SQUARE).abs() / F_RE_SQUARE < 0.02,
         "f*Re = {product}, expected {F_RE_SQUARE} within 2%"

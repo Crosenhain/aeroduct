@@ -131,8 +131,8 @@ impl StepAutoTuner {
 
     /// Steps to dispatch this frame.
     pub fn steps(&self) -> u32 {
-        (self.steps.round() as i64).clamp(self.config.min_steps as i64, self.config.max_steps as i64)
-            as u32
+        (self.steps.round() as i64)
+            .clamp(self.config.min_steps as i64, self.config.max_steps as i64) as u32
     }
 
     /// Smoothed whole-frame time, seconds.
@@ -170,7 +170,8 @@ impl StepAutoTuner {
         // The batch this frame's time is the bill for. Until the pipeline has
         // filled, the oldest one on record.
         self.recent.push_front(steps_run);
-        self.recent.truncate(self.config.latency_frames as usize + 1);
+        self.recent
+            .truncate(self.config.latency_frames as usize + 1);
         let billed = self.recent.back().copied().unwrap_or(steps_run);
 
         if !self.enabled {
@@ -179,7 +180,9 @@ impl StepAutoTuner {
 
         let budget = self.config.frame_budget_s.max(1e-4);
         let (lo, hi) = (self.config.min_steps as f32, self.config.max_steps as f32);
-        let cost = step_cost.map(|c| c.as_secs_f32()).filter(|c| c.is_finite() && *c > 0.0);
+        let cost = step_cost
+            .map(|c| c.as_secs_f32())
+            .filter(|c| c.is_finite() && *c > 0.0);
         let ratio = match cost {
             Some(c) => {
                 // A stall is not overhead the step count could make room for,
@@ -269,7 +272,11 @@ impl Clock {
     /// Wall-clock seconds to advance one more second of physical time.
     pub fn wall_seconds_per_sim_second(&self) -> f64 {
         let f = self.realtime_factor();
-        if f.is_finite() && f > 0.0 { 1.0 / f } else { f64::NAN }
+        if f.is_finite() && f > 0.0 {
+            1.0 / f
+        } else {
+            f64::NAN
+        }
     }
 
     /// One line for the status bar, with the "real-time" ambiguity resolved
@@ -332,7 +339,12 @@ impl Default for RateMeter {
 
 impl RateMeter {
     pub fn new(window_s: f64) -> Self {
-        Self { window_s: window_s.max(1e-3), elapsed_s: 0.0, count: 0.0, rate: 0.0 }
+        Self {
+            window_s: window_s.max(1e-3),
+            elapsed_s: 0.0,
+            count: 0.0,
+            rate: 0.0,
+        }
     }
 
     /// Record `n` events over `dt` seconds.
@@ -398,7 +410,11 @@ mod tests {
         for _ in 0..40 {
             t.update(ms(400.0));
         }
-        assert!(t.steps() < 200, "still at {} steps after a sustained overrun", t.steps());
+        assert!(
+            t.steps() < 200,
+            "still at {} steps after a sustained overrun",
+            t.steps()
+        );
     }
 
     #[test]
@@ -457,12 +473,20 @@ mod tests {
             auto.update(ms(2.0));
         }
         auto.reset();
-        assert_eq!(auto.steps(), auto.config.min_steps.max(1), "an auto count starts over");
+        assert_eq!(
+            auto.steps(),
+            auto.config.min_steps.max(1),
+            "an auto count starts over"
+        );
     }
 
     #[test]
     fn limits_are_respected_at_both_ends() {
-        let cfg = AutoTuneConfig { min_steps: 4, max_steps: 32, ..Default::default() };
+        let cfg = AutoTuneConfig {
+            min_steps: 4,
+            max_steps: 32,
+            ..Default::default()
+        };
         let mut t = StepAutoTuner::new(cfg);
         for _ in 0..200 {
             t.update(ms(0.01));
@@ -506,7 +530,9 @@ mod tests {
         let mut t = StepAutoTuner::default();
         let log = run_plant(&mut t, 300, 2, 4.6, 4.4, true);
         let tail = &log[240..];
-        let (lo, hi) = tail.iter().fold((u32::MAX, 0), |(lo, hi), &(n, _)| (lo.min(n), hi.max(n)));
+        let (lo, hi) = tail
+            .iter()
+            .fold((u32::MAX, 0), |(lo, hi), &(n, _)| (lo.min(n), hi.max(n)));
         assert!(hi - lo <= 1, "the step count still swings {lo}..{hi}");
         let mean = tail.iter().map(|&(_, f)| f).sum::<f32>() / tail.len() as f32;
         assert!(
@@ -523,12 +549,24 @@ mod tests {
         let before = t.steps();
         let log = run_plant(&mut t, 200, 2, 10.0, 1.0, true);
         let after = t.steps();
-        assert!(after < before, "the count did not fall: {before} -> {after}");
-        assert!((after as f32 - 6.67).abs() <= 1.5, "settled at {after} steps, want about 6.7");
+        assert!(
+            after < before,
+            "the count did not fall: {before} -> {after}"
+        );
+        assert!(
+            (after as f32 - 6.67).abs() <= 1.5,
+            "settled at {after} steps, want about 6.7"
+        );
         let worst = log.iter().map(|&(_, f)| f).fold(0.0, f32::max);
-        assert!(worst < 16.67 * 1.6, "worst frame {worst:.1} ms during the transition");
+        assert!(
+            worst < 16.67 * 1.6,
+            "worst frame {worst:.1} ms during the transition"
+        );
         let over = log.iter().filter(|&&(_, f)| f > 16.67 * 1.12).count();
-        assert!(over < 40, "{over} frames over budget before the count came down");
+        assert!(
+            over < 40,
+            "{over} frames over budget before the count came down"
+        );
     }
 
     #[test]
@@ -583,7 +621,10 @@ mod tests {
         let line = c.status_line();
         assert!(line.contains("1/2857 real-time"), "{line}");
         assert!(line.contains("per simulated second"), "{line}");
-        assert!(!line.contains("0.00x"), "the misleading rounding is back: {line}");
+        assert!(
+            !line.contains("0.00x"),
+            "the misleading rounding is back: {line}"
+        );
         assert!(
             (c.wall_seconds_per_sim_second() - 2857.0).abs() < 2.0,
             "{}",
@@ -613,6 +654,10 @@ mod tests {
     fn the_rate_meter_is_zero_until_a_window_closes() {
         let mut m = RateMeter::new(1.0);
         m.tick(100.0, 0.2);
-        assert_eq!(m.rate(), 0.0, "an unfinished window must not be extrapolated");
+        assert_eq!(
+            m.rate(),
+            0.0,
+            "an unfinished window must not be extrapolated"
+        );
     }
 }

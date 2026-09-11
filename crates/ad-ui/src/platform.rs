@@ -109,7 +109,11 @@ impl WinitPlatform {
     pub fn resized(&mut self, context: &mut Context, window: &Window) {
         let scale = window.scale_factor() as f32;
         let physical = window.inner_size();
-        self.scale_factor = if scale.is_finite() && scale > 0.0 { scale } else { 1.0 };
+        self.scale_factor = if scale.is_finite() && scale > 0.0 {
+            scale
+        } else {
+            1.0
+        };
         self.logical_size = [
             physical.width as f32 / self.scale_factor,
             physical.height as f32 / self.scale_factor,
@@ -184,9 +188,7 @@ impl WinitPlatform {
                     // A pixel delta comes from a trackpad, where one "notch" is
                     // conventionally about 30 px. Feeding raw pixels scrolls
                     // lists at roughly thirty times the intended speed.
-                    MouseScrollDelta::PixelDelta(p) => {
-                        (p.x as f32 / 30.0, p.y as f32 / 30.0)
-                    }
+                    MouseScrollDelta::PixelDelta(p) => (p.x as f32 / 30.0, p.y as f32 / 30.0),
                 };
                 context.io_mut().add_mouse_wheel_event([h, v]);
                 context.io().want_capture_mouse()
@@ -200,7 +202,11 @@ impl WinitPlatform {
                 io.add_key_event(Key::ModSuper, self.modifiers.super_key());
                 false
             }
-            WindowEvent::KeyboardInput { event, is_synthetic, .. } => {
+            WindowEvent::KeyboardInput {
+                event,
+                is_synthetic,
+                ..
+            } => {
                 // Synthetic events are winit's replay of the key state when the
                 // window regains focus. Feeding them produces a phantom press
                 // of every held key, which in this app means the camera lurches

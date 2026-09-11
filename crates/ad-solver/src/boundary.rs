@@ -290,7 +290,10 @@ impl LinkTable {
                 let x = l.cell % interior.x;
                 let y = (l.cell / interior.x) % interior.y;
                 let z = l.cell / (interior.x * interior.y);
-                BoundaryLink { cell: domain.interior_linear(UVec3::new(x, y, z)), ..*l }
+                BoundaryLink {
+                    cell: domain.interior_linear(UVec3::new(x, y, z)),
+                    ..*l
+                }
             })
             .collect();
         out.sort_by_key(|l| (l.cell, l.direction));
@@ -303,7 +306,10 @@ impl LinkTable {
 
     /// `q` for one link, or `0.5` (the halfway assumption) when absent.
     pub fn q(&self, cell: u32, direction: u8) -> f32 {
-        match self.links.binary_search_by_key(&(cell, direction), |l| (l.cell, l.direction)) {
+        match self
+            .links
+            .binary_search_by_key(&(cell, direction), |l| (l.cell, l.direction))
+        {
             Ok(i) => self.links[i].q(),
             Err(_) => 0.5,
         }
@@ -406,7 +412,10 @@ mod tests {
         // The solid cell has 18 fluid neighbours, each of which sees exactly one
         // blocked link.
         let blocked: u32 = d.link_mask.iter().map(|m| m.count_ones()).sum();
-        assert_eq!(blocked, 18, "one blocked link per neighbour of the solid cell");
+        assert_eq!(
+            blocked, 18,
+            "one blocked link per neighbour of the solid cell"
+        );
     }
 
     #[test]
@@ -414,7 +423,11 @@ mod tests {
         let d = PaddedDomain::uniform_fluid(UVec3::new(40, 40, 40), [false; 3], VelocitySet::D3Q19);
         let sp = flags::SPONGE;
         let mid = UVec3::splat(20);
-        assert_eq!(d.sponge_sigma(mid, sp, 10, 0.5), 0.0, "the interior must be untouched");
+        assert_eq!(
+            d.sponge_sigma(mid, sp, 10, 0.5),
+            0.0,
+            "the interior must be untouched"
+        );
         // At the face itself (padded index 0) the layer is at full strength.
         let face = UVec3::new(0, 20, 20);
         assert!((d.sponge_sigma(face, sp, 10, 0.5) - 0.5).abs() < 1e-6);
@@ -436,8 +449,14 @@ mod tests {
         assert_eq!(CellKind::of(flags::FLUID), CellKind::Fluid);
         assert_eq!(CellKind::of(flags::SOLID | flags::INLET), CellKind::Solid);
         assert_eq!(CellKind::of(flags::INLET | flags::OUTLET), CellKind::Inlet);
-        assert_eq!(CellKind::of(flags::OUTLET | flags::EQUILIBRIUM), CellKind::Outlet);
-        assert_eq!(CellKind::of(flags::EQUILIBRIUM | flags::SPONGE), CellKind::Equilibrium);
+        assert_eq!(
+            CellKind::of(flags::OUTLET | flags::EQUILIBRIUM),
+            CellKind::Outlet
+        );
+        assert_eq!(
+            CellKind::of(flags::EQUILIBRIUM | flags::SPONGE),
+            CellKind::Equilibrium
+        );
         // SPONGE alone is not a boundary; it only modifies one.
         assert_eq!(CellKind::of(flags::SPONGE), CellKind::Fluid);
     }
@@ -456,6 +475,10 @@ mod tests {
         let padded_cell = d.interior_linear(UVec3::new(3, 1, 2));
         assert_eq!(t.links[0].cell, padded_cell);
         assert!((t.q(padded_cell, 5) - 0.25).abs() < 1.0 / 255.0);
-        assert_eq!(t.q(padded_cell, 6), 0.5, "absent links fall back to halfway");
+        assert_eq!(
+            t.q(padded_cell, 6),
+            0.5,
+            "absent links fall back to halfway"
+        );
     }
 }

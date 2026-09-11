@@ -14,7 +14,10 @@ use glam::{UVec3, Vec3};
 use harness::*;
 
 fn periodic_box(n: u32, cfg: SolverConfig) -> ReferenceLbm {
-    ReferenceLbm::new(PaddedDomain::uniform_fluid(UVec3::splat(n), [true; 3], cfg.set), cfg)
+    ReferenceLbm::new(
+        PaddedDomain::uniform_fluid(UVec3::splat(n), [true; 3], cfg.set),
+        cfg,
+    )
 }
 
 /// Total density in a closed periodic box is conserved to round-off. Thousands
@@ -75,7 +78,10 @@ fn mass_is_conserved_with_a_wall_in_the_box() {
     }
     let drift = (lbm.total_mass() - m0).abs() / cells;
     println!("mass drift with an obstacle: {drift:e} per cell over 3000 steps");
-    assert!(drift < 1e-6, "mass drifted {drift:e} per cell around an obstacle");
+    assert!(
+        drift < 1e-6,
+        "mass drifted {drift:e} per cell around an obstacle"
+    );
 }
 
 /// Uniform flow in a periodic box is an exact solution. Any asymmetry in

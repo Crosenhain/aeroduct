@@ -161,11 +161,13 @@ impl Profiler {
     /// which case the pass simply runs untimed.
     pub fn scope(&mut self, name: &str) -> Option<wgpu::ComputePassTimestampWrites<'_>> {
         let (begin, end) = self.reserve(name)?;
-        self.query_set.as_ref().map(|qs| wgpu::ComputePassTimestampWrites {
-            query_set: qs,
-            beginning_of_pass_write_index: Some(begin),
-            end_of_pass_write_index: Some(end),
-        })
+        self.query_set
+            .as_ref()
+            .map(|qs| wgpu::ComputePassTimestampWrites {
+                query_set: qs,
+                beginning_of_pass_write_index: Some(begin),
+                end_of_pass_write_index: Some(end),
+            })
     }
 
     /// [`Profiler::scope`] for a pass that does `units` repetitions of the same
@@ -180,22 +182,26 @@ impl Profiler {
         units: u32,
     ) -> Option<wgpu::ComputePassTimestampWrites<'_>> {
         let (begin, end) = self.reserve_per(name, units.max(1) as f64)?;
-        self.query_set.as_ref().map(|qs| wgpu::ComputePassTimestampWrites {
-            query_set: qs,
-            beginning_of_pass_write_index: Some(begin),
-            end_of_pass_write_index: Some(end),
-        })
+        self.query_set
+            .as_ref()
+            .map(|qs| wgpu::ComputePassTimestampWrites {
+                query_set: qs,
+                beginning_of_pass_write_index: Some(begin),
+                end_of_pass_write_index: Some(end),
+            })
     }
 
     /// Timestamp writes for a *render* pass descriptor. Shares one query set and
     /// one per-frame budget with [`Profiler::scope`].
     pub fn render_scope(&mut self, name: &str) -> Option<wgpu::RenderPassTimestampWrites<'_>> {
         let (begin, end) = self.reserve(name)?;
-        self.query_set.as_ref().map(|qs| wgpu::RenderPassTimestampWrites {
-            query_set: qs,
-            beginning_of_pass_write_index: Some(begin),
-            end_of_pass_write_index: Some(end),
-        })
+        self.query_set
+            .as_ref()
+            .map(|qs| wgpu::RenderPassTimestampWrites {
+                query_set: qs,
+                beginning_of_pass_write_index: Some(begin),
+                end_of_pass_write_index: Some(end),
+            })
     }
 
     /// Start timing *everything* recorded into `encoder` from here to the
@@ -232,7 +238,9 @@ impl Profiler {
 
     /// Close a span opened by [`Profiler::span_begin`] on the same encoder.
     pub fn span_end(&mut self, encoder: &mut wgpu::CommandEncoder, span: Option<Span>) {
-        let (Some(span), Some(qs)) = (span, self.query_set.as_ref()) else { return };
+        let (Some(span), Some(qs)) = (span, self.query_set.as_ref()) else {
+            return;
+        };
         drop(encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
             label: Some("profiler span end"),
             timestamp_writes: Some(wgpu::ComputePassTimestampWrites {
@@ -295,7 +303,9 @@ impl Profiler {
         if !self.enabled {
             return;
         }
-        let Some(readback) = self.readback.clone() else { return };
+        let Some(readback) = self.readback.clone() else {
+            return;
+        };
 
         match self.map_state.load(Ordering::Acquire) {
             map_state::IDLE => {
@@ -308,7 +318,11 @@ impl Profiler {
                     .slice(..self.inflight_queries as u64 * 8)
                     .map_async(wgpu::MapMode::Read, move |r| {
                         state.store(
-                            if r.is_ok() { map_state::READY } else { map_state::FAILED },
+                            if r.is_ok() {
+                                map_state::READY
+                            } else {
+                                map_state::FAILED
+                            },
                             Ordering::Release,
                         );
                     });
@@ -344,8 +358,7 @@ impl Profiler {
                         if e >= raw.len() || raw[e] <= raw[b] {
                             continue;
                         }
-                        let ms =
-                            (raw[e] - raw[b]) as f64 * self.period_ns as f64 * 1e-6 / divisor;
+                        let ms = (raw[e] - raw[b]) as f64 * self.period_ns as f64 * 1e-6 / divisor;
                         self.timings.entry(name.clone()).or_default().push(ms);
                     }
                 }
@@ -414,20 +427,22 @@ mod tests {
         let mut p = Profiler::new(&gpu.device, &gpu.queue, 8, true, gpu.caps.peak_bandwidth);
 
         // A trivial compute pipeline, purely so there is a pass to time.
-        let module = gpu.device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("profiler test kernel"),
-            source: wgpu::ShaderSource::Wgsl(
-                "@compute @workgroup_size(1) fn main() {}".into(),
-            ),
-        });
-        let pipeline = gpu.device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-            label: Some("profiler test pipeline"),
-            layout: None,
-            module: &module,
-            entry_point: Some("main"),
-            compilation_options: Default::default(),
-            cache: None,
-        });
+        let module = gpu
+            .device
+            .create_shader_module(wgpu::ShaderModuleDescriptor {
+                label: Some("profiler test kernel"),
+                source: wgpu::ShaderSource::Wgsl("@compute @workgroup_size(1) fn main() {}".into()),
+            });
+        let pipeline = gpu
+            .device
+            .create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+                label: Some("profiler test pipeline"),
+                layout: None,
+                module: &module,
+                entry_point: Some("main"),
+                compilation_options: Default::default(),
+                cache: None,
+            });
 
         for frame in 0..32 {
             p.begin_frame();
@@ -490,6 +505,10 @@ mod tests {
         assert_eq!(t.min_ms, 5.0);
         assert_eq!(t.max_ms, 20.0);
         // The EMA starts at the first sample and moves slowly.
-        assert!(t.mean_ms > 9.0 && t.mean_ms < 12.0, "mean was {}", t.mean_ms);
+        assert!(
+            t.mean_ms > 9.0 && t.mean_ms < 12.0,
+            "mean was {}",
+            t.mean_ms
+        );
     }
 }

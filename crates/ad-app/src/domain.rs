@@ -290,7 +290,10 @@ impl Default for DomainMargins {
 impl DomainMargins {
     /// With the six margins fixed by hand, or the rules left alone.
     pub fn with_explicit(self, mm: Option<[f32; 6]>) -> Self {
-        Self { explicit_mm: mm.filter(|m| m.iter().all(|v| v.is_finite())), ..self }
+        Self {
+            explicit_mm: mm.filter(|m| m.iter().all(|v| v.is_finite())),
+            ..self
+        }
     }
 
     /// Read the `AERODUCT_MARGIN_*` overrides.
@@ -327,9 +330,7 @@ impl DomainMargins {
             plenum.downstream_d_h = v;
             plenum_requested = true;
         }
-        if let Some(v) =
-            num("AERODUCT_PLENUM_LATERAL_CELLS").filter(|v| (0.0..=64.0).contains(v))
-        {
+        if let Some(v) = num("AERODUCT_PLENUM_LATERAL_CELLS").filter(|v| (0.0..=64.0).contains(v)) {
             plenum.lateral_cells = v as u32;
             plenum_requested = true;
         }
@@ -387,7 +388,11 @@ impl DomainMargins {
                 m.plenum = None;
             }
             Some(v) => {
-                match v.parse::<f32>().ok().filter(|v| v.is_finite() && (0.0..=4.0).contains(v)) {
+                match v
+                    .parse::<f32>()
+                    .ok()
+                    .filter(|v| v.is_finite() && (0.0..=4.0).contains(v))
+                {
                     Some(v) => {
                         m.isotropic_frac = Some(v);
                         m.plenum = None;
@@ -441,13 +446,21 @@ impl DomainMargins {
         sponge_cells: u32,
     ) -> Domain {
         if scene.is_empty() {
-            return Domain { bbox: scene, lo_mm: Vec3::ZERO, hi_mm: Vec3::ZERO, plenum: None };
+            return Domain {
+                bbox: scene,
+                lo_mm: Vec3::ZERO,
+                hi_mm: Vec3::ZERO,
+                plenum: None,
+            };
         }
         if let Some(m) = self.explicit_mm {
             let lo = Vec3::new(m[0], m[2], m[4]).max(Vec3::ZERO);
             let hi = Vec3::new(m[1], m[3], m[5]).max(Vec3::ZERO);
             return Domain {
-                bbox: Bbox { min: scene.min - lo, max: scene.max + hi },
+                bbox: Bbox {
+                    min: scene.min - lo,
+                    max: scene.max + hi,
+                },
                 lo_mm: lo,
                 hi_mm: hi,
                 plenum: None,
@@ -466,14 +479,28 @@ impl DomainMargins {
                 "no axis-aligned face to build a plenum on; falling back to the isotropic room"
             );
             let m = Vec3::splat(scene.size().max_element() * LEGACY_ISOTROPIC_MARGIN);
-            return Domain { bbox: scene.expanded(m), lo_mm: m, hi_mm: m, plenum: None };
+            return Domain {
+                bbox: scene.expanded(m),
+                lo_mm: m,
+                hi_mm: m,
+                plenum: None,
+            };
         }
         if let Some(frac) = self.isotropic_frac {
             let m = Vec3::splat(scene.size().max_element() * frac.max(0.0));
-            return Domain { bbox: scene.expanded(m), lo_mm: m, hi_mm: m, plenum: None };
+            return Domain {
+                bbox: scene.expanded(m),
+                lo_mm: m,
+                hi_mm: m,
+                plenum: None,
+            };
         }
 
-        let dx = if dx_mm.is_finite() && dx_mm > 0.0 { dx_mm } else { 1.0 };
+        let dx = if dx_mm.is_finite() && dx_mm > 0.0 {
+            dx_mm
+        } else {
+            1.0
+        };
         let size = scene.size();
         // The mouth the lateral faces have to stay clear of is the larger of the
         // two, whichever way round the user is blowing: swapping the inlet must
@@ -485,7 +512,10 @@ impl DomainMargins {
             .fold(0.0f32, f32::max);
         let mouth_floor =
             (self.lateral_d_h * d_h_max).clamp(LATERAL_RANGE_MM.0, LATERAL_RANGE_MM.1);
-        let floor = LATERAL_RANGE_MM.0.max(LATERAL_FLOOR_CELLS as f32 * dx).max(mouth_floor);
+        let floor = LATERAL_RANGE_MM
+            .0
+            .max(LATERAL_FLOOR_CELLS as f32 * dx)
+            .max(mouth_floor);
         // The ceiling yields to the floor rather than the other way round: a
         // very coarse `dx` can push the six-cell floor past the ceiling, and
         // `f32::clamp` panics outright when handed an inverted range.
@@ -507,13 +537,15 @@ impl DomainMargins {
             face.widen(&mut lo, &mut hi, want);
         }
         if let Some((face, d_h)) = axis_face(mouths.get(inlet)) {
-            let want =
-                (self.upstream_d_h * d_h).clamp(UPSTREAM_RANGE_MM.0, UPSTREAM_RANGE_MM.1);
+            let want = (self.upstream_d_h * d_h).clamp(UPSTREAM_RANGE_MM.0, UPSTREAM_RANGE_MM.1);
             face.widen(&mut lo, &mut hi, want);
         }
 
         Domain {
-            bbox: Bbox { min: scene.min - lo, max: scene.max + hi },
+            bbox: Bbox {
+                min: scene.min - lo,
+                max: scene.max + hi,
+            },
             lo_mm: lo,
             hi_mm: hi,
             plenum: None,
@@ -581,7 +613,11 @@ pub struct Face {
 impl Face {
     /// Raise this face's margin to `mm`, never lower it.
     pub(crate) fn widen(self, lo: &mut Vec3, hi: &mut Vec3, mm: f32) {
-        let slot = if self.min_side { &mut lo[self.axis] } else { &mut hi[self.axis] };
+        let slot = if self.min_side {
+            &mut lo[self.axis]
+        } else {
+            &mut hi[self.axis]
+        };
         *slot = slot.max(mm);
     }
 }
@@ -612,7 +648,13 @@ pub(crate) fn axis_face(mouth: Option<&Mouth>) -> Option<(Face, f32)> {
     if !d_h.is_finite() {
         return None;
     }
-    Some((Face { axis, min_side: n[axis] > 0.0 }, d_h.max(MIN_D_H_MM)))
+    Some((
+        Face {
+            axis,
+            min_side: n[axis] > 0.0,
+        },
+        d_h.max(MIN_D_H_MM),
+    ))
 }
 
 /// The contract's test part, as data, for the tests in this crate.
@@ -636,7 +678,11 @@ pub(crate) mod test_fixtures {
         let e = [Vec3::X, Vec3::Y, Vec3::Z];
         let (i, j) = ((axis + 1) % 3, (axis + 2) % 3);
         let mut centre = bbox.center();
-        centre[axis] = if min_side { bbox.min[axis] } else { bbox.max[axis] };
+        centre[axis] = if min_side {
+            bbox.min[axis]
+        } else {
+            bbox.max[axis]
+        };
         let (half_u, half_v) = (e[i] * a * 0.5, e[j] * b * 0.5);
         let corner = |s: f32, t: f32| centre + half_u * s + half_v * t;
         Mouth {
@@ -662,8 +708,10 @@ pub(crate) mod test_fixtures {
     /// The contract's test part, to scale: 145 x 72.2 x 68.9 mm with mouth A a
     /// 139 x 15 slot on the z = 0 face and mouth B a 74 x 15 slot on y = 0.
     pub(crate) fn part() -> (Bbox, Vec<Mouth>) {
-        let bbox =
-            Bbox { min: Vec3::new(-74.226, 0.0, 0.0), max: Vec3::new(70.774, 72.185, 68.940) };
+        let bbox = Bbox {
+            min: Vec3::new(-74.226, 0.0, 0.0),
+            max: Vec3::new(70.774, 72.185, 68.940),
+        };
         let a = mouth(bbox, 2, true, 139.0, 15.0);
         let b = mouth(bbox, 1, true, 15.0, 74.0);
         (bbox, vec![a, b])
@@ -682,7 +730,11 @@ mod tests {
     /// measurement that demoted it -- so they have to ask for it by name. A test
     /// that reads the default would silently start testing the isotropic box.
     fn anisotropic() -> DomainMargins {
-        DomainMargins { isotropic_frac: None, plenum: None, ..DomainMargins::default() }
+        DomainMargins {
+            isotropic_frac: None,
+            plenum: None,
+            ..DomainMargins::default()
+        }
     }
 
     #[test]
@@ -690,14 +742,18 @@ mod tests {
         let (bbox, mouths) = part();
         let mm = [10.0, 20.0, 30.0, 140.0, 50.0, 60.0];
         for base in [DomainMargins::default(), anisotropic()] {
-            let d = base.with_explicit(Some(mm)).plan(bbox, &mouths, 0, 1, 0.75, 20);
+            let d = base
+                .with_explicit(Some(mm))
+                .plan(bbox, &mouths, 0, 1, 0.75, 20);
             assert_eq!(d.lo_mm, Vec3::new(10.0, 30.0, 50.0));
             assert_eq!(d.hi_mm, Vec3::new(20.0, 140.0, 60.0));
             assert_eq!(d.bbox.min, bbox.min - d.lo_mm);
             assert_eq!(d.bbox.max, bbox.max + d.hi_mm);
             assert!(d.plenum.is_none());
         }
-        let d = DomainMargins::default().with_explicit(Some([f32::NAN; 6])).plan(bbox, &mouths, 0, 1, 0.75, 20);
+        let d = DomainMargins::default()
+            .with_explicit(Some([f32::NAN; 6]))
+            .plan(bbox, &mouths, 0, 1, 0.75, 20);
         assert_eq!(d.lo_mm, d.hi_mm, "a NaN margin falls back to the rules");
     }
 
@@ -728,8 +784,14 @@ mod tests {
         );
         // The upstream face is the one behind the inlet mouth: mouth A is on
         // z = 0, so the plenum is at z-min and the far z face stays tight.
-        assert!(d.lo_mm.z > d.hi_mm.z, "the plenum landed on the wrong z face");
-        assert!(d.lo_mm.z < d.lo_mm.y, "the plenum is supposed to be the modest one");
+        assert!(
+            d.lo_mm.z > d.hi_mm.z,
+            "the plenum landed on the wrong z face"
+        );
+        assert!(
+            d.lo_mm.z < d.lo_mm.y,
+            "the plenum is supposed to be the modest one"
+        );
     }
 
     /// The whole point of deriving from the normals: the user can swap which
@@ -743,10 +805,22 @@ mod tests {
 
         // Forward: generous at y-min (mouth B exhausts), plenum at z-min.
         // Reversed: generous at z-min (mouth A exhausts), plenum at y-min.
-        assert!(reversed.lo_mm.z > reversed.lo_mm.y, "the jet margin did not follow the outlet");
-        assert!(reversed.lo_mm.z > forward.lo_mm.z, "z-min should have grown from plenum to jet");
-        assert!(reversed.lo_mm.y < forward.lo_mm.y, "y-min should have shrunk from jet to plenum");
-        assert_ne!(forward.bbox, reversed.bbox, "a swap must re-derive the box, not reuse it");
+        assert!(
+            reversed.lo_mm.z > reversed.lo_mm.y,
+            "the jet margin did not follow the outlet"
+        );
+        assert!(
+            reversed.lo_mm.z > forward.lo_mm.z,
+            "z-min should have grown from plenum to jet"
+        );
+        assert!(
+            reversed.lo_mm.y < forward.lo_mm.y,
+            "y-min should have shrunk from jet to plenum"
+        );
+        assert_ne!(
+            forward.bbox, reversed.bbox,
+            "a swap must re-derive the box, not reuse it"
+        );
     }
 
     /// An outlet plane sitting inside the recirculation reads the pressure of
@@ -757,10 +831,16 @@ mod tests {
         let (bbox, mouths) = part();
         let d_h = mouths[1].hydraulic_diameter_mm();
 
-        for (dx, sponge, downstream_d_h) in
-            [(0.75f32, 20u32, 4.0f32), (0.5, 20, 4.0), (0.75, 200, 4.0), (1.0, 20, 0.0)]
-        {
-            let m = DomainMargins { downstream_d_h, ..anisotropic() };
+        for (dx, sponge, downstream_d_h) in [
+            (0.75f32, 20u32, 4.0f32),
+            (0.5, 20, 4.0),
+            (0.75, 200, 4.0),
+            (1.0, 20, 0.0),
+        ] {
+            let m = DomainMargins {
+                downstream_d_h,
+                ..anisotropic()
+            };
             let d = m.plan(bbox, &mouths, 0, 1, dx, sponge);
             let needed = (sponge + SPONGE_CLEARANCE_CELLS) as f32 * dx + JET_NEAR_FIELD_D_H * d_h;
             assert!(
@@ -788,16 +868,25 @@ mod tests {
     #[test]
     fn every_lateral_face_clears_the_larger_mouth_by_a_hydraulic_diameter() {
         let (bbox, mouths) = part();
-        let d_h = mouths.iter().map(|m| m.hydraulic_diameter_mm()).fold(0.0f32, f32::max);
+        let d_h = mouths
+            .iter()
+            .map(|m| m.hydraulic_diameter_mm())
+            .fold(0.0f32, f32::max);
         let d = anisotropic().plan(bbox, &mouths, 0, 1, 0.75, 20);
 
         // The four faces that are neither upstream nor downstream. The part's
         // own extent would have asked for 10.8 mm on +y and 10.3 mm on +z.
         let want = DEFAULT_LATERAL_D_H * d_h;
-        for (name, got) in
-            [("-x", d.lo_mm.x), ("+x", d.hi_mm.x), ("+y", d.hi_mm.y), ("+z", d.hi_mm.z)]
-        {
-            assert!(got >= want - 1e-3, "{name} margin {got} mm is inside {want} mm of the mouth");
+        for (name, got) in [
+            ("-x", d.lo_mm.x),
+            ("+x", d.hi_mm.x),
+            ("+y", d.hi_mm.y),
+            ("+z", d.hi_mm.z),
+        ] {
+            assert!(
+                got >= want - 1e-3,
+                "{name} margin {got} mm is inside {want} mm of the mouth"
+            );
         }
         // ...and the floor is a floor, not an override: the downstream face is
         // still the jet's, several times larger.
@@ -830,8 +919,9 @@ mod tests {
         assert!(d.bbox.contains(blocker.min) && d.bbox.contains(blocker.max));
         // ...and the downstream margin is measured past it, not through it.
         assert!(
-            d.bbox.min.y <= blocker.min.y - DEFAULT_DOWNSTREAM_D_H * mouths[1].hydraulic_diameter_mm()
-                + 1e-3
+            d.bbox.min.y
+                <= blocker.min.y - DEFAULT_DOWNSTREAM_D_H * mouths[1].hydraulic_diameter_mm()
+                    + 1e-3
         );
     }
 
@@ -848,14 +938,19 @@ mod tests {
 
         // The old box, reproduced: CONTRACT.md's 261 x 188 x 185 mm.
         let s = legacy.bbox.size();
-        assert!((s.x - 261.0).abs() < 1.0 && (s.y - 188.0).abs() < 1.0 && (s.z - 185.0).abs() < 1.0);
+        assert!(
+            (s.x - 261.0).abs() < 1.0 && (s.y - 188.0).abs() < 1.0 && (s.z - 185.0).abs() < 1.0
+        );
 
         let vol = |b: Bbox| {
             let s = b.size();
             (s.x as f64) * (s.y as f64) * (s.z as f64)
         };
         let ratio = vol(tight.bbox) / vol(legacy.bbox);
-        assert!(ratio < 0.75, "the anisotropic box saved nothing: {ratio:.2} of the old volume");
+        assert!(
+            ratio < 0.75,
+            "the anisotropic box saved nothing: {ratio:.2} of the old volume"
+        );
         // Whatever else it does, it must contain the geometry.
         assert!(tight.bbox.contains(bbox.min) && tight.bbox.contains(bbox.max));
     }
@@ -900,7 +995,10 @@ mod tests {
         let none = anisotropic().plan(bbox, &[], 0, 1, 0.75, 20);
         assert!(none.bbox.contains(bbox.min) && none.bbox.contains(bbox.max));
         let empty = anisotropic().plan(Bbox::EMPTY, &mouths, 0, 1, 0.75, 20);
-        assert!(empty.bbox.is_empty(), "an empty scene must not produce a box out of nothing");
+        assert!(
+            empty.bbox.is_empty(),
+            "an empty scene must not produce a box out of nothing"
+        );
     }
 
     /// The shipped default is the isotropic room, and that is a measured choice
@@ -915,7 +1013,10 @@ mod tests {
     #[test]
     fn the_default_is_the_room_until_a_cheaper_domain_conserves_mass_at_equal_steps() {
         let d = DomainMargins::default();
-        assert_eq!(d.plenum, None, "the default domain silently became a plenum");
+        assert_eq!(
+            d.plenum, None,
+            "the default domain silently became a plenum"
+        );
         assert_eq!(
             d.isotropic_frac,
             Some(LEGACY_ISOTROPIC_MARGIN),
@@ -926,7 +1027,9 @@ mod tests {
         let plan = d.plan(bbox, &mouths, 0, 1, 0.75, 20);
         assert!(plan.plenum.is_none(), "the default plan is not the room");
         let s = plan.bbox.size();
-        assert!((s.x - 261.0).abs() < 1.0 && (s.y - 188.0).abs() < 1.0 && (s.z - 185.0).abs() < 1.0);
+        assert!(
+            (s.x - 261.0).abs() < 1.0 && (s.y - 188.0).abs() < 1.0 && (s.z - 185.0).abs() < 1.0
+        );
 
         // The plenum, by name, and it really is the terminated duct.
         let named =
@@ -953,19 +1056,27 @@ mod tests {
         skew[1].patch.normal = Vec3::new(0.6, 0.6, 0.5).normalize();
 
         let d = DomainMargins::default().plan(bbox, &skew, 0, 1, 0.75, 20);
-        assert!(d.plenum.is_none(), "a plenum was built on a mouth with no face");
+        assert!(
+            d.plenum.is_none(),
+            "a plenum was built on a mouth with no face"
+        );
         assert!(d.bbox.contains(bbox.min) && d.bbox.contains(bbox.max));
         // The fallback is the *room*, deliberately: it is the expensive answer,
         // and expensive is the one that was always safe.
         let s = d.bbox.size();
-        assert!((s.x - 261.0).abs() < 1.0, "the fallback is not the isotropic room: {s:?}");
+        assert!(
+            (s.x - 261.0).abs() < 1.0,
+            "the fallback is not the isotropic room: {s:?}"
+        );
     }
 
     #[test]
     fn the_environment_overrides_parse_and_reject_nonsense() {
         let with = |pairs: &[(&str, &str)]| {
-            let owned: Vec<(String, String)> =
-                pairs.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect();
+            let owned: Vec<(String, String)> = pairs
+                .iter()
+                .map(|(k, v)| (k.to_string(), v.to_string()))
+                .collect();
             DomainMargins::from_lookup(move |k| {
                 owned.iter().find(|(n, _)| n == k).map(|(_, v)| v.clone())
             })
@@ -1029,16 +1140,27 @@ mod tests {
         // A value that fails validation leaves the *default* standing, and the
         // default is the plenum: a typo must not silently opt the run into a
         // different domain, in either direction.
-        assert_eq!(with(&[("AERODUCT_MARGIN_ISOTROPIC", "fnord")]), DomainMargins::default());
-        assert_eq!(with(&[("AERODUCT_DOMAIN", "fnord")]), DomainMargins::default());
-        assert_eq!(with(&[("AERODUCT_PLENUM_WALLS", "fnord")]), DomainMargins::default());
+        assert_eq!(
+            with(&[("AERODUCT_MARGIN_ISOTROPIC", "fnord")]),
+            DomainMargins::default()
+        );
+        assert_eq!(
+            with(&[("AERODUCT_DOMAIN", "fnord")]),
+            DomainMargins::default()
+        );
+        assert_eq!(
+            with(&[("AERODUCT_PLENUM_WALLS", "fnord")]),
+            DomainMargins::default()
+        );
     }
 
     #[test]
     fn the_plenum_overrides_parse_and_select_the_domain_that_uses_them() {
         let with = |pairs: &[(&str, &str)]| {
-            let owned: Vec<(String, String)> =
-                pairs.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect();
+            let owned: Vec<(String, String)> = pairs
+                .iter()
+                .map(|(k, v)| (k.to_string(), v.to_string()))
+                .collect();
             DomainMargins::from_lookup(move |k| {
                 owned.iter().find(|(n, _)| n == k).map(|(_, v)| v.clone())
             })
@@ -1059,13 +1181,20 @@ mod tests {
         // A plenum knob set while the domain has been named as a room is a
         // contradiction, and the name is the later, more explicit statement.
         assert_eq!(
-            with(&[("AERODUCT_PLENUM_DOWNSTREAM_DH", "5"), ("AERODUCT_DOMAIN", "room")]).plenum,
+            with(&[
+                ("AERODUCT_PLENUM_DOWNSTREAM_DH", "5"),
+                ("AERODUCT_DOMAIN", "room")
+            ])
+            .plenum,
             None
         );
         // ...and the older margin knobs still take the run out of the plenum,
         // or they would parse, store, and change nothing.
         assert_eq!(with(&[("AERODUCT_MARGIN_DOWNSTREAM_DH", "6")]).plenum, None);
-        assert_eq!(with(&[("AERODUCT_MARGIN_ISOTROPIC", "legacy")]).plenum, None);
+        assert_eq!(
+            with(&[("AERODUCT_MARGIN_ISOTROPIC", "legacy")]).plenum,
+            None
+        );
 
         // A knob that fails validation is not a request for anything: it must
         // neither build a plenum of zero cells nor, since the default is the
@@ -1079,10 +1208,13 @@ mod tests {
         }
         // ...while a valid one is, and carries its value through.
         assert_eq!(
-            with(&[("AERODUCT_DOMAIN", "plenum"), ("AERODUCT_PLENUM_UPSTREAM_DH", "1.5")])
-                .plenum
-                .unwrap()
-                .upstream_d_h,
+            with(&[
+                ("AERODUCT_DOMAIN", "plenum"),
+                ("AERODUCT_PLENUM_UPSTREAM_DH", "1.5")
+            ])
+            .plenum
+            .unwrap()
+            .upstream_d_h,
             1.5
         );
     }

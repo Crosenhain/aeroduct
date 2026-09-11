@@ -161,20 +161,32 @@ pub struct SeedWeights {
 
 impl Default for SeedWeights {
     fn default() -> Self {
-        Self { inlet: 0.97, volume: 0.02, importance: 0.01 }
+        Self {
+            inlet: 0.97,
+            volume: 0.02,
+            importance: 0.01,
+        }
     }
 }
 
 impl SeedWeights {
     /// The vortex-hunting preset: most releases land on high-Q structure.
     pub fn vortex_hunt() -> Self {
-        Self { inlet: 0.3, volume: 0.05, importance: 0.65 }
+        Self {
+            inlet: 0.3,
+            volume: 0.05,
+            importance: 0.65,
+        }
     }
 
     /// Weights scaled to sum to 1. An all-zero set falls back to pure inlet
     /// seeding rather than producing a division by zero and an empty screen.
     pub fn normalised(self) -> [f32; 3] {
-        let w = [self.inlet.max(0.0), self.volume.max(0.0), self.importance.max(0.0)];
+        let w = [
+            self.inlet.max(0.0),
+            self.volume.max(0.0),
+            self.importance.max(0.0),
+        ];
         let sum = w[0] + w[1] + w[2];
         if sum <= 1e-9 {
             [1.0, 0.0, 0.0]
@@ -223,7 +235,12 @@ pub struct TrailSettings {
 
 impl Default for TrailSettings {
     fn default() -> Self {
-        Self { enabled: false, width_mm: 0.35, alpha: 0.5, max_age_s: 8.0 }
+        Self {
+            enabled: false,
+            width_mm: 0.35,
+            alpha: 0.5,
+            max_age_s: 8.0,
+        }
     }
 }
 
@@ -384,20 +401,36 @@ pub struct StreaklineConfig {
 
 impl Default for StreaklineConfig {
     fn default() -> Self {
-        Self { count: 4 << 20, trail_count: 0, trail_length: 32 }
+        Self {
+            count: 4 << 20,
+            trail_count: 0,
+            trail_length: 32,
+        }
     }
 }
 
 impl StreaklineConfig {
     /// The trail preset from the plan: 256k particles, 32 deep, 64 MiB.
     pub fn with_trails() -> Self {
-        Self { count: 4 << 20, trail_count: 256 << 10, trail_length: 32 }
+        Self {
+            count: 4 << 20,
+            trail_count: 256 << 10,
+            trail_length: 32,
+        }
     }
 
     fn sane(self) -> Self {
         let count = self.count.clamp(1, 64 << 20);
-        let trail_length = if self.trail_count == 0 { 0 } else { self.trail_length.clamp(2, 256) };
-        Self { count, trail_count: self.trail_count.min(count), trail_length }
+        let trail_length = if self.trail_count == 0 {
+            0
+        } else {
+            self.trail_length.clamp(2, 256)
+        };
+        Self {
+            count,
+            trail_count: self.trail_count.min(count),
+            trail_length,
+        }
     }
 
     /// Bytes of VRAM the buffers will occupy.
@@ -479,8 +512,16 @@ pub fn fade_alpha(age: f32, life: f32, fade_in: f32, fade_out: f32) -> f32 {
         let x = x.clamp(0.0, 1.0);
         x * x * (3.0 - 2.0 * x)
     };
-    let a = if fade_in > 1e-6 { smooth(age / (fade_in * life)) } else { 1.0 };
-    let b = if fade_out > 1e-6 { smooth((life - age) / (fade_out * life)) } else { 1.0 };
+    let a = if fade_in > 1e-6 {
+        smooth(age / (fade_in * life))
+    } else {
+        1.0
+    };
+    let b = if fade_out > 1e-6 {
+        smooth((life - age) / (fade_out * life))
+    } else {
+        1.0
+    };
     a * b
 }
 
@@ -652,9 +693,18 @@ struct StreaklineUniform {
 /// keeping them out of that list keeps the two independent.
 pub(crate) fn overlay_shader_loader() -> ShaderLoader {
     let mut l = util::shader_loader();
-    l.add_virtual("particles.wgsl", include_str!("../../../shaders/render/particles.wgsl"));
-    l.add_virtual("isosurface.wgsl", include_str!("../../../shaders/render/isosurface.wgsl"));
-    l.add_virtual("slice.wgsl", include_str!("../../../shaders/render/slice.wgsl"));
+    l.add_virtual(
+        "particles.wgsl",
+        include_str!("../../../shaders/render/particles.wgsl"),
+    );
+    l.add_virtual(
+        "isosurface.wgsl",
+        include_str!("../../../shaders/render/isosurface.wgsl"),
+    );
+    l.add_virtual(
+        "slice.wgsl",
+        include_str!("../../../shaders/render/slice.wgsl"),
+    );
     l.add_virtual("lic.wgsl", include_str!("../../../shaders/render/lic.wgsl"));
     l
 }
@@ -763,8 +813,11 @@ impl StreaklineOverlay {
             // is what lets one vertex fetch six sprite corners.
             wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_SRC,
         );
-        let free_list =
-            storage("streakline free list", config.count as u64 * 4, wgpu::BufferUsages::COPY_SRC);
+        let free_list = storage(
+            "streakline free list",
+            config.count as u64 * 4,
+            wgpu::BufferUsages::COPY_SRC,
+        );
         let counters = storage("streakline counters", 16, wgpu::BufferUsages::COPY_SRC);
         let indirect = storage("streakline dispatch", 16, wgpu::BufferUsages::INDIRECT);
         // A stand-in for `indirect` in the seeder's bind group. wgpu's usage
@@ -773,14 +826,26 @@ impl StreaklineOverlay {
         // error, even though the shader never touches it from `seed_main`. The
         // scratch buffer keeps binding 4 occupied with something inert so one
         // bind-group layout still serves every compute pass.
-        let seed_scratch = storage("streakline dispatch scratch", 16, wgpu::BufferUsages::empty());
-        let cdf = storage("streakline importance cdf", CDF_BINS as u64 * 4, wgpu::BufferUsages::COPY_SRC);
+        let seed_scratch = storage(
+            "streakline dispatch scratch",
+            16,
+            wgpu::BufferUsages::empty(),
+        );
+        let cdf = storage(
+            "streakline importance cdf",
+            CDF_BINS as u64 * 4,
+            wgpu::BufferUsages::COPY_SRC,
+        );
         let trail_bytes =
             config.trail_count as u64 * config.trail_length as u64 * TRAIL_ENTRY_BYTES;
         // COPY_SRC so the ring can be read back and checked: the ribbon
         // segments are the one part of this system whose correctness is a
         // property of *pairs* of frames, which no single-frame test can see.
-        let trails = storage("streakline trails", trail_bytes, wgpu::BufferUsages::COPY_SRC);
+        let trails = storage(
+            "streakline trails",
+            trail_bytes,
+            wgpu::BufferUsages::COPY_SRC,
+        );
 
         let lut = device.create_texture(&wgpu::TextureDescriptor {
             label: Some("streakline colour LUT"),
@@ -801,7 +866,11 @@ impl StreaklineOverlay {
 
         let sdf_fallback = device.create_texture(&wgpu::TextureDescriptor {
             label: Some("streakline empty SDF"),
-            size: wgpu::Extent3d { width: 1, height: 1, depth_or_array_layers: 1 },
+            size: wgpu::Extent3d {
+                width: 1,
+                height: 1,
+                depth_or_array_layers: 1,
+            },
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D3,
@@ -819,8 +888,16 @@ impl StreaklineOverlay {
                 aspect: wgpu::TextureAspect::All,
             },
             bytemuck::bytes_of(&1.0e6f32),
-            wgpu::TexelCopyBufferLayout { offset: 0, bytes_per_row: Some(4), rows_per_image: Some(1) },
-            wgpu::Extent3d { width: 1, height: 1, depth_or_array_layers: 1 },
+            wgpu::TexelCopyBufferLayout {
+                offset: 0,
+                bytes_per_row: Some(4),
+                rows_per_image: Some(1),
+            },
+            wgpu::Extent3d {
+                width: 1,
+                height: 1,
+                depth_or_array_layers: 1,
+            },
         );
         let sdf_fallback_view = sdf_fallback.create_view(&wgpu::TextureViewDescriptor {
             label: Some("streakline empty SDF"),
@@ -978,9 +1055,18 @@ impl StreaklineOverlay {
             label: Some("streakline draw"),
             layout: &draw_layout,
             entries: &[
-                wgpu::BindGroupEntry { binding: 0, resource: uniform.as_entire_binding() },
-                wgpu::BindGroupEntry { binding: 1, resource: particles.as_entire_binding() },
-                wgpu::BindGroupEntry { binding: 2, resource: trails.as_entire_binding() },
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: uniform.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: particles.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: trails.as_entire_binding(),
+                },
                 wgpu::BindGroupEntry {
                     binding: 3,
                     resource: wgpu::BindingResource::TextureView(&lut_view),
@@ -1054,14 +1140,38 @@ impl StreaklineOverlay {
             label: Some("streakline compute"),
             layout,
             entries: &[
-                wgpu::BindGroupEntry { binding: 0, resource: uniform.as_entire_binding() },
-                wgpu::BindGroupEntry { binding: 1, resource: particles.as_entire_binding() },
-                wgpu::BindGroupEntry { binding: 2, resource: free_list.as_entire_binding() },
-                wgpu::BindGroupEntry { binding: 3, resource: counters.as_entire_binding() },
-                wgpu::BindGroupEntry { binding: 4, resource: indirect.as_entire_binding() },
-                wgpu::BindGroupEntry { binding: 5, resource: cdf.as_entire_binding() },
-                wgpu::BindGroupEntry { binding: 6, resource: wgpu::BindingResource::TextureView(sdf) },
-                wgpu::BindGroupEntry { binding: 7, resource: trails.as_entire_binding() },
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: uniform.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: particles.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: free_list.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 3,
+                    resource: counters.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 4,
+                    resource: indirect.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 5,
+                    resource: cdf.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 6,
+                    resource: wgpu::BindingResource::TextureView(sdf),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 7,
+                    resource: trails.as_entire_binding(),
+                },
             ],
         })
     }
@@ -1182,11 +1292,20 @@ impl StreaklineOverlay {
                 bytes_per_row: Some(colormap::LUT_SIZE as u32 * 8),
                 rows_per_image: Some(1),
             },
-            wgpu::Extent3d { width: colormap::LUT_SIZE as u32, height: 1, depth_or_array_layers: 1 },
+            wgpu::Extent3d {
+                width: colormap::LUT_SIZE as u32,
+                height: 1,
+                depth_or_array_layers: 1,
+            },
         );
     }
 
-    fn build_uniform(&self, ctx: &OverlayContext<'_>, dt_sim: f32, inv_dt_ms: f32) -> StreaklineUniform {
+    fn build_uniform(
+        &self,
+        ctx: &OverlayContext<'_>,
+        dt_sim: f32,
+        inv_dt_ms: f32,
+    ) -> StreaklineUniform {
         let s = &self.settings;
         let fields = ctx.fields;
         let bbox = fields.bbox();
@@ -1220,7 +1339,11 @@ impl StreaklineOverlay {
         };
 
         let (lo, hi) = (s.color_range[0], s.color_range[1]);
-        let trail_len = if s.trails.enabled { self.config.trail_length } else { 0 };
+        let trail_len = if s.trails.enabled {
+            self.config.trail_length
+        } else {
+            0
+        };
 
         StreaklineUniform {
             volume_min_mm: bbox.min.to_array(),
@@ -1262,9 +1385,17 @@ impl StreaklineOverlay {
             color_inv_span: 1.0 / (hi - lo).max(1e-9),
             cdf_dim: CDF_DIM,
             q_threshold: s.q_threshold,
-            trail_count: if trail_len > 0 { self.config.trail_count } else { 0 },
+            trail_count: if trail_len > 0 {
+                self.config.trail_count
+            } else {
+                0
+            },
             trail_len,
-            trail_head: if trail_len > 0 { self.trail_head % trail_len } else { 0 },
+            trail_head: if trail_len > 0 {
+                self.trail_head % trail_len
+            } else {
+                0
+            },
             trail_max_age_s: s.trails.max_age_s,
             inlet_offset_mm: s.inlet_offset_mm,
             occupancy_min: s.occupancy_min,
@@ -1350,7 +1481,11 @@ impl OverlayPass for StreaklineOverlay {
         // Clamp the wall-clock delta before scaling: a stalled frame (shader
         // compile, window drag) must not teleport the whole population.
         let dt_wall = ctx.dt.clamp(0.0, 1.0 / 15.0);
-        let dt_sim = if self.settings.paused { 0.0 } else { dt_wall * self.settings.time_scale };
+        let dt_sim = if self.settings.paused {
+            0.0
+        } else {
+            dt_wall * self.settings.time_scale
+        };
         self.last_dt_sim = dt_sim;
         if dt_sim > 0.0 {
             self.sim_time += dt_sim;
@@ -1376,7 +1511,8 @@ impl OverlayPass for StreaklineOverlay {
         self.trails_were_on = trails_on;
 
         let u = self.build_uniform(ctx, dt_sim, self.last_inv_dt_ms);
-        ctx.queue.write_buffer(&self.uniform, 0, bytemuck::bytes_of(&u));
+        ctx.queue
+            .write_buffer(&self.uniform, 0, bytemuck::bytes_of(&u));
 
         if self.needs_clear {
             // Zeroing gives every particle `life = 0`, i.e. dead, so the first
@@ -1395,24 +1531,28 @@ impl OverlayPass for StreaklineOverlay {
             // must start at zero: `free_count` is an append cursor.
             ctx.encoder.clear_buffer(&self.counters, 0, None);
 
-            let rebuild_cdf = u.w_import > 0.0
-                && self.frame % self.settings.importance_interval.max(1) == 0;
+            let rebuild_cdf =
+                u.w_import > 0.0 && self.frame % self.settings.importance_interval.max(1) == 0;
             if rebuild_cdf {
                 let ts = ctx.profiler.scope("streakline importance");
-                let mut pass = ctx.encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
-                    label: Some("streakline importance"),
-                    timestamp_writes: ts,
-                });
+                let mut pass = ctx
+                    .encoder
+                    .begin_compute_pass(&wgpu::ComputePassDescriptor {
+                        label: Some("streakline importance"),
+                        timestamp_writes: ts,
+                    });
                 pass.set_pipeline(&self.importance);
                 pass.set_bind_group(0, ctx.fields.read_bind_group(), &[]);
                 pass.set_bind_group(1, &self.compute_group, &[]);
                 pass.dispatch_workgroups(util::dispatch_count(CDF_BINS, IMPORTANCE_WG), 1, 1);
                 drop(pass);
 
-                let mut pass = ctx.encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
-                    label: Some("streakline cdf scan"),
-                    timestamp_writes: None,
-                });
+                let mut pass = ctx
+                    .encoder
+                    .begin_compute_pass(&wgpu::ComputePassDescriptor {
+                        label: Some("streakline cdf scan"),
+                        timestamp_writes: None,
+                    });
                 pass.set_pipeline(&self.scan);
                 pass.set_bind_group(0, ctx.fields.read_bind_group(), &[]);
                 pass.set_bind_group(1, &self.compute_group, &[]);
@@ -1424,20 +1564,28 @@ impl OverlayPass for StreaklineOverlay {
 
             {
                 let ts = ctx.profiler.scope("streakline advect");
-                let mut pass = ctx.encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
-                    label: Some("streakline advect"),
-                    timestamp_writes: ts,
-                });
+                let mut pass = ctx
+                    .encoder
+                    .begin_compute_pass(&wgpu::ComputePassDescriptor {
+                        label: Some("streakline advect"),
+                        timestamp_writes: ts,
+                    });
                 pass.set_pipeline(&self.advect);
                 pass.set_bind_group(0, ctx.fields.read_bind_group(), &[]);
                 pass.set_bind_group(1, &self.compute_group, &[]);
-                pass.dispatch_workgroups(util::dispatch_count(self.config.count, PARTICLE_WG), 1, 1);
+                pass.dispatch_workgroups(
+                    util::dispatch_count(self.config.count, PARTICLE_WG),
+                    1,
+                    1,
+                );
             }
             {
-                let mut pass = ctx.encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
-                    label: Some("streakline dispatch prepare"),
-                    timestamp_writes: None,
-                });
+                let mut pass = ctx
+                    .encoder
+                    .begin_compute_pass(&wgpu::ComputePassDescriptor {
+                        label: Some("streakline dispatch prepare"),
+                        timestamp_writes: None,
+                    });
                 pass.set_pipeline(&self.prepare);
                 pass.set_bind_group(0, ctx.fields.read_bind_group(), &[]);
                 pass.set_bind_group(1, &self.compute_group, &[]);
@@ -1445,10 +1593,12 @@ impl OverlayPass for StreaklineOverlay {
             }
             {
                 let ts = ctx.profiler.scope("streakline seed");
-                let mut pass = ctx.encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
-                    label: Some("streakline seed"),
-                    timestamp_writes: ts,
-                });
+                let mut pass = ctx
+                    .encoder
+                    .begin_compute_pass(&wgpu::ComputePassDescriptor {
+                        label: Some("streakline seed"),
+                        timestamp_writes: ts,
+                    });
                 pass.set_pipeline(&self.seed);
                 pass.set_bind_group(0, ctx.fields.read_bind_group(), &[]);
                 pass.set_bind_group(1, &self.seed_group, &[]);
@@ -1467,7 +1617,10 @@ impl OverlayPass for StreaklineOverlay {
                     view: ctx.hdr_view,
                     depth_slice: None,
                     resolve_target: None,
-                    ops: wgpu::Operations { load: wgpu::LoadOp::Load, store: wgpu::StoreOp::Store },
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Load,
+                        store: wgpu::StoreOp::Store,
+                    },
                 })],
                 depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
                     view: ctx.depth_view,
@@ -1619,7 +1772,10 @@ mod tests {
 
         for speed in [0.0f32, 1.0, 50.0, 500.0, 5_000.0, 50_000.0, 1.0e6] {
             let n = substep_count(dt, speed, dx, cfl, max_sub);
-            assert!((1..=max_sub).contains(&n), "speed {speed} gave {n} substeps");
+            assert!(
+                (1..=max_sub).contains(&n),
+                "speed {speed} gave {n} substeps"
+            );
             let h = dt / n as f32;
             let raw = Vec3::X * speed * h;
             let d = clamp_displacement(raw, dx, max_cells);
@@ -1649,8 +1805,8 @@ mod tests {
         let wall = 2.0f32; // solid occupies [0, wall]
         let dt = 1.0 / 60.0 * 0.02;
         let speed_mm_s = 8_000.0; // 8 m/s
-        // Half a millimetre short of the wall, which is the worst case: near
-        // enough that one whole-frame step lands past the far face.
+                                  // Half a millimetre short of the wall, which is the worst case: near
+                                  // enough that one whole-frame step lands past the far face.
         let start = -0.5f32;
 
         // The failure being prevented is real at these numbers: a single
@@ -1679,7 +1835,10 @@ mod tests {
                 sampled_inside = true;
             }
         }
-        assert!(!crossed_undetected, "a substep jumped the entire {wall} mm wall");
+        assert!(
+            !crossed_undetected,
+            "a substep jumped the entire {wall} mm wall"
+        );
         // Not tunnelling is only half of it: the collision test has to actually
         // get a look at the particle while it is inside the solid.
         assert!(
@@ -1715,7 +1874,10 @@ mod tests {
         // death times is a decent fraction of the lifetime.
         let mut s = StreaklineSettings::default();
         s.sanitise();
-        assert!(s.life_jitter >= 0.15, "the default jitter is too small to hide the pulse");
+        assert!(
+            s.life_jitter >= 0.15,
+            "the default jitter is too small to hide the pulse"
+        );
         let lo = s.life_s * (1.0 - s.life_jitter);
         let hi = s.life_s * (1.0 + s.life_jitter);
         assert!(hi - lo > 0.3 * s.life_s);
@@ -1738,7 +1900,10 @@ mod tests {
                     energy <= last_energy + 1e-4,
                     "energy rose from {last_energy} to {energy} as the sprite receded"
                 );
-                assert!((energy - true_px * true_px).abs() < 1e-3, "energy is not r_true^2");
+                assert!(
+                    (energy - true_px * true_px).abs() < 1e-3,
+                    "energy is not r_true^2"
+                );
                 last_energy = energy;
             }
         }
@@ -1755,7 +1920,10 @@ mod tests {
         for len in [0.0f32, 1.0, 10.0, 100.0] {
             let a = streak_alpha(r, len);
             let covered = r * r + len * r;
-            assert!((a * covered - r * r).abs() < 1e-3, "length {len} does not conserve energy");
+            assert!(
+                (a * covered - r * r).abs() < 1e-3,
+                "length {len} does not conserve energy"
+            );
         }
         assert_eq!(streak_alpha(r, 0.0), 1.0);
         assert!(streak_alpha(r, 100.0) < 0.05);
@@ -1784,7 +1952,11 @@ mod tests {
             // The two triangles must tile the segment's full rectangle exactly:
             // length by twice the half-width, with no overlap and no gap.
             let want = len * 2.0 * half_width;
-            assert!((t1 + t2 - want).abs() < 1e-2, "quad area is {} not {want}", t1 + t2);
+            assert!(
+                (t1 + t2 - want).abs() < 1e-2,
+                "quad area is {} not {want}",
+                t1 + t2
+            );
         }
         // A degenerate (zero-length) segment must not produce NaNs.
         let q = ribbon_quad(Vec2::splat(5.0), Vec2::splat(5.0), 2.0);
@@ -1834,7 +2006,10 @@ mod tests {
                 pair[1]
             );
         }
-        assert!(written.len() > LEN as usize, "the ring never wrapped; wrapping is untested");
+        assert!(
+            written.len() > LEN as usize,
+            "the ring never wrapped; wrapping is untested"
+        );
 
         // A degenerate ring has no slots to advance through.
         assert_eq!(advance_trail_head(0, 1, true), 0);
@@ -1854,8 +2029,17 @@ mod tests {
         // The volumetric reseed must be small but never zero: it is the only
         // thing that puts a particle into a recirculation bubble.
         assert!(w[1] > 0.0 && w[1] < 0.05, "volumetric weight is {}", w[1]);
-        let z = SeedWeights { inlet: 0.0, volume: 0.0, importance: 0.0 }.normalised();
-        assert_eq!(z, [1.0, 0.0, 0.0], "an empty weight set must not blank the screen");
+        let z = SeedWeights {
+            inlet: 0.0,
+            volume: 0.0,
+            importance: 0.0,
+        }
+        .normalised();
+        assert_eq!(
+            z,
+            [1.0, 0.0, 0.0],
+            "an empty weight set must not blank the screen"
+        );
         let v = SeedWeights::vortex_hunt().normalised();
         assert!(v[2] > 0.5, "the vortex preset should mostly seed on Q");
     }
@@ -1865,17 +2049,27 @@ mod tests {
         // 4M tracers at 32 bytes plus a 4-byte free slot each.
         let c = StreaklineConfig::default();
         assert_eq!(c.count, 4 << 20);
-        assert_eq!(c.trail_count, 0, "trails are opt-in; they are the expensive tier");
+        assert_eq!(
+            c.trail_count, 0,
+            "trails are opt-in; they are the expensive tier"
+        );
         let mib = c.bytes() as f64 / (1024.0 * 1024.0);
         assert!((140.0..160.0).contains(&mib), "base budget is {mib} MiB");
 
         // The trail tier: 256k x 32 x 8 bytes = 64 MiB on top.
         let t = StreaklineConfig::with_trails();
         let extra = (t.bytes() - c.bytes()) as f64 / (1024.0 * 1024.0);
-        assert!((extra - 64.0).abs() < 0.01, "trail budget is {extra} MiB, want 64");
+        assert!(
+            (extra - 64.0).abs() < 0.01,
+            "trail budget is {extra} MiB, want 64"
+        );
 
         // And the thing the plan says not to do: a full-population history.
-        let absurd = StreaklineConfig { count: 4 << 20, trail_count: 4 << 20, trail_length: 32 };
+        let absurd = StreaklineConfig {
+            count: 4 << 20,
+            trail_count: 4 << 20,
+            trail_length: 32,
+        };
         assert!(
             absurd.bytes() > (1 << 30),
             "a 4M-particle history should be over a gigabyte; the budget maths is wrong"
@@ -1898,13 +2092,29 @@ mod tests {
         let draw = loader
             .load("particles.wgsl", &base.clone().flag("PARTICLES_DRAW"))
             .unwrap();
-        for entry in ["fn advect_main", "fn seed_main", "fn prepare_main", "fn scan_main"] {
-            assert!(compute.contains(entry), "the compute variant is missing {entry}");
+        for entry in [
+            "fn advect_main",
+            "fn seed_main",
+            "fn prepare_main",
+            "fn scan_main",
+        ] {
+            assert!(
+                compute.contains(entry),
+                "the compute variant is missing {entry}"
+            );
             assert!(!draw.contains(entry), "the draw variant leaked {entry}");
         }
-        for entry in ["fn vs_particle", "fn fs_particle", "fn vs_trail", "fn fs_trail"] {
+        for entry in [
+            "fn vs_particle",
+            "fn fs_particle",
+            "fn vs_trail",
+            "fn fs_trail",
+        ] {
             assert!(draw.contains(entry), "the draw variant is missing {entry}");
-            assert!(!compute.contains(entry), "the compute variant leaked {entry}");
+            assert!(
+                !compute.contains(entry),
+                "the compute variant leaked {entry}"
+            );
         }
 
         // isosurface.wgsl likewise splits into a draw and a histogram module,
@@ -1919,7 +2129,10 @@ mod tests {
         let slice = loader.load("slice.wgsl", &base).unwrap();
         assert!(slice.contains("fn fs_slice"));
         // `lic.wgsl` is pulled in by the include, and must arrive expanded.
-        assert!(slice.contains("fn lic_ramp_kernel"), "lic.wgsl was not included");
+        assert!(
+            slice.contains("fn lic_ramp_kernel"),
+            "lic.wgsl was not included"
+        );
 
         for (name, src) in [
             ("particles.wgsl/compute", &compute),
@@ -1975,7 +2188,11 @@ mod tests {
     // -- GPU tests -----------------------------------------------------------
 
     fn test_grid() -> Grid {
-        Grid { dims: UVec3::new(48, 32, 32), dx_mm: 0.75, origin_mm: Vec3::splat(-12.0) }
+        Grid {
+            dims: UVec3::new(48, 32, 32),
+            dx_mm: 0.75,
+            origin_mm: Vec3::splat(-12.0),
+        }
     }
 
     /// The minimum a Wave 2 overlay needs to be driven: derived fields, a brick
@@ -2004,17 +2221,19 @@ mod tests {
             let loader = util::shader_loader();
             let stages = wgpu::ShaderStages::VERTEX_FRAGMENT | wgpu::ShaderStages::COMPUTE;
             let camera_layout =
-                gpu.device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                    label: Some("test camera"),
-                    entries: &[util::uniform_entry(0, stages)],
-                });
+                gpu.device
+                    .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                        label: Some("test camera"),
+                        entries: &[util::uniform_entry(0, stages)],
+                    });
             let camera_buffer =
                 util::uniform_buffer::<crate::CameraUniform>(&gpu.device, "test camera");
             let mut cam = crate::Camera::default();
             cam.aspect = w as f32 / h as f32;
             cam.frame_bbox(grid.bbox(), 0.1);
             let cu = crate::CameraUniform::new(&cam, glam::Mat4::IDENTITY, w, h, 0);
-            gpu.queue.write_buffer(&camera_buffer, 0, bytemuck::bytes_of(&cu));
+            gpu.queue
+                .write_buffer(&camera_buffer, 0, bytemuck::bytes_of(&cu));
             let camera_group = gpu.device.create_bind_group(&wgpu::BindGroupDescriptor {
                 label: Some("test camera"),
                 layout: &camera_layout,
@@ -2196,7 +2415,11 @@ mod tests {
             &gpu.queue,
             &h.camera_layout,
             h.fields.read_bind_group_layout(),
-            StreaklineConfig { count, trail_count: count / 4, trail_length: 8 },
+            StreaklineConfig {
+                count,
+                trail_count: count / 4,
+                trail_length: 8,
+            },
         )
         .expect("streaklines")
     }
@@ -2219,7 +2442,10 @@ mod tests {
         });
         let _ = gpu.device.poll(wgpu::PollType::wait_indefinitely());
         let _ = rx.recv();
-        let out = slice.get_mapped_range().map(|v| v.to_vec()).unwrap_or_default();
+        let out = slice
+            .get_mapped_range()
+            .map(|v| v.to_vec())
+            .unwrap_or_default();
         staging.unmap();
         out
     }
@@ -2248,7 +2474,11 @@ mod tests {
             &gpu.queue,
             r.camera_bind_group_layout(),
             r.fields_bind_group_layout(),
-            StreaklineConfig { count: 4096, trail_count: 1024, trail_length: 8 },
+            StreaklineConfig {
+                count: 4096,
+                trail_count: 1024,
+                trail_length: 8,
+            },
         )
         .expect("streaklines");
         sys.settings_mut().trails.enabled = true;
@@ -2306,7 +2536,11 @@ mod tests {
             // dozen times.
             s.life_s = LIFE;
             s.time_scale = 1.0;
-            s.seed = SeedWeights { inlet: 0.0, volume: 1.0, importance: 0.0 };
+            s.seed = SeedWeights {
+                inlet: 0.0,
+                volume: 1.0,
+                importance: 0.0,
+            };
             s.trails.enabled = true;
         }
 
@@ -2318,13 +2552,19 @@ mod tests {
         let counters = read_buffer(&gpu, &sys.counters, 16);
         let free_count = u32::from_le_bytes(counters[0..4].try_into().unwrap());
         let alive = u32::from_le_bytes(counters[4..8].try_into().unwrap());
-        assert!(free_count <= N, "free count {free_count} exceeds the population");
+        assert!(
+            free_count <= N,
+            "free count {free_count} exceeds the population"
+        );
         assert_eq!(
             free_count + alive,
             N,
             "{free_count} free + {alive} alive != {N}: a particle was lost or duplicated"
         );
-        assert!(free_count > 0, "nothing ever died; the recycling path is untested");
+        assert!(
+            free_count > 0,
+            "nothing ever died; the recycling path is untested"
+        );
         assert!(
             alive > 0,
             "the whole population died on one frame; the partition is trivially satisfied"
@@ -2350,7 +2590,10 @@ mod tests {
                 continue;
             }
             counted += 1;
-            assert!(age >= 0.0 && age < life, "particle {i} has age {age} of life {life}");
+            assert!(
+                age >= 0.0 && age < life,
+                "particle {i} has age {age} of life {life}"
+            );
             // Lifetime jitter must stay inside its stated band.
             assert!(
                 (LIFE * 0.8 - 1e-4..=LIFE * 1.2 + 1e-4).contains(&life),
@@ -2404,7 +2647,11 @@ mod tests {
             &gpu.queue,
             &h.camera_layout,
             h.fields.read_bind_group_layout(),
-            StreaklineConfig { count: N, trail_count: N, trail_length: LEN },
+            StreaklineConfig {
+                count: N,
+                trail_count: N,
+                trail_length: LEN,
+            },
         )
         .expect("streaklines");
         let (life_s, dt) = (0.15f32, 1.0 / 30.0);
@@ -2416,7 +2663,11 @@ mod tests {
             // and the case the head bug defeated.
             s.life_s = life_s;
             s.life_jitter = 0.25;
-            s.seed = SeedWeights { inlet: 0.0, volume: 1.0, importance: 0.0 };
+            s.seed = SeedWeights {
+                inlet: 0.0,
+                volume: 1.0,
+                importance: 0.0,
+            };
             s.trails.enabled = true;
         }
 
@@ -2440,20 +2691,15 @@ mod tests {
         let entry = |slot: usize| -> (Vec3, u32) {
             let x = u32::from_le_bytes(raw[slot * 8..slot * 8 + 4].try_into().unwrap());
             let y = u32::from_le_bytes(raw[slot * 8 + 4..slot * 8 + 8].try_into().unwrap());
-            let q = Vec3::new(
-                (x & 0xffff) as f32,
-                (x >> 16) as f32,
-                (y & 0xffff) as f32,
-            );
+            let q = Vec3::new((x & 0xffff) as f32, (x >> 16) as f32, (y & 0xffff) as f32);
             (bbox.min + (q / 65535.0) * size, y >> 16)
         };
 
         // One frame of travel, worst case: every substep saturating the
         // displacement clamp, plus the ring's own 16-bit quantisation.
         let s = sys.settings();
-        let bound = s.max_substeps as f32 * s.max_step_cells * grid.dx_mm
-            + size.length() / 65535.0
-            + 1e-3;
+        let bound =
+            s.max_substeps as f32 * s.max_step_cells * grid.dx_mm + size.length() / 65535.0 + 1e-3;
 
         let mut drawn = 0usize;
         let mut worst = 0.0f32;
@@ -2462,10 +2708,8 @@ mod tests {
                 continue; // dead: `vs_trail` emits nothing for it
             }
             for seg in 0..LEN - 1 {
-                let ia = pid * LEN as usize
-                    + ((head + LEN - seg) % LEN) as usize;
-                let ib = pid * LEN as usize
-                    + ((head + LEN - seg - 1) % LEN) as usize;
+                let ia = pid * LEN as usize + ((head + LEN - seg) % LEN) as usize;
+                let ib = pid * LEN as usize + ((head + LEN - seg - 1) % LEN) as usize;
                 let (pa, aa) = entry(ia);
                 let (pb, ab) = entry(ib);
                 // The shader's guard, verbatim.
@@ -2477,7 +2721,10 @@ mod tests {
             }
         }
 
-        assert!(drawn > 100, "only {drawn} segments would be drawn; the test proves nothing");
+        assert!(
+            drawn > 100,
+            "only {drawn} segments would be drawn; the test proves nothing"
+        );
         assert!(
             worst <= bound,
             "a ribbon segment spans {worst} mm, more than the {bound} mm a tracer can \
@@ -2562,7 +2809,11 @@ mod tests {
         }));
         {
             let s = sys.settings_mut();
-            s.seed = SeedWeights { inlet: 0.0, volume: 1.0, importance: 0.0 };
+            s.seed = SeedWeights {
+                inlet: 0.0,
+                volume: 1.0,
+                importance: 0.0,
+            };
             s.life_s = 600.0;
             s.particle_radius_mm = 0.1;
         }
@@ -2576,7 +2827,10 @@ mod tests {
         let f = |i: usize| f32::from_le_bytes(raw[i * 4..i * 4 + 4].try_into().unwrap());
         let mut alive = 0usize;
         let mut worst = f32::NEG_INFINITY;
-        let outer = Bbox { min: bbox.min - Vec3::splat(grid.dx_mm), max: bbox.max + Vec3::splat(grid.dx_mm) };
+        let outer = Bbox {
+            min: bbox.min - Vec3::splat(grid.dx_mm),
+            max: bbox.max + Vec3::splat(grid.dx_mm),
+        };
         for i in 0..N as usize {
             if f(i * 8 + 7) <= 0.0 {
                 continue;
@@ -2587,7 +2841,10 @@ mod tests {
             assert!(outer.contains(p), "particle {i} escaped the domain at {p}");
             worst = worst.max(p.x);
         }
-        assert!(alive > N as usize / 4, "only {alive} of {N} particles survived");
+        assert!(
+            alive > N as usize / 4,
+            "only {alive} of {N} particles survived"
+        );
         assert!(
             worst <= grid.dx_mm,
             "a particle came to rest at x = {worst}, more than one {} mm cell inside the wall",
@@ -2596,6 +2853,9 @@ mod tests {
         // And confirm the flow really was fast enough to tunnel without the
         // clamp: one unsubstepped frame covers many cells.
         let per_frame = 8_000.0 * (1.0 / 30.0) * StreaklineSettings::default().time_scale;
-        assert!(per_frame > 4.0 * grid.dx_mm, "the test flow is too slow to prove anything");
+        assert!(
+            per_frame > 4.0 * grid.dx_mm,
+            "the test flow is too slow to prove anything"
+        );
     }
 }

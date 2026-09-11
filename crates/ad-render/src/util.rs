@@ -53,14 +53,16 @@ pub fn compute_pipeline(
         bind_group_layouts: layouts,
         immediate_size: 0,
     });
-    Ok(device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
-        label: Some(label),
-        layout: Some(&layout),
-        module: &module,
-        entry_point: Some(entry_point),
-        compilation_options: Default::default(),
-        cache: None,
-    }))
+    Ok(
+        device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+            label: Some(label),
+            layout: Some(&layout),
+            module: &module,
+            entry_point: Some(entry_point),
+            compilation_options: Default::default(),
+            cache: None,
+        }),
+    )
 }
 
 /// A bind-group-layout entry for a uniform buffer.
@@ -103,7 +105,11 @@ pub fn texture_entry(
     wgpu::BindGroupLayoutEntry {
         binding,
         visibility,
-        ty: wgpu::BindingType::Texture { sample_type, view_dimension, multisampled: false },
+        ty: wgpu::BindingType::Texture {
+            sample_type,
+            view_dimension,
+            multisampled: false,
+        },
         count: None,
     }
 }
@@ -154,7 +160,12 @@ pub fn sampler_entry(
     visibility: wgpu::ShaderStages,
     ty: wgpu::SamplerBindingType,
 ) -> wgpu::BindGroupLayoutEntry {
-    wgpu::BindGroupLayoutEntry { binding, visibility, ty: wgpu::BindingType::Sampler(ty), count: None }
+    wgpu::BindGroupLayoutEntry {
+        binding,
+        visibility,
+        ty: wgpu::BindingType::Sampler(ty),
+        count: None,
+    }
 }
 
 /// Number of workgroups needed to cover `n` items with `size`-wide groups.
@@ -265,7 +276,11 @@ pub fn readback_rgba8(
                 rows_per_image: Some(height),
             },
         },
-        wgpu::Extent3d { width, height, depth_or_array_layers: 1 },
+        wgpu::Extent3d {
+            width,
+            height,
+            depth_or_array_layers: 1,
+        },
     );
     queue.submit([encoder.finish()]);
 
@@ -427,7 +442,10 @@ mod tests {
                 .iter()
                 .filter(|e| **e != entry && src.contains(*e))
                 .count();
-            assert_eq!(others, 0, "brick.wgsl/{flag} leaked another pass's entry point");
+            assert_eq!(
+                others, 0,
+                "brick.wgsl/{flag} leaked another pass's entry point"
+            );
         }
 
         for f in [

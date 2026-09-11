@@ -31,8 +31,8 @@
 //! shader addresses, and that is what decides whether a store has to be
 //! synchronised. See the comment in [`DdfBuffers::allocate`].
 
-use anyhow::{bail, Result};
 use crate::types::{DdfPrecision, Grid, VelocitySet};
+use anyhow::{bail, Result};
 
 /// One storage buffer per lattice direction, plus the bookkeeping to bind them.
 pub struct DdfBuffers {
@@ -157,7 +157,14 @@ impl DdfBuffers {
             })
             .collect();
 
-        Ok(Self { buffers, set, precision, cell_count, bytes_per_direction, fp16c_per_cell })
+        Ok(Self {
+            buffers,
+            set,
+            precision,
+            cell_count,
+            bytes_per_direction,
+            fp16c_per_cell,
+        })
     }
 
     pub fn total_bytes(&self) -> u64 {
@@ -245,9 +252,18 @@ mod tests {
 
     #[test]
     fn byte_counts_match_the_published_figures() {
-        assert_eq!(bytes_per_cell(VelocitySet::D3Q19, DdfPrecision::Fp32), (93, 153));
-        assert_eq!(bytes_per_cell(VelocitySet::D3Q19, DdfPrecision::Fp16c), (55, 77));
-        assert_eq!(bytes_per_cell(VelocitySet::D3Q27, DdfPrecision::Fp16c), (71, 109));
+        assert_eq!(
+            bytes_per_cell(VelocitySet::D3Q19, DdfPrecision::Fp32),
+            (93, 153)
+        );
+        assert_eq!(
+            bytes_per_cell(VelocitySet::D3Q19, DdfPrecision::Fp16c),
+            (55, 77)
+        );
+        assert_eq!(
+            bytes_per_cell(VelocitySet::D3Q27, DdfPrecision::Fp16c),
+            (71, 109)
+        );
     }
 
     #[test]
@@ -261,7 +277,10 @@ mod tests {
             1008.0e9,
             0.70,
         );
-        assert!((sps - 69.6).abs() < 1.0, "predicted {sps} steps/s, expected ~70");
+        assert!(
+            (sps - 69.6).abs() < 1.0,
+            "predicted {sps} steps/s, expected ~70"
+        );
     }
 
     #[test]
@@ -270,7 +289,10 @@ mod tests {
         // claim is rechecked.
         let (store32, traffic32) = bytes_per_cell(VelocitySet::D3Q19, DdfPrecision::Fp32);
         let (store16, traffic16) = bytes_per_cell(VelocitySet::D3Q19, DdfPrecision::Fp16c);
-        assert!(traffic16 * 2 < traffic32 * 2 + 2, "FP16C should roughly halve traffic");
+        assert!(
+            traffic16 * 2 < traffic32 * 2 + 2,
+            "FP16C should roughly halve traffic"
+        );
         assert!(store16 < store32);
 
         // ...and `allocate` must actually reserve the two bytes per cell that the
@@ -296,7 +318,13 @@ mod tests {
         let binding = i32::MAX as u64;
         let aos_cells = binding / (19 * 4);
         let soa_cells = binding / 4;
-        assert!((aos_cells as f64).cbrt() < 320.0, "AoS should cap around 300 cubed");
-        assert!((soa_cells as f64).cbrt() > 800.0, "SoA should reach past 800 cubed");
+        assert!(
+            (aos_cells as f64).cbrt() < 320.0,
+            "AoS should cap around 300 cubed"
+        );
+        assert!(
+            (soa_cells as f64).cbrt() > 800.0,
+            "SoA should reach past 800 cubed"
+        );
     }
 }

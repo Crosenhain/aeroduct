@@ -97,9 +97,23 @@ fn quarter_bend(r: f32, w: f32, h: f32, dx: f32) -> (Grid, Vec<bool>, Vec<MouthS
     });
     let mouths = vec![
         // Inlet on z = 0, flow entering along +Z, section spanning y = r +/- w/2.
-        rect_mouth(Vec3::new(0.0, r, 0.0), Vec3::Z, Vec3::X, Vec3::Y, h / 2.0, w / 2.0),
+        rect_mouth(
+            Vec3::new(0.0, r, 0.0),
+            Vec3::Z,
+            Vec3::X,
+            Vec3::Y,
+            h / 2.0,
+            w / 2.0,
+        ),
         // Outlet on y = 0, flow leaving along -Y.
-        rect_mouth(Vec3::new(0.0, 0.0, r), Vec3::Y, Vec3::X, Vec3::Z, h / 2.0, w / 2.0),
+        rect_mouth(
+            Vec3::new(0.0, 0.0, r),
+            Vec3::Y,
+            Vec3::X,
+            Vec3::Z,
+            h / 2.0,
+            w / 2.0,
+        ),
     ];
     (grid, solid, mouths)
 }
@@ -126,7 +140,14 @@ fn tapered_duct(
     });
     let mouths = vec![
         rect_mouth(Vec3::ZERO, Vec3::Z, Vec3::X, Vec3::Y, w0 / 2.0, h / 2.0),
-        rect_mouth(Vec3::new(0.0, 0.0, length), -Vec3::Z, Vec3::X, Vec3::Y, w1 / 2.0, h / 2.0),
+        rect_mouth(
+            Vec3::new(0.0, 0.0, length),
+            -Vec3::Z,
+            Vec3::X,
+            Vec3::Y,
+            w1 / 2.0,
+            h / 2.0,
+        ),
     ];
     (grid, solid, mouths)
 }
@@ -153,18 +174,45 @@ fn a_straight_rectangular_duct_is_recovered_exactly() {
         eprintln!("  warning: {w}");
     }
 
-    assert!(p.warnings.is_empty(), "a perfect duct should produce no warnings: {:?}", p.warnings);
-    assert!((p.length_mm - 100.0).abs() < 0.6, "L = {} mm, expected 100", p.length_mm);
+    assert!(
+        p.warnings.is_empty(),
+        "a perfect duct should produce no warnings: {:?}",
+        p.warnings
+    );
+    assert!(
+        (p.length_mm - 100.0).abs() < 0.6,
+        "L = {} mm, expected 100",
+        p.length_mm
+    );
     assert!(
         (p.volume_mm3 / (20.0 * 12.0 * 100.0) - 1.0).abs() < 0.02,
         "V = {} mm^3, expected 24000",
         p.volume_mm3
     );
-    assert!(p.dead_volume_mm3 < 0.01 * p.volume_mm3, "a straight duct has no dead volume");
-    assert!((p.mean_dh_mm - 15.0).abs() < 0.15, "D_h = {} mm, expected 15", p.mean_dh_mm);
-    assert!((p.mean_aspect() - 20.0 / 12.0).abs() < 0.02, "aspect = {}", p.mean_aspect());
-    assert!(p.bends.is_empty(), "a straight duct has no bends, found {:?}", p.bends);
-    assert!(p.transitions.is_empty(), "constant section, found {:?}", p.transitions);
+    assert!(
+        p.dead_volume_mm3 < 0.01 * p.volume_mm3,
+        "a straight duct has no dead volume"
+    );
+    assert!(
+        (p.mean_dh_mm - 15.0).abs() < 0.15,
+        "D_h = {} mm, expected 15",
+        p.mean_dh_mm
+    );
+    assert!(
+        (p.mean_aspect() - 20.0 / 12.0).abs() < 0.02,
+        "aspect = {}",
+        p.mean_aspect()
+    );
+    assert!(
+        p.bends.is_empty(),
+        "a straight duct has no bends, found {:?}",
+        p.bends
+    );
+    assert!(
+        p.transitions.is_empty(),
+        "constant section, found {:?}",
+        p.transitions
+    );
     assert!((p.area_ratio() - 1.0).abs() < 1e-6);
 
     // Section, station by station. The interior is held to 1%: on a duct of
@@ -184,14 +232,26 @@ fn a_straight_rectangular_duct_is_recovered_exactly() {
         );
         assert!((st.width_mm - 20.0).abs() < 0.5, "W = {}", st.width_mm);
         assert!((st.height_mm - 12.0).abs() < 0.5, "H = {}", st.height_mm);
-        assert!(st.curvature_per_mm < 1e-3, "curvature {} on a straight duct", st.curvature_per_mm);
+        assert!(
+            st.curvature_per_mm < 1e-3,
+            "curvature {} on a straight duct",
+            st.curvature_per_mm
+        );
         // The long side of the section is along X by construction.
-        assert!(st.major_axis.x.abs() > 0.99, "major axis {:?}", st.major_axis);
+        assert!(
+            st.major_axis.x.abs() > 0.99,
+            "major axis {:?}",
+            st.major_axis
+        );
     }
     // The band spans must partition the centreline, or the friction integral
     // is over the wrong length.
     let span: f64 = p.stations.iter().map(|s| s.span_mm).sum();
-    assert!((span - p.length_mm).abs() < 1e-9, "spans sum to {span}, L = {}", p.length_mm);
+    assert!(
+        (span - p.length_mm).abs() < 1e-9,
+        "spans sum to {span}, L = {}",
+        p.length_mm
+    );
     // ...and integral A ds must return the volume it came from.
     let integral: f64 = p.stations.iter().map(|s| s.area_mm2 * s.span_mm).sum();
     assert!(
@@ -233,7 +293,11 @@ fn a_ninety_degree_bend_recovers_its_angle_radius_and_orientation() {
     }
 
     let dh_exact = 2.0 * 8.0 * 16.0 / (8.0 + 16.0);
-    assert!((p.mean_dh_mm - dh_exact).abs() < 0.4, "D_h = {} against {dh_exact}", p.mean_dh_mm);
+    assert!(
+        (p.mean_dh_mm - dh_exact).abs() < 0.4,
+        "D_h = {} against {dh_exact}",
+        p.mean_dh_mm
+    );
     // Arc length of the centreline. The wavefront centroid sits a little
     // outside the nominal radius because there is more volume at larger radius,
     // so the developed length comes out slightly long; 5% covers it.
@@ -244,14 +308,35 @@ fn a_ninety_degree_bend_recovers_its_angle_radius_and_orientation() {
         p.length_mm
     );
 
-    assert_eq!(p.bends.len(), 1, "expected exactly one bend, got {}", p.bends.len());
+    assert_eq!(
+        p.bends.len(),
+        1,
+        "expected exactly one bend, got {}",
+        p.bends.len()
+    );
     let b = p.bends[0];
-    assert!((b.angle_deg - 90.0).abs() < 10.0, "turn = {} deg", b.angle_deg);
-    assert!((b.radius_mm / 24.0 - 1.0).abs() < 0.10, "r = {} mm", b.radius_mm);
+    assert!(
+        (b.angle_deg - 90.0).abs() < 10.0,
+        "turn = {} deg",
+        b.angle_deg
+    );
+    assert!(
+        (b.radius_mm / 24.0 - 1.0).abs() < 0.10,
+        "r = {} mm",
+        b.radius_mm
+    );
     assert!((b.r_over_dh - 2.25).abs() < 0.35, "r/D_h = {}", b.r_over_dh);
     // The turn happens in the YZ plane, so the 8 mm dimension is `W`.
-    assert!((b.width_mm - 8.0).abs() < 0.6, "in-plane W = {} mm, expected 8", b.width_mm);
-    assert!((b.height_mm - 16.0).abs() < 0.8, "out-of-plane H = {} mm, expected 16", b.height_mm);
+    assert!(
+        (b.width_mm - 8.0).abs() < 0.6,
+        "in-plane W = {} mm, expected 8",
+        b.width_mm
+    );
+    assert!(
+        (b.height_mm - 16.0).abs() < 0.8,
+        "out-of-plane H = {} mm, expected 16",
+        b.height_mm
+    );
     assert!((b.aspect_hw - 2.0).abs() < 0.25, "H/W = {}", b.aspect_hw);
     // Constant section around the turn: no imaginary transitions.
     assert!(
@@ -274,7 +359,10 @@ fn a_tighter_bend_is_reported_as_a_tighter_bend() {
         let got = p.bends[0].r_over_dh;
         let want = r as f64 / 8.0;
         eprintln!("r = {r}: r/D_h = {got:.2} against {want:.2}");
-        assert!((got / want - 1.0).abs() < 0.15, "r = {r}: r/D_h = {got} against {want}");
+        assert!(
+            (got / want - 1.0).abs() < 0.15,
+            "r = {r}: r/D_h = {got} against {want}"
+        );
         assert!(got > last, "r/D_h did not increase with radius");
         last = got;
     }
@@ -291,11 +379,24 @@ fn a_taper_is_found_once_with_the_right_ratio_and_angle() {
         eprintln!("  transition {t:?}");
     }
 
-    assert!((p.area_ratio() - 2.0).abs() < 0.02, "A_in/A_out = {}", p.area_ratio());
-    assert_eq!(p.transitions.len(), 1, "expected one transition, got {:?}", p.transitions);
+    assert!(
+        (p.area_ratio() - 2.0).abs() < 0.02,
+        "A_in/A_out = {}",
+        p.area_ratio()
+    );
+    assert_eq!(
+        p.transitions.len(),
+        1,
+        "expected one transition, got {:?}",
+        p.transitions
+    );
     let t = p.transitions[0];
     assert!(t.is_contraction, "the duct narrows");
-    assert!((t.area_ratio() - 0.5).abs() < 0.06, "area ratio {}", t.area_ratio());
+    assert!(
+        (t.area_ratio() - 0.5).abs() < 0.06,
+        "area ratio {}",
+        t.area_ratio()
+    );
     assert!(
         t.included_angle_deg > 3.0 && t.included_angle_deg < 8.0,
         "included angle {} deg, hand-calc 4.9",
@@ -304,7 +405,10 @@ fn a_taper_is_found_once_with_the_right_ratio_and_angle() {
     // It runs essentially the whole duct, so the contraction is reported near
     // the middle.
     let at = p.contraction_location().expect("a taper has a location");
-    assert!((at - 0.5).abs() < 0.15, "contraction located at {at} of the length");
+    assert!(
+        (at - 0.5).abs() < 0.15,
+        "contraction located at {at} of the length"
+    );
     assert!(p.bends.is_empty());
 
     // The area profile must fall monotonically through the interior, not
@@ -346,7 +450,10 @@ fn a_blocked_duct_is_reported_as_blocked_rather_than_estimated() {
     // ...and the message has to be something a user can act on.
     let text = err.to_string();
     assert!(text.contains("not connected"), "{text}");
-    assert!(text.contains("dx"), "the message should suggest the resolution: {text}");
+    assert!(
+        text.contains("dx"),
+        "the message should suggest the resolution: {text}"
+    );
 }
 
 #[test]
@@ -378,12 +485,18 @@ fn every_malformed_input_is_a_named_diagnosis() {
     ));
     // Every diagnosis must render as a sentence.
     for e in [
-        PassageError::MaskSize { expected: 1, got: 2 },
+        PassageError::MaskSize {
+            expected: 1,
+            got: 2,
+        },
         PassageError::NeedTwoMouths { have: 0 },
         PassageError::SameMouth,
         PassageError::InletBlocked,
         PassageError::Disconnected { filled_cells: 3 },
-        PassageError::TooSmall { cells: 1, length_mm: 0.5 },
+        PassageError::TooSmall {
+            cells: 1,
+            length_mm: 0.5,
+        },
     ] {
         assert!(e.to_string().len() > 20, "{e:?} has no message");
     }
@@ -438,7 +551,14 @@ fn a_voxelised_straight_duct_reproduces_darcy_weisbach() {
     for v in [0.5, 2.0, 5.0, 12.0] {
         let r = estimate(&p, Drive::InletVelocity(v), &cfg);
         let re = v * dh_m / cfg.fluid.nu;
-        let f = friction_factor(re, 0.0, Section::Rectangular { aspect: 20.0 / 12.0 }).f;
+        let f = friction_factor(
+            re,
+            0.0,
+            Section::Rectangular {
+                aspect: 20.0 / 12.0,
+            },
+        )
+        .f;
         let want = f * (l_m / dh_m) * 0.5 * cfg.fluid.rho * v * v;
         let got = r.total_pressure_drop_pa.mean;
         eprintln!(
@@ -452,8 +572,13 @@ fn a_voxelised_straight_duct_reproduces_darcy_weisbach() {
         // Q = V A, exactly.
         assert!((r.flow_m3s / (v * area_m2) - 1.0).abs() < 1e-9);
         // No bend, no transition: friction is the whole story.
-        assert!((r.k_of(ElementKind::Friction).mean / r.loss_coefficient.k.mean - 1.0).abs() < 1e-9);
-        assert!(r.total_pressure_drop_pa.contains(want), "the band must cover the truth");
+        assert!(
+            (r.k_of(ElementKind::Friction).mean / r.loss_coefficient.k.mean - 1.0).abs() < 1e-9
+        );
+        assert!(
+            r.total_pressure_drop_pa.contains(want),
+            "the band must cover the truth"
+        );
     }
 }
 
@@ -508,7 +633,11 @@ fn a_voxelised_bend_lands_on_the_handbook_coefficient() {
     );
     // A well-radiused bend of this length: friction and bend are comparable,
     // and the total is nowhere near a mitre.
-    assert!(r.loss_coefficient.k.mean < 0.5, "K = {}", r.loss_coefficient.k);
+    assert!(
+        r.loss_coefficient.k.mean < 0.5,
+        "K = {}",
+        r.loss_coefficient.k
+    );
     assert!(r.k_of(ElementKind::Friction).mean > 0.0);
 }
 
@@ -540,5 +669,8 @@ fn extraction_is_fast_enough_to_sit_behind_a_drag() {
         grid.cell_count(),
         p.stations.len()
     );
-    assert!(solve_us < 500.0, "{solve_us:.1} us per solve is not interactive");
+    assert!(
+        solve_us < 500.0,
+        "{solve_us:.1} us per solve is not interactive"
+    );
 }
