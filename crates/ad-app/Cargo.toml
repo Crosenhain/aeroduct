@@ -1,0 +1,24 @@
+[package]
+name = "ad-app"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "aeroduct"
+path = "src/main.rs"
+
+[dependencies]
+ad-gpu.workspace = true
+ad-geom.workspace = true
+ad-solver.workspace = true
+ad-render.workspace = true
+ad-metrics.workspace = true
+ad-ui.workspace = true
+wgpu.workspace = true
+winit.workspace = true
+glam.workspace = true
+anyhow.workspace = true
+log.workspace = true
+env_logger.workspace = true
+pollster.workspace = true

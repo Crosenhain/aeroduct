@@ -1,0 +1,28 @@
+[package]
+name = "ad-ui"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+# Deliberately does **not** depend on `ad-metrics`.
+#
+# `view.rs` defines every number the UI can display in the UI's own terms, and
+# Wave 3's adapter (in `ad-app`) fills those structs. Depending on the metrics
+# crate here would undo that: a compile error in a crate this one never
+# references would break the UI, which is exactly the coupling the view models
+# exist to prevent.
+[dependencies]
+ad-gpu.workspace = true
+ad-geom.workspace = true
+ad-solver.workspace = true
+ad-render.workspace = true
+wgpu.workspace = true
+winit.workspace = true
+glam.workspace = true
+anyhow.workspace = true
+log.workspace = true
+rfd.workspace = true
+dear-imgui-rs.workspace = true
+dear-imgui-wgpu.workspace = true
+dear-implot.workspace = true
+dear-imguizmo.workspace = true

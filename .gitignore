@@ -1,0 +1,31 @@
+# Rust
+target/
+*.pdb
+
+# Run outputs: sweep/verify scripts, headless screenshots, frame dumps
+sweep-out/
+verify-out/
+*.log
+*.mem
+/*.png
+aeroduct-*.png
+preview.png
+# Sample renders from the ad-render preview example, not test goldens
+validation/render/*.png
+
+# Per-user UI window layout (dear-imgui)
+imgui.ini
+
+# Python scratch
+__pycache__/
+*.pyc
+.venv/
+
+# Editors / OS
+.vscode/
+.idea/
+*.swp
+*~
+.DS_Store
+Thumbs.db
+desktop.ini

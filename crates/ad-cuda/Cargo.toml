@@ -1,0 +1,35 @@
+[package]
+name = "ad-cuda"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[features]
+# Off by default, and that is a hard requirement rather than a preference: a
+# machine with no CUDA toolkit must still run `cargo build --workspace` and
+# `cargo test --workspace` green. With the feature off this crate is pure Rust
+# with no `cudarc` dependency at all - the kernel *generator* and its tests still
+# compile and run, so the part of this crate that can drift away from
+# `ad_gpu::lattice` is covered on every machine, GPU or not.
+default = []
+cuda = ["dep:cudarc"]
+
+[dependencies]
+ad-gpu.workspace = true
+# For PaddedDomain, SolverConfig, CollisionModel and - load-bearing -
+# `ad_solver::shaders::probe`, which is where the Esoteric Pull addressing comes
+# from. The CUDA kernel is generated from the same probe the WGSL is.
+ad-solver.workspace = true
+glam.workspace = true
+anyhow.workspace = true
+log.workspace = true
+cudarc = { workspace = true, optional = true }
+
+[dev-dependencies]
+env_logger.workspace = true
+pollster.workspace = true
+# Only for `validation/lbm/harness.rs`, which the CUDA validation suite includes
+# verbatim. Sharing the harness rather than copying it is what makes gate 2
+# meaningful: the effective channel width has to be estimated by the *same*
+# parabola fit on both backends, or the comparison is between estimators.
+wgpu.workspace = true

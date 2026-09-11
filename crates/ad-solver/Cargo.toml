@@ -1,0 +1,42 @@
+[package]
+name = "ad-solver"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+# Deliberately *not* depending on ad-geom: the solver's interface to geometry is
+# a flag byte per cell plus a list of BoundaryLinks, both of which live in
+# ad-gpu::types. Keeping the dependency out means a build break in the geometry
+# lane cannot stop the solver's validation suite from running.
+ad-gpu.workspace = true
+wgpu.workspace = true
+glam.workspace = true
+bytemuck.workspace = true
+anyhow.workspace = true
+log.workspace = true
+pollster.workspace = true
+
+[dev-dependencies]
+env_logger.workspace = true
+
+# The validation suite lives in `validation/lbm/` per CONTRACT.md's file
+# ownership table, but still has to run under a plain `cargo test --workspace`.
+# Declaring the targets here with an explicit path is what makes both true at
+# once: the files stay in the solver's lane and cargo picks them up as ordinary
+# integration tests.
+[[test]]
+name = "lbm_streaming"
+path = "../../validation/lbm/streaming.rs"
+
+[[test]]
+name = "lbm_poiseuille"
+path = "../../validation/lbm/poiseuille.rs"
+
+[[test]]
+name = "lbm_cavity"
+path = "../../validation/lbm/cavity.rs"
+
+[[test]]
+name = "lbm_gpu"
+path = "../../validation/lbm/gpu.rs"

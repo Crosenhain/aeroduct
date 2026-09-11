@@ -1,0 +1,23 @@
+[package]
+name = "ad-estimate"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+# CPU only, on purpose. The RTX 4090 is busy running the LBM; the whole value of
+# this crate is that it answers without asking the GPU for anything. `ad-geom` is
+# a dependency for its plain-data `Mouth` type and, in tests, for its *CPU*
+# voxeliser (`ray_parity_voxelize`) and STL loader. Nothing here ever constructs
+# a `GpuContext`.
+[dependencies]
+ad-gpu.workspace = true
+ad-geom.workspace = true
+glam.workspace = true
+
+[[test]]
+name = "estimate_analytic"
+path = "tests/analytic.rs"
+
+[[test]]
+name = "estimate_test_part"
+path = "tests/test_part.rs"

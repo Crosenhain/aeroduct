@@ -1,0 +1,73 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/ad-gpu",
+    "crates/ad-geom",
+    "crates/ad-solver",
+    "crates/ad-cuda",
+    "crates/ad-render",
+    "crates/ad-metrics",
+    "crates/ad-estimate",
+    "crates/ad-ui",
+    "crates/ad-app",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.85"
+license = "MIT OR Apache-2.0"
+
+[workspace.dependencies]
+ad-gpu     = { path = "crates/ad-gpu" }
+ad-geom    = { path = "crates/ad-geom" }
+ad-solver  = { path = "crates/ad-solver" }
+ad-cuda    = { path = "crates/ad-cuda" }
+ad-render  = { path = "crates/ad-render" }
+ad-metrics = { path = "crates/ad-metrics" }
+ad-estimate = { path = "crates/ad-estimate" }
+ad-ui      = { path = "crates/ad-ui" }
+
+wgpu     = "30.0.1"
+winit    = "0.30.13"
+glam     = { version = "0.33", features = ["bytemuck"] }
+bytemuck = { version = "1.25", features = ["derive"] }
+pollster = "1.0"
+rfd      = "0.17"
+rustfft  = "6.4"
+anyhow   = "1"
+thiserror = "2"
+log      = "0.4"
+env_logger = "0.11"
+rayon    = "1"
+
+# CUDA backend (crates/ad-cuda), behind that crate's off-by-default `cuda`
+# feature so a machine with no toolkit still builds and tests the workspace.
+#
+# `cust` is the other option and has been unmaintained since 2022. Only the
+# driver API and NVRTC are needed - no cuBLAS, no cuRAND, no runtime API - and
+# `dynamic-loading` resolves nvcuda.dll / nvrtc64_*.dll at run time rather than
+# link time, so the build needs headers but never an import library.
+cudarc = { version = "0.19.9", default-features = false, features = [
+    "std",
+    "driver",
+    "nvrtc",
+    "dynamic-loading",
+    "cuda-version-from-build-system",
+] }
+
+dear-imgui-rs   = "0.17"
+dear-imgui-wgpu = "0.17"
+dear-implot     = "0.17"
+dear-imguizmo   = "0.17"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+
+[profile.dev]
+opt-level = 1        # debug builds of a bandwidth-bound sim are unusable at opt-level 0
+
+[profile.dev.package."*"]
+opt-level = 3
