@@ -29,8 +29,10 @@ Requirements: Rust 1.85 or newer, a GPU with Vulkan, Metal or DX12. No CUDA
 toolkit needed unless you enable the `cuda` feature on `ad-cuda`.
 
 The part must be a closed (watertight) solid whose open ends sit flush against
-its bounding-box faces. Mouths are detected automatically; the largest becomes
-the outlet and you choose the inlet in the toolbar.
+its bounding-box faces. Mouths are detected automatically and named A, B, C in
+order of size. The largest is the inlet by default and the largest of the rest
+is the outlet; the toolbar lets you pick a different inlet, swap the two, and
+on a part with three or more mouths choose the outlet as well.
 
 ## What it does
 
