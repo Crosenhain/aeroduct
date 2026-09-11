@@ -415,8 +415,7 @@ mod tests {
     /// on frame two. A single frame passes either way, so this must run several.
     #[test]
     fn many_frames_of_resolve_and_collect_never_leave_the_buffer_mapped() {
-        let Ok(gpu) = crate::GpuContext::new_blocking(None) else {
-            eprintln!("skipping: no GPU adapter available");
+        let Some(gpu) = crate::GpuContext::for_tests() else {
             return;
         };
         if !gpu.caps.timestamps {

@@ -15,13 +15,7 @@ use glam::{UVec3, Vec3};
 /// Whether a GPU is available. GPU validation must *skip*, not fail, on a
 /// machine without an adapter, so CI stays meaningful without one.
 pub fn gpu() -> Option<ad_gpu::GpuContext> {
-    match ad_gpu::GpuContext::new_blocking(None) {
-        Ok(ctx) => Some(ctx),
-        Err(e) => {
-            eprintln!("SKIP: no GPU adapter available ({e})");
-            None
-        }
-    }
+    ad_gpu::GpuContext::for_tests()
 }
 
 /// The same adapter, but a device deliberately denied 16-bit integer storage.
@@ -43,11 +37,18 @@ pub fn gpu_without_16bit_storage() -> Option<ad_gpu::GpuContext> {
 
     let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
         power_preference: wgpu::PowerPreference::HighPerformance,
-        force_fallback_adapter: false,
+        force_fallback_adapter: ad_gpu::fallback_adapter_requested(),
         compatible_surface: None,
         apply_limit_buckets: false,
     }))
     .ok()?;
+    // Same rule as `GpuContext::for_tests`: a software adapter only on request.
+    if adapter.get_info().device_type == wgpu::DeviceType::Cpu
+        && !ad_gpu::fallback_adapter_requested()
+    {
+        eprintln!("skipping GPU test: only a software adapter");
+        return None;
+    }
 
     let available = adapter.features();
     let mut features = wgpu::Features::empty();

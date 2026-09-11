@@ -98,10 +98,15 @@ impl GpuContext {
         }
         let instance = wgpu::Instance::new(desc);
 
+        // `WGPU_FORCE_FALLBACK_ADAPTER=1`: wgpu's own convention for asking for
+        // the software adapter (DX12 WARP, Vulkan lavapipe). Honoured here so a
+        // driver problem can be bisected against a CPU rasteriser, and so the
+        // test suite can be run the way a GPU-less CI runner runs it.
+        let force_fallback_adapter = fallback_adapter_requested();
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions {
                 power_preference: wgpu::PowerPreference::HighPerformance,
-                force_fallback_adapter: false,
+                force_fallback_adapter,
                 compatible_surface,
                 // Bucketing rounds the reported limits down to coarse tiers to
                 // resist fingerprinting. That is a browser concern; here it would
@@ -168,6 +173,36 @@ impl GpuContext {
 
     pub fn new_blocking(compatible_surface: Option<&wgpu::Surface<'_>>) -> Result<Self> {
         pollster::block_on(Self::new(compatible_surface))
+    }
+
+    /// A device for a test, or `None` when the test should skip.
+    ///
+    /// Two reasons to skip. No adapter at all: CI runners generally have no
+    /// Vulkan device, and a suite that is permanently red there teaches
+    /// everyone to ignore red suites. And a *software* adapter: a Windows
+    /// runner offers DX12 WARP, which does run the kernels, but creating
+    /// several devices on it from parallel test threads is an access violation
+    /// inside the rasteriser (reproduced here 7 times in 8 on the voxeliser
+    /// suite; it also rounds `phi = +/-0` cells differently from real hardware).
+    /// A software adapter is therefore used only when asked for with
+    /// `WGPU_FORCE_FALLBACK_ADAPTER=1`, and then best run with
+    /// `--test-threads=1`.
+    pub fn for_tests() -> Option<Self> {
+        let gpu = match Self::new_blocking(None) {
+            Ok(gpu) => gpu,
+            Err(e) => {
+                eprintln!("skipping GPU test: no adapter available ({e})");
+                return None;
+            }
+        };
+        if gpu.info.device_type == wgpu::DeviceType::Cpu && !fallback_adapter_requested() {
+            eprintln!(
+                "skipping GPU test: only a software adapter ({}); set WGPU_FORCE_FALLBACK_ADAPTER=1 to use it",
+                gpu.info.name
+            );
+            return None;
+        }
+        Some(gpu)
     }
 
     /// The hard ceiling on a single storage buffer *binding*.
@@ -257,6 +292,13 @@ fn peak_bandwidth_for(name: &str) -> Option<f64> {
         return Some(1792.0e9);
     }
     None
+}
+
+/// Whether `WGPU_FORCE_FALLBACK_ADAPTER` asks for the software adapter.
+pub fn fallback_adapter_requested() -> bool {
+    std::env::var("WGPU_FORCE_FALLBACK_ADAPTER")
+        .map(|v| matches!(v.trim(), "1" | "true" | "yes"))
+        .unwrap_or(false)
 }
 
 fn log_environment(info: &wgpu::AdapterInfo, limits: &wgpu::Limits, caps: &GpuCapabilities) {

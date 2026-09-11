@@ -1657,13 +1657,7 @@ mod tests {
     use glam::UVec3;
 
     fn gpu() -> Option<GpuContext> {
-        match GpuContext::new_blocking(None) {
-            Ok(g) => Some(g),
-            Err(e) => {
-                eprintln!("skipping GPU test: {e}");
-                None
-            }
-        }
+        GpuContext::for_tests()
     }
 
     #[test]

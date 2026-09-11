@@ -126,13 +126,8 @@ mod test_stl_tests {
 ///
 /// Tests that need a GPU must skip rather than fail when one is missing, per the
 /// build contract: CI runners generally have no Vulkan device and a red test
-/// suite there teaches everyone to ignore red test suites.
+/// suite there teaches everyone to ignore red test suites. See
+/// [`ad_gpu::GpuContext::for_tests`] for the software-adapter rule.
 pub fn test_gpu() -> Option<ad_gpu::GpuContext> {
-    match ad_gpu::GpuContext::new_blocking(None) {
-        Ok(gpu) => Some(gpu),
-        Err(e) => {
-            eprintln!("skipping GPU test: no adapter available ({e})");
-            None
-        }
-    }
+    ad_gpu::GpuContext::for_tests()
 }

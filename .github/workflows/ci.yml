@@ -33,9 +33,11 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             libxkbcommon-dev libwayland-dev libx11-dev
 
-      # Runners have no GPU adapter; GPU tests skip themselves. Everything else
-      # (geometry, the CPU reference solver, metrics, UI state, the 1D
-      # estimator, and the real-part tests against parts/) runs for real.
+      # Linux runners have no GPU adapter and Windows runners only a software
+      # one (DX12 WARP), which GpuContext::for_tests declines; GPU tests skip
+      # themselves. Everything else (geometry, the CPU reference solver,
+      # metrics, UI state, the 1D estimator, and the real-part tests against
+      # parts/) runs for real.
       - name: Format
         run: cargo fmt --all --check
 

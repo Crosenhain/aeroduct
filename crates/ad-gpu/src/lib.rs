@@ -15,7 +15,7 @@ pub mod profiler;
 pub mod shader;
 pub mod types;
 
-pub use context::{GpuCapabilities, GpuContext};
+pub use context::{fallback_adapter_requested, GpuCapabilities, GpuContext};
 pub use ddf::{bytes_per_cell, direction_bytes, predicted_steps_per_second, DdfBuffers};
 pub use lattice::{opposite, EsotericPull, LatticeDef};
 pub use profiler::Profiler;

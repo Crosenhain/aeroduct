@@ -968,13 +968,7 @@ mod tests {
     /// Acquire a device, or return `None` so the test skips cleanly on a
     /// machine with no GPU. CI without an adapter must not fail the suite.
     fn gpu() -> Option<GpuContext> {
-        match GpuContext::new_blocking(None) {
-            Ok(g) => Some(g),
-            Err(e) => {
-                eprintln!("skipping GPU test: {e}");
-                None
-            }
-        }
+        GpuContext::for_tests()
     }
 
     #[test]

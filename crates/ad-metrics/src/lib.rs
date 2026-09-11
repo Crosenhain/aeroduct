@@ -79,11 +79,5 @@ pub use wall::{WallConfig, WallField, WallMetrics, WallSummary, WallTriangle};
 /// permanently red there teaches everyone to ignore red suites.
 #[cfg(test)]
 pub(crate) fn test_gpu() -> Option<ad_gpu::GpuContext> {
-    match ad_gpu::GpuContext::new_blocking(None) {
-        Ok(gpu) => Some(gpu),
-        Err(e) => {
-            eprintln!("skipping GPU test: no adapter available ({e})");
-            None
-        }
-    }
+    ad_gpu::GpuContext::for_tests()
 }

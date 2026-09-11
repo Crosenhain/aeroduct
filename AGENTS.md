@@ -18,9 +18,13 @@ and which physics decisions are settled. Read both before changing anything.
    a resolution sweep is tens of minutes. Before a long run, say what question
    it answers and what result would change the code. Do not run sweeps to see
    what happens.
-4. **GPU tests must skip, not fail, without an adapter.** CI runners have no
-   Vulkan device. Use `ad_geom::test_gpu()` and `ad_geom::test_stl_path()`
-   and return early on `None`.
+4. **GPU tests must skip, not fail, without a real adapter.** Linux runners
+   have no device; Windows runners offer the DX12 software rasteriser (WARP),
+   which crashes under parallel device creation and rounds surface cells
+   differently from hardware, so `GpuContext::for_tests()` skips it unless
+   `WGPU_FORCE_FALLBACK_ADAPTER=1` is set (then run with `--test-threads=1`).
+   Acquire test devices only through that helper (`ad_geom::test_gpu()`,
+   `harness::gpu()` wrap it) and return early on `None`.
 5. **Every GPU kernel has a CPU twin.** `ad_solver::ReferenceLbm` mirrors the
    WGSL step for step; a change to one is a change to both, and
    `validation/lbm/gpu.rs` proves they still agree. Same pattern for the

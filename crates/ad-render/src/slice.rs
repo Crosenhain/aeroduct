@@ -715,13 +715,7 @@ mod tests {
     use std::f32::consts::FRAC_PI_4;
 
     fn gpu() -> Option<GpuContext> {
-        match GpuContext::new_blocking(None) {
-            Ok(g) => Some(g),
-            Err(e) => {
-                eprintln!("skipping GPU test: {e}");
-                None
-            }
-        }
+        GpuContext::for_tests()
     }
 
     fn test_bbox() -> Bbox {

@@ -159,8 +159,16 @@ fn signs_are_right_at_a_sharp_edge() {
 #[test]
 fn solid_mask_matches_the_ray_parity_reference() {
     let Some(gpu) = gpu() else { return };
+    // The box's faces must not land on cell centres. `grid_around` puts the
+    // centres at `min - 2.2 + k * 0.4`, so a face `size` from `min` sits on one
+    // whenever `size + 2.2` is a multiple of 0.4; a 9 mm side does exactly
+    // that (k = 28) and hands the SDF ~1,100 cells with `phi = +/-0` decided
+    // by rounding. The RTX 4090 happened to round them to agree with the ray
+    // parity reference; the DX12 software rasteriser on a CI runner rounded
+    // 575 of them the other way. The sides here (9.3, 9.1, 10) put every face
+    // between centres.
     for mesh in [
-        primitives::box_mesh(Vec3::new(-4.0, -6.0, -2.0), Vec3::new(5.0, 3.0, 8.0)),
+        primitives::box_mesh(Vec3::new(-4.0, -6.0, -2.0), Vec3::new(5.3, 3.1, 8.0)),
         primitives::uv_sphere(Vec3::ZERO, 10.0, 64, 32),
         primitives::torus(Vec3::ZERO, 11.0, 3.5, 96, 48),
         primitives::sharp_wedge(25.0, 24.0, 10.0),
