@@ -19,7 +19,9 @@ few GB of VRAM at a coarser cell size.
 cargo run --release
 ```
 
-That loads the test duct in `parts/`. To load your own part:
+That loads the test duct in `parts/` (found by its build-time path, so it
+works from any directory). To load your own part, or when running a shipped
+binary from a release package, pass the STL:
 
 ```bash
 cargo run --release -- "path/to/duct.stl"
@@ -38,12 +40,13 @@ on a part with three or more mouths choose the outlet as well.
 
 - **Solver**: D3Q19 lattice-Boltzmann, TRT collision with Smagorinsky LES,
   Esoteric Pull streaming, interpolated bounce-back walls. FP32 arithmetic with
-  optional FP16 storage. A CPU reference twin validates every GPU kernel.
+  optional FP16 storage. A CPU reference implementation of the same scheme is
+  compared against the GPU kernels in the test suite.
 - **Geometry**: STL in, voxels out, on the GPU. Mouth detection, watertightness
-  checks, ray-parity leak detection.
-- **Rendering**: volume raymarch of velocity/pressure/vorticity, slices,
-  isosurfaces, streaklines, TAA, SSAO. Mesh shown solid, ghosted, wireframe or
-  hidden.
+  checks, and a CPU ray-parity voxeliser that catches leaks in the GPU mask.
+- **Rendering**: volume raymarch of speed, pressure, vorticity or
+  Q-criterion; slices, isosurfaces, streaklines, line integral convolution,
+  TAA, SSAO, bloom. Mesh shown solid, ghosted, wireframe or hidden.
 - **Metrics**: Q in/out, mass balance, static and total pressure drop, loss
   coefficient K with error bars, outlet jet direction, wall shear, residence
   time distribution. An analytic 1D estimate gives an instant answer while the
@@ -110,6 +113,11 @@ cargo run --release
 | `AERODUCT_METRICS=off` | Skip measurement passes |
 | `AERODUCT_VRAM_GB=x` | Override detected VRAM for the resolution pre-flight |
 | `AERODUCT_TEST_STL=path` | Where tests find the test duct |
+| `AERODUCT_PRESENT=fifo\|mailbox\|immediate` | Present mode (headless runs default to fifo) |
+
+A few more exist purely as test handles (`AERODUCT_PREFLIGHT`, `AERODUCT_SET_DX`,
+`AERODUCT_FAULT`, `AERODUCT_MEMORY_BUDGET_PCT`); they are documented where they
+are parsed in `crates/ad-app/src/main.rs` and `crates/ad-gpu/src/context.rs`.
 
 Logging is `env_logger`; `RUST_LOG=debug` for more.
 
