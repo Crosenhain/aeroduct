@@ -287,7 +287,7 @@ impl Running {
             }
             None => anyhow::bail!(
                 "no STL to load. Pass one on the command line, or put \
-                 \"Airflow redirector - Part 1.stl\" in parts/ at the workspace root."
+                 \"Airflow redirector - Part 1.stl\" in a parts/ folder next to the executable."
             ),
         };
 

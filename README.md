@@ -19,9 +19,9 @@ few GB of VRAM at a coarser cell size.
 cargo run --release
 ```
 
-That loads the test duct in `parts/` (found by its build-time path, so it
-works from any directory). To load your own part, or when running a shipped
-binary from a release package, pass the STL:
+That loads the test duct from `parts/`, found next to the workspace, next to
+the executable (how a release package is laid out) or under the current
+directory, in that order. To load your own part, pass the STL:
 
 ```bash
 cargo run --release -- "path/to/duct.stl"
