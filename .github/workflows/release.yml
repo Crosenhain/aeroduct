@@ -1,0 +1,104 @@
+name: Release
+
+# Push a tag like v0.1.0 to build release binaries for every platform and
+# attach them to a GitHub release. The binary embeds its shaders and assets, so
+# a package is the executable plus the test ducts, README and licences.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: build (${{ matrix.name }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: windows-x86_64
+            os: windows-latest
+            target: x86_64-pc-windows-msvc
+            exe: aeroduct.exe
+          - name: linux-x86_64
+            os: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            exe: aeroduct
+          - name: macos-aarch64
+            os: macos-latest
+            target: aarch64-apple-darwin
+            exe: aeroduct
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+
+      - name: Linux windowing headers
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libxkbcommon-dev libwayland-dev libx11-dev
+
+      - name: Build
+        run: cargo build --release --locked -p ad-app --target ${{ matrix.target }}
+
+      - name: Package
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          pkg="aeroduct-${version}-${{ matrix.name }}"
+          mkdir -p "dist/$pkg/parts"
+          cp "target/${{ matrix.target }}/release/${{ matrix.exe }}" "dist/$pkg/"
+          cp parts/*.stl "dist/$pkg/parts/"
+          cp README.md LICENSE-MIT LICENSE-APACHE "dist/$pkg/"
+          cd dist
+          if [[ "${{ runner.os }}" == "Windows" ]]; then
+            7z a -tzip "$pkg.zip" "$pkg" > /dev/null
+          else
+            tar czf "$pkg.tar.gz" "$pkg"
+          fi
+          rm -r "$pkg"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}
+          path: dist/*
+          if-no-files-found: error
+
+  release:
+    name: publish
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Checksums
+        run: |
+          cd dist
+          sha256sum * > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true
