@@ -2,6 +2,8 @@
 
 Interactive GPU airflow simulation for 3D-printed ducts.
 
+![AeroDuct: air speed inside a ghosted duct shell, with the live metrics HUD](docs/aeroduct.png)
+
 Load an STL, pick which mouth the air comes in through, and watch a
 lattice-Boltzmann simulation run on the GPU while the numbers that say whether
 the duct is any good (flow rate, pressure drop, loss coefficient, outlet jet
@@ -54,6 +56,10 @@ on a part with three or more mouths choose the outlet as well.
 - **Scene**: install pose (show the part as mounted in the car), tilted inlet
   air (vent louvers), obstructions loaded from other STLs, free-standing vents
   in the room (multiple air sources), adjustable simulation box.
+
+| ![Two-inlet duct fed by two vents sealed to its mouths](docs/two-inlets.png) | ![Duct shown in its car install pose](docs/install-pose.png) |
+|---|---|
+| Two air sources: vents sealed to mouths A and B of a three-mouth part, Q_in summed, outlet chosen automatically | The same part in its car install pose; the lattice stays aligned to the STL, only the picture turns |
 
 ## Controls
 
@@ -161,5 +167,4 @@ and is not trusted.
 
 ## Licence
 
-MIT or Apache-2.0, at your option. The test ducts in `parts/` are included
-under the same terms.
+Apache-2.0. The test ducts in `parts/` are included under the same terms.
