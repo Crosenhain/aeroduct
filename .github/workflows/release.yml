@@ -66,7 +66,7 @@ jobs:
           mkdir -p "dist/$pkg/parts"
           cp "target/${{ matrix.target }}/release/${{ matrix.exe }}" "dist/$pkg/"
           cp parts/*.stl "dist/$pkg/parts/"
-          cp README.md LICENSE-MIT LICENSE-APACHE "dist/$pkg/"
+          cp README.md LICENSE "dist/$pkg/"
           cd dist
           if [[ "${{ runner.os }}" == "Windows" ]]; then
             7z a -tzip "$pkg.zip" "$pkg" > /dev/null
